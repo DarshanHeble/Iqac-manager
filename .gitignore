@@ -1,0 +1,17 @@
+# Environment variables
+.env
+
+# Database
+worklog.db
+iqac_worklog.db
+*.db
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+
+# IDE
+.vscode/
+.idea/
+

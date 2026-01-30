@@ -1,0 +1,221 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Dashboard - IQAC Worklog</title>
+
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css" rel="stylesheet">
+
+    <style>
+      html { height: 100%; }
+      body { background-color:#f8fafc; font-size:15px; min-height: 100%; display: flex; flex-direction: column; }
+      .main-container { flex: 1; }
+      header {
+        background-color:#003366;
+        color:#fff;
+        padding:1rem 1.5rem;
+        border-radius:.5rem;
+        margin-bottom:1.5rem;
+        position: relative;
+      }
+      .logo-container {
+        background-color: #fff;
+        padding: 8px 12px;
+        border-radius: 8px;
+        display: inline-block;
+      }
+      .logo-container img {
+        height: 75px;
+        width: auto;
+      }
+      .header-title {
+        color: #fff;
+        margin: 0;
+        position: absolute;
+        left: 50%;
+        top: 50%;
+        transform: translate(-50%, -50%);
+        text-align: center;
+      }
+      .header-title h5 {
+        font-size: 1.25rem;
+        font-weight: 700;
+        margin: 0;
+      }
+      h5, h6 { margin:0; }
+      .card { box-shadow:0 0.5rem 1rem rgba(0,0,0,.1); border:none; border-radius: 0.5rem; }
+      .btn-primary { background-color:#003366; border-color:#003366; }
+      .btn-primary:hover { background-color:#004080; border-color:#004080; }
+      .btn-outline-primary { color:#003366; border-color:#003366; }
+      .btn-outline-primary:hover { background-color:#003366; color:#fff; }
+      .toast-container { z-index:9999; }
+      .form-label { font-weight:600; color:#003366; }
+      .stat-card { background: linear-gradient(135deg, #003366 0%, #004080 100%); color: white; }
+      .stat-number { font-size: 2.5rem; font-weight: bold; }
+      .text-primary { color: #003366 !important; }
+      footer {
+        background: linear-gradient(135deg, #002244 0%, #003366 50%, #004080 100%);
+        color: #fff;
+        padding: 0.75rem 1rem;
+        text-align: center;
+        margin-top: auto;
+        border-top: 3px solid #ffc107;
+        font-size: 0.85rem;
+      }
+      footer .footer-content {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        gap: 0.5rem;
+        flex-wrap: wrap;
+      }
+      footer .divider {
+        color: #ffc107;
+        font-weight: bold;
+      }
+      footer a { color: #fff; text-decoration: none; }
+      footer a:hover { text-decoration: underline; }
+    </style>
+  </head>
+
+  <body>
+    <div class="container py-3 main-container">
+      <header class="d-flex justify-content-between align-items-center">
+        <a href="/dashboard" class="text-decoration-none d-flex align-items-center">
+          <div class="logo-container">
+            <img src="{{ url_for('static', filename='christ_logo.png') }}" alt="CHRIST Logo">
+          </div>
+        </a>
+        <div class="header-title">
+          <h5>INTERNAL QUALITY ASSURANCE CELL (IQAC)</h5>
+        </div>
+        <div>
+          <span class="text-light me-3">Welcome, {{ username }}</span>
+          <a href="/logout" class="btn btn-light btn-sm">Logout</a>
+        </div>
+      </header>
+
+      <!-- Toast Messages -->
+      {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+          {% for category, message in messages %}
+            <div class="toast-container position-fixed bottom-0 end-0 p-3">
+              <div class="toast align-items-center text-bg-{{ 'success' if category=='success' else 'danger' }} border-0 show" role="alert">
+                <div class="d-flex">
+                  <div class="toast-body">{{ message }}</div>
+                  <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+                </div>
+              </div>
+            </div>
+            <script>
+              setTimeout(()=>{document.querySelectorAll('.toast').forEach(t=>t.classList.remove('show'));},6000);
+            </script>
+          {% endfor %}
+        {% endif %}
+      {% endwith %}
+
+      <!-- Action Cards (Similar to Admin Panel) -->
+      <div class="row mb-4">
+        <div class="col-md-4 mb-3">
+          <div class="card h-100">
+            <div class="card-body text-center">
+              <i class="bi bi-plus-circle text-primary" style="font-size: 2.5rem;"></i>
+              <h6 class="text-primary mb-3 mt-2">Add Worklog Entry</h6>
+              <p>Record your daily work activities, tasks, and accomplishments.</p>
+              <a href="/user_add_entry" class="btn btn-primary">Add Entry</a>
+            </div>
+          </div>
+        </div>
+        <div class="col-md-4 mb-3">
+          <div class="card h-100">
+            <div class="card-body text-center">
+              <i class="bi bi-journal-text text-primary" style="font-size: 2.5rem;"></i>
+              <h6 class="text-primary mb-3 mt-2">View My Entries</h6>
+              <p>View, edit, or delete your previously submitted worklog entries.</p>
+              <a href="/user_view_entries" class="btn btn-primary">View Entries</a>
+            </div>
+          </div>
+        </div>
+        <div class="col-md-4 mb-3">
+          <div class="card h-100">
+            <div class="card-body text-center">
+              <i class="bi bi-file-earmark-text text-primary" style="font-size: 2.5rem;"></i>
+              <h6 class="text-primary mb-3 mt-2">Generate Report</h6>
+              <p>Generate and print your worklog reports with various filters.</p>
+              <a href="/user_report" class="btn btn-primary">Generate Report</a>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Recent Entries Preview -->
+      <div class="card">
+        <div class="card-body">
+          <div class="d-flex justify-content-between align-items-center mb-3">
+            <h6 class="text-primary mb-0">Recent Entries (Latest 5)</h6>
+            <a href="/user_view_entries" class="btn btn-outline-primary btn-sm">View All</a>
+          </div>
+          <div class="table-responsive">
+            <table class="table table-bordered align-middle" style="font-size: 0.9rem;">
+              <thead>
+                <tr style="background-color:#003366; color:#fff;">
+                  <th style="width: 12%;">Date</th>
+                  <th>Category-wise Tasks</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% if recent_logs %}
+                  {% for log in recent_logs %}
+                    <tr>
+                      <td>{{ log.date | datetimeformat }}</td>
+                      <td>
+                        {% if log.tasks_dict %}
+                          {% for cat, task in log.tasks_dict.items() %}
+                            <span style="font-weight:600; color:#003366;">{{ cat }}:</span> 
+                            {{ task[:80] }}{% if task|length > 80 %}...{% endif %}<br>
+                          {% endfor %}
+                        {% else %}
+                          <span class="text-muted">No tasks recorded</span>
+                        {% endif %}
+                      </td>
+                    </tr>
+                  {% endfor %}
+                {% else %}
+                  <tr><td colspan="2" class="text-center">No entries found. <a href="/user_add_entry">Add your first entry</a>.</td></tr>
+                {% endif %}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Footer -->
+    <footer>
+      <div class="footer-content">
+        <span>Concept: <strong>Dr. Cecil Donald</strong></span>
+        <span class="divider">|</span>
+        <span>Developed by: <strong>Vaishnavi VK</strong> (MCA 2024-26)</span>
+      </div>
+    </footer>
+
+    <!-- Scripts -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+      (function () {
+        try {
+          const navEntries = performance.getEntriesByType && performance.getEntriesByType("navigation");
+          const navType = (navEntries && navEntries.length) ? navEntries[0].type
+                       : (performance.navigation && performance.navigation.type === 2 ? 'back_forward' : '');
+          if (navType === 'back_forward') {
+            fetch('/_session_check', { method: 'GET', cache: 'no-store' })
+              .then(resp => { if (resp.status !== 200) window.location.replace('/login'); })
+              .catch(() => window.location.replace('/login'));
+          }
+        } catch (e) { console.warn('session-check script error', e); }
+      })();
+    </script>
+  </body>
+</html>

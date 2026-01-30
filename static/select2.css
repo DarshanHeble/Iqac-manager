@@ -1,0 +1,10 @@
+/* Select2 minimal local CSS */
+select[multiple] {
+  width: 100%;
+  border: 1px solid #ced4da;
+  border-radius: .375rem;
+  padding: .375rem .75rem;
+  background-color: #fff;
+  font-size: 1rem;
+  color: #212529;
+}

@@ -1,0 +1,278 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Add Worklog Entry - IQAC Worklog</title>
+
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css" rel="stylesheet">
+
+    <style>
+      html { height: 100%; }
+      body { background-color:#f8fafc; min-height: 100%; display: flex; flex-direction: column; }
+      .main-container { flex: 1; }
+      header {
+        background-color:#003366;
+        color:#fff;
+        padding:1rem 1.5rem;
+        border-radius:.5rem;
+        margin-bottom:1.5rem;
+        position: relative;
+      }
+      .logo-container { background-color: #fff; padding: 8px 12px; border-radius: 8px; display: inline-block; }
+      .logo-container img { height: 75px; width: auto; }
+      .header-title { color: #fff; margin: 0; position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); text-align: center; }
+      .header-title h5 { font-size: 1.25rem; font-weight: 700; margin: 0; }
+      h5, h6 { margin:0; }
+      .card { box-shadow:0 0.5rem 1rem rgba(0,0,0,.1); border:none; }
+      .btn-primary { background-color:#003366; border-color:#003366; }
+      .btn-primary:hover { background-color:#004080; border-color:#004080; }
+      .toast-container { z-index:9999; }
+      .form-label { font-weight:600; color:#003366; }
+      .category-section { 
+        border: 1px solid #dee2e6; 
+        border-radius: 0.5rem; 
+        padding: 1rem; 
+        margin-bottom: 1rem;
+        background-color: #fff;
+      }
+      .category-header {
+        display: flex;
+        align-items: center;
+        margin-bottom: 0.5rem;
+      }
+      .category-header input[type="checkbox"] {
+        margin-right: 0.5rem;
+        width: 1.2rem;
+        height: 1.2rem;
+      }
+      .category-header label {
+        font-weight: 600;
+        color: #003366;
+        margin-bottom: 0;
+        cursor: pointer;
+      }
+      .task-textarea {
+        display: none;
+      }
+      .task-textarea.show {
+        display: block;
+      }
+      .btn-outline-primary { color:#003366; border-color:#003366; }
+      .btn-outline-primary:hover { background-color:#003366; color:#fff; }
+      .text-primary { color: #003366 !important; }
+      .card { border-radius: 0.5rem; }
+      footer { background: linear-gradient(135deg, #002244 0%, #003366 50%, #004080 100%); color: #fff; padding: 0.75rem 1rem; text-align: center; margin-top: auto; border-top: 3px solid #ffc107; font-size: 0.85rem; }
+      footer .footer-content { display: flex; justify-content: center; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
+      footer .divider { color: #ffc107; font-weight: bold; }
+    </style>
+  </head>
+
+  <body>
+    <div class="container py-3 main-container">
+      <header class="d-flex justify-content-between align-items-center">
+        <a href="/dashboard" class="text-decoration-none d-flex align-items-center">
+          <div class="logo-container">
+            <img src="{{ url_for('static', filename='christ_logo.png') }}" alt="CHRIST Logo">
+          </div>
+        </a>
+        <div class="header-title">
+          <h5>INTERNAL QUALITY ASSURANCE CELL (IQAC)</h5>
+        </div>
+        <div>
+          <span class="text-light me-3">Welcome, {{ username }}</span>
+          <a href="/logout" class="btn btn-light btn-sm">Logout</a>
+        </div>
+      </header>
+
+      <!-- Back Button -->
+      <div class="mb-3">
+        <a href="/dashboard" class="btn btn-outline-primary btn-sm">
+          <i class="bi bi-arrow-left"></i> Back to Dashboard
+        </a>
+      </div>
+
+      <!-- Toast Messages -->
+      {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+          {% for category, message in messages %}
+            <div class="toast-container position-fixed bottom-0 end-0 p-3">
+              <div class="toast align-items-center text-bg-{{ 'success' if category=='success' else 'danger' }} border-0 show" role="alert">
+                <div class="d-flex">
+                  <div class="toast-body">{{ message }}</div>
+                  <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+                </div>
+              </div>
+            </div>
+            <script>
+              setTimeout(()=>{document.querySelectorAll('.toast').forEach(t=>t.classList.remove('show'));},6000);
+            </script>
+          {% endfor %}
+        {% endif %}
+      {% endwith %}
+
+      <!-- Worklog Entry Form -->
+      <div class="card">
+        <div class="card-body">
+          <h6 class="mb-3 text-primary">Add Worklog Entry</h6>
+          <form method="post" action="/user_add_entry">
+            <div class="row mb-4">
+              <div class="col-md-4">
+                <label class="form-label">Date</label>
+                <input type="date" name="date" id="dateInput" class="form-control" required>
+                <small class="text-muted" id="dateHelpText">Loading date restrictions...</small>
+              </div>
+            </div>
+
+            <h6 class="text-primary mb-3">Select Categories & Enter Tasks</h6>
+            <p class="text-muted small mb-3">Check the categories you worked on and enter the tasks performed for each.</p>
+
+            <!-- Documentation and Audits -->
+            <div class="category-section">
+              <div class="category-header">
+                <input type="checkbox" id="cat_documentation" name="categories" value="Documentation and Audits" onchange="toggleTask('documentation')">
+                <label for="cat_documentation">Documentation and Audits</label>
+              </div>
+              <div id="task_documentation" class="task-textarea">
+                <textarea name="task_documentation" class="form-control" rows="3" placeholder="Enter tasks for Documentation and Audits..."></textarea>
+              </div>
+            </div>
+
+            <!-- Rankings -->
+            <div class="category-section">
+              <div class="category-header">
+                <input type="checkbox" id="cat_rankings" name="categories" value="Rankings" onchange="toggleTask('rankings')">
+                <label for="cat_rankings">Rankings</label>
+              </div>
+              <div id="task_rankings" class="task-textarea">
+                <textarea name="task_rankings" class="form-control" rows="3" placeholder="Enter tasks for Rankings..."></textarea>
+              </div>
+            </div>
+
+            <!-- Publications -->
+            <div class="category-section">
+              <div class="category-header">
+                <input type="checkbox" id="cat_publications" name="categories" value="Publications" onchange="toggleTask('publications')">
+                <label for="cat_publications">Publications</label>
+              </div>
+              <div id="task_publications" class="task-textarea">
+                <textarea name="task_publications" class="form-control" rows="3" placeholder="Enter tasks for Publications..."></textarea>
+              </div>
+            </div>
+
+            <!-- Training and Development -->
+            <div class="category-section">
+              <div class="category-header">
+                <input type="checkbox" id="cat_training" name="categories" value="Training and Development" onchange="toggleTask('training')">
+                <label for="cat_training">Training and Development</label>
+              </div>
+              <div id="task_training" class="task-textarea">
+                <textarea name="task_training" class="form-control" rows="3" placeholder="Enter tasks for Training and Development..."></textarea>
+              </div>
+            </div>
+
+            <!-- Strategic Initiatives -->
+            <div class="category-section">
+              <div class="category-header">
+                <input type="checkbox" id="cat_strategic" name="categories" value="Strategic Initiatives" onchange="toggleTask('strategic')">
+                <label for="cat_strategic">Strategic Initiatives</label>
+              </div>
+              <div id="task_strategic" class="task-textarea">
+                <textarea name="task_strategic" class="form-control" rows="3" placeholder="Enter tasks for Strategic Initiatives..."></textarea>
+              </div>
+            </div>
+
+            <!-- Others -->
+            <div class="category-section">
+              <div class="category-header">
+                <input type="checkbox" id="cat_others" name="categories" value="Others" onchange="toggleTask('others')">
+                <label for="cat_others">Others</label>
+              </div>
+              <div id="task_others" class="task-textarea">
+                <textarea name="task_others" class="form-control" rows="3" placeholder="Enter other tasks..."></textarea>
+              </div>
+            </div>
+
+            <button type="submit" class="btn btn-primary mt-2">Submit Entry</button>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+      function toggleTask(category) {
+        const taskDiv = document.getElementById('task_' + category);
+        const checkbox = document.getElementById('cat_' + category);
+        if (checkbox.checked) {
+          taskDiv.classList.add('show');
+        } else {
+          taskDiv.classList.remove('show');
+        }
+      }
+
+      // Set date restrictions: current month only, previous month allowed until 2nd of current month
+      const dateInput = document.getElementById('dateInput');
+      const dateHelpText = document.getElementById('dateHelpText');
+      const today = new Date();
+      const currentDay = today.getDate();
+      const currentMonth = today.getMonth();
+      const currentYear = today.getFullYear();
+      
+      let minDate;
+      
+      // If today is 1st or 2nd of the month, allow previous month dates
+      if (currentDay <= 2) {
+        // Get first day of previous month
+        if (currentMonth === 0) {
+          // If January, previous month is December of last year
+          minDate = new Date(currentYear - 1, 11, 1);
+        } else {
+          minDate = new Date(currentYear, currentMonth - 1, 1);
+        }
+        dateHelpText.textContent = "You can add entries for this month and previous month (until 2nd of each month).";
+      } else {
+        // After 2nd, only allow current month dates
+        minDate = new Date(currentYear, currentMonth, 1);
+        dateHelpText.textContent = "You can only add entries for this month (previous month is locked after 2nd).";
+      }
+      
+      // Format dates for input min/max attributes (YYYY-MM-DD)
+      const formatDate = (d) => d.toISOString().split('T')[0];
+      
+      dateInput.max = formatDate(today);
+      dateInput.min = formatDate(minDate);
+      dateInput.value = formatDate(today); // Default to today
+      
+      // Additional validation on change
+      dateInput.addEventListener('change', () => {
+        const selectedDate = new Date(dateInput.value);
+        const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+        const minDateStart = new Date(minDate.getFullYear(), minDate.getMonth(), minDate.getDate());
+        
+        if (selectedDate > todayStart) {
+          alert("You cannot add entries for future dates.");
+          dateInput.value = formatDate(today);
+        } else if (selectedDate < minDateStart) {
+          if (currentDay <= 2) {
+            alert("You can only add entries for this month or the previous month.");
+          } else {
+            alert("Previous month is locked after the 2nd. You can only add entries for the current month.");
+          }
+          dateInput.value = formatDate(today);
+        }
+      });
+    </script>
+
+    <!-- Footer -->
+    <footer>
+      <div class="footer-content">
+        <span>Concept: <strong>Dr. Cecil Donald</strong></span>
+        <span class="divider">|</span>
+        <span>Developed by: <strong>Vaishnavi VK</strong> (MCA 2024-26)</span>
+      </div>
+    </footer>
+  </body>
+</html>
