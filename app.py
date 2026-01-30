@@ -1,21 +1,15 @@
 from flask import Flask, render_template, request, redirect, url_for, flash, session
-import os, random, string, smtplib, json, sqlite3
+import os, random, string, smtplib, json
 from datetime import datetime, timedelta
 from email.mime.text import MIMEText
 from werkzeug.security import generate_password_hash, check_password_hash
 import calendar
 from dotenv import load_dotenv
+import psycopg2
+import psycopg2.extras
 
 # Load environment variables from .env file (override any existing env vars)
 load_dotenv(override=True)
-
-# Try to import psycopg2 for PostgreSQL support
-try:
-    import psycopg2
-    import psycopg2.extras
-    PSYCOPG2_AVAILABLE = True
-except ImportError:
-    PSYCOPG2_AVAILABLE = False
 
 app = Flask(__name__)
 app.secret_key = os.getenv("SECRET_KEY", "your_secret_key")
@@ -28,71 +22,36 @@ app.jinja_env.globals['datetime'] = datetime
 def inject_now():
     return {'now': datetime.now}
 
-# ------------------ DATABASE CONFIGURATION ------------------
+# ------------------ DATABASE CONFIGURATION (PostgreSQL) ------------------
 DATABASE_URL = os.getenv("DATABASE_URL")
-USE_SQLITE = not DATABASE_URL or not PSYCOPG2_AVAILABLE
 
 def get_db_connection():
-    """Get database connection (SQLite or PostgreSQL)"""
-    if USE_SQLITE:
-        # Use SQLite as fallback
-        conn = sqlite3.connect("iqac_worklog.db")
-        conn.row_factory = sqlite3.Row
+    """Get PostgreSQL database connection"""
+    if not DATABASE_URL:
+        raise ValueError("DATABASE_URL environment variable is not set. Please configure your PostgreSQL connection in .env file.")
+    
+    # Handle both postgres:// and postgresql:// URLs (Render uses postgres://)
+    db_url = DATABASE_URL
+    if db_url.startswith("postgres://"):
+        db_url = db_url.replace("postgres://", "postgresql://", 1)
+    
+    # Try with SSL first (for cloud databases like Render, Supabase, etc.)
+    try:
+        conn = psycopg2.connect(db_url, sslmode="require")
         return conn
-    else:
-        # Use PostgreSQL
-        db_url = DATABASE_URL
-        if db_url.startswith("postgres://"):
-            db_url = db_url.replace("postgres://", "postgresql://", 1)
-        
-        # Try with SSL first (for cloud databases)
+    except psycopg2.OperationalError:
+        # Fallback to no SSL for local PostgreSQL
         try:
-            conn = psycopg2.connect(db_url, sslmode="require")
+            conn = psycopg2.connect(db_url, sslmode="prefer")
             return conn
         except psycopg2.OperationalError:
-            try:
-                conn = psycopg2.connect(db_url, sslmode="prefer")
-                return conn
-            except psycopg2.OperationalError:
-                conn = psycopg2.connect(db_url, sslmode="disable")
-                return conn
-
-class CursorWrapper:
-    """Wrapper to handle both SQLite (?) and PostgreSQL (%s) parameter styles"""
-    def __init__(self, cursor, is_sqlite=False):
-        self.cursor = cursor
-        self.is_sqlite = is_sqlite
-    
-    def execute(self, query, params=()):
-        if self.is_sqlite:
-            # Convert %s to ? for SQLite
-            query = query.replace('%s', '?')
-        return self.cursor.execute(query, params)
-    
-    def fetchone(self):
-        result = self.cursor.fetchone()
-        # Convert sqlite3.Row to dict for consistency
-        if self.is_sqlite and result:
-            return dict(result)
-        return result
-    
-    def fetchall(self):
-        results = self.cursor.fetchall()
-        # Convert sqlite3.Row to dict for consistency
-        if self.is_sqlite and results:
-            return [dict(row) for row in results]
-        return results
-    
-    def __getattr__(self, name):
-        # Delegate other attributes to the wrapped cursor
-        return getattr(self.cursor, name)
+            # Last attempt with no SSL at all
+            conn = psycopg2.connect(db_url, sslmode="disable")
+            return conn
 
 def get_cursor(conn):
-    """Get cursor appropriate for the database type"""
-    if USE_SQLITE:
-        return CursorWrapper(conn.cursor(), is_sqlite=True)
-    else:
-        return CursorWrapper(conn.cursor(cursor_factory=psycopg2.extras.DictCursor), is_sqlite=False)
+    """Get cursor for PostgreSQL database"""
+    return conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
 
 # ------------------ EMAIL SETTINGS (Environment Variables) ------------------
 SMTP_EMAIL = os.getenv("SMTP_EMAIL")
@@ -108,63 +67,7 @@ def disable_cache(resp):
     resp.headers["Expires"] = "0"
     return resp
 
-# ------------------ INIT DATABASE ------------------
-def init_sqlite():
-    """Initialize SQLite database with tables and default admin"""
-    conn = get_db_connection()
-    cursor = conn.cursor()
-
-    # Create users table
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS users (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            username TEXT UNIQUE NOT NULL,
-            password TEXT NOT NULL,
-            emp_id TEXT,
-            email TEXT,
-            gender TEXT,
-            designation TEXT,
-            department TEXT,
-            role TEXT
-        )
-    """)
-
-    # Create worklog table
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS worklog (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            username TEXT NOT NULL,
-            date TEXT,
-            status TEXT,
-            category TEXT,
-            task TEXT
-        )
-    """)
-
-    # Create indexes
-    cursor.execute("CREATE INDEX IF NOT EXISTS idx_worklog_username ON worklog(username)")
-    cursor.execute("CREATE INDEX IF NOT EXISTS idx_worklog_date ON worklog(date)")
-    cursor.execute("CREATE INDEX IF NOT EXISTS idx_users_role ON users(role)")
-
-    # Default admin
-    cursor.execute("SELECT * FROM users WHERE username='admin'")
-    if not cursor.fetchone():
-        cursor.execute("""
-            INSERT INTO users (username, password, emp_id, email, gender, designation, department, role)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-        """, (
-            'admin',
-            generate_password_hash('admin123'),
-            'CU0001',
-            'admin@university.edu',
-            'Male',
-            'Director, IQAC',
-            'IQAC',
-            'Admin'
-        ))
-    conn.commit()
-    conn.close()
-
+# ------------------ INIT DATABASE (PostgreSQL) ------------------
 def init_postgres():
     """Initialize PostgreSQL database with tables and default admin"""
     conn = get_db_connection()
@@ -229,14 +132,12 @@ def init_postgres():
 
 # Initialize database on startup
 try:
-    if USE_SQLITE:
-        print("Using SQLite database (iqac_worklog.db)")
-        init_sqlite()
-    else:
-        print("Using PostgreSQL database")
-        init_postgres()
+    print("Using PostgreSQL database")
+    init_postgres()
 except Exception as e:
     print(f"Warning: Could not initialize database: {e}")
+
+# ------------------ TEMPLATE FILTER ------------------
 
 # ------------------ TEMPLATE FILTER ------------------
 @app.template_filter("datetimeformat")
