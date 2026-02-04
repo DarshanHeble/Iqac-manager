@@ -64,11 +64,13 @@
         .print-header-logo { display:flex; align-items:center; }
         .print-header-title { color:#fff !important; }
         .no-print { display:none !important; }
-        body { background:white; font-size:11px; margin:0; padding:0; }
+        body { background:white; font-size:11px; margin:0; padding:0; display:block !important; }
+        .main-container { display:block !important; }
         .container { max-width:100%; padding:0; margin:0; }
         .card { box-shadow:none; border:none; padding:0; margin:0 0 0.25rem 0; }
         .worklog-header { display:none; }
-        table { page-break-inside:avoid; width:100%; border-collapse:collapse; }
+        table { page-break-inside:auto; width:100%; border-collapse:collapse; }
+        tr { page-break-inside:avoid; page-break-after:auto; break-inside:avoid; }
         table th, table td { border:1px solid #000; padding:6px 8px; text-align:left; }
         table th { background:none; color:#000; font-weight:bold; }
         .report-info, .report-summary, .ai-summary { background:none; border:none; padding:0; margin:0.5rem 0; }
@@ -77,6 +79,8 @@
         .signature { margin:1rem 0 0 0; text-align:right; }
         .category-task-item { border:none; background:none; padding:0; margin:0.25rem 0; }
         .category-name { font-weight:bold; }
+        .page-break { page-break-before:auto; break-before:auto; }
+        .page-break + .page-break { page-break-before:always; break-before:page; }
         footer { display: none !important; }
       }
     </style>
@@ -102,7 +106,7 @@
           <h5>INTERNAL QUALITY ASSURANCE CELL (IQAC)</h5>
         </div>
         <div>
-          <a href="/admin_report_ai" class="btn btn-light btn-sm me-2"><i class="bi bi-lightning-charge"></i> Quick AI Summary</a>
+          <a href="/admin_report_ai" class="btn btn-light btn-sm me-2"><i class="bi bi-lightning-charge"></i> Quick Summary</a>
           <a href="/admin" class="btn btn-light btn-sm me-2"><i class="bi bi-arrow-left"></i> Back to Admin</a>
           <a href="/logout" class="btn btn-outline-light btn-sm">Logout</a>
         </div>

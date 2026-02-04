@@ -275,9 +275,20 @@ def build_ai_summary_prompt(logs, selected_user, filter_mode, from_date, to_date
 
     lines = [
         "You are an assistant summarizing worklog entries for an IQAC report.",
-        "Summarize the key activities, major focus areas, and any patterns or trends.",
+        "Generate a summary with ONLY these two sections in this exact format:",
+        "",
+        "1. Key Activities",
+        "List the main activities completed during this period in a single paragraph.",
+        "",
+        "2. Major Focus Areas",
+        "Organize by category. For each category that has entries, write a brief description of the work done.",
+        "Format as: 'Category Name: description of activities'",
+        "Categories may include: Documentation and Audits, Rankings, Publications, Training and Development, Strategic Initiatives, Others, Holiday.",
+        "IMPORTANT: Do NOT include or mention 'Leave' entries in the summary.",
+        "",
+        "Do not include an introductory paragraph, conclusion, or patterns/trends section.",
+        "Do not use markdown, bullets, or asterisks. Use plain text with section headings.",
         "Write in a formal, official report tone.",
-        "Do not use markdown, bullets, or asterisks. Use plain text with headings followed by paragraphs.",
         "",
         f"User: {selected_user or '—'}",
         f"Category Filter: {category_filter or 'All'}",
@@ -300,6 +311,9 @@ def build_ai_summary_prompt(logs, selected_user, filter_mode, from_date, to_date
                 tasks_dict = log.get("tasks_dict") or {}
                 if tasks_dict:
                     for cat, task in tasks_dict.items():
+                        # Skip Leave entries
+                        if cat.lower() == "leave":
+                            continue
                         lines.append(f"- {date} | {cat}: {task}")
                 else:
                     lines.append(f"- {date} | No tasks recorded")
@@ -310,6 +324,9 @@ def build_ai_summary_prompt(logs, selected_user, filter_mode, from_date, to_date
             tasks_dict = log.get("tasks_dict") or {}
             if tasks_dict:
                 for cat, task in tasks_dict.items():
+                    # Skip Leave entries
+                    if cat.lower() == "leave":
+                        continue
                     lines.append(f"- {date} | {cat}: {task}")
             else:
                 lines.append(f"- {date} | No tasks recorded")
