@@ -140,6 +140,26 @@ def send_reminder_email(to_email, subject, body):
         print(f"Failed to send email to {to_email}: {str(e)}")
         return False
 
+def format_dates_by_month(dates):
+    """Format dates grouped by month. Example: 'Feb - 2, 3, 5' / 'Mar - 1, 2'"""
+    from collections import defaultdict
+    by_month = defaultdict(list)
+    
+    for date in dates:
+        month_str = date.strftime('%b')
+        day = date.day
+        by_month[month_str].append(day)
+    
+    formatted_parts = []
+    for date in sorted(dates):
+        month_str = date.strftime('%b')
+        if month_str not in [p.split(' - ')[0] for p in formatted_parts]:
+            days = sorted(by_month[month_str])
+            days_str = ', '.join(str(d) for d in days)
+            formatted_parts.append(f"{month_str} - {days_str}")
+    
+    return ' / '.join(formatted_parts)
+
 def send_29th_reminder():
     """Send reminder on 29th of month about missing entries"""
     conn = get_db_connection()
@@ -161,9 +181,9 @@ def send_29th_reminder():
         missing_dates = get_missing_entries(username, current_year, current_month)
         
         if missing_dates:
-            # Format missing dates in cleaner format (Feb 2, Feb 3, etc.)
+            # Format missing dates grouped by month (Feb - 2, 3, 5)
             sorted_dates = sorted(missing_dates)
-            dates_list = ', '.join([d.strftime('%b %d') for d in sorted_dates])
+            dates_list = format_dates_by_month(sorted_dates)
             # Get deadline date (2nd of next month)
             if current_month == 12:
                 deadline_date = datetime(current_year + 1, 1, 2).date()
@@ -179,8 +199,6 @@ This is a kind reminder to complete and submit your work logs for the dates:
 {dates_list}
 
 The final date to submit your log is {deadline_str}. Please log in to the portal and complete the submission before the deadline.
-
-Portal Link: http://127.0.0.1:5000/login
 
 If you have already submitted the work logs kindly disregard this email.
 
@@ -217,9 +235,9 @@ def send_1st_deadline_reminder():
         missing_dates = get_missing_entries(username, prev_year, prev_month)
         
         if missing_dates:
-            # Format missing dates in cleaner format (Feb 2, Feb 3, etc.)
+            # Format missing dates grouped by month (Feb - 2, 3, 5)
             sorted_dates = sorted(missing_dates)
-            dates_list = ', '.join([d.strftime('%b %d') for d in sorted_dates])
+            dates_list = format_dates_by_month(sorted_dates)
             deadline_str = today.strftime('%b %d, %Y')
             
             subject = f"URGENT: IQAC Worklog Submission Deadline - TODAY"
@@ -231,14 +249,11 @@ This is a kind reminder to complete and submit your work logs for the dates:
 
 The final date to submit your log is {deadline_str} (TODAY). Please log in to the portal and complete the submission before the deadline.
 
-Portal Link: http://127.0.0.1:5000/login
-
 If you have already submitted the work logs kindly disregard this email.
 
 ---
 This is an auto-generated email. Please do not reply to this message.
 """
-            send_reminder_email(email, subject, body)
             send_reminder_email(email, subject, body)
     
     return f"1st deadline reminder sent to {len(users)} users"
