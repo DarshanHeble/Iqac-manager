@@ -53,19 +53,45 @@
       footer { background: linear-gradient(135deg, #002244 0%, #003366 50%, #004080 100%); color: #fff; padding: 0.75rem 1rem; text-align: center; margin-top: auto; border-top: 3px solid #ffc107; font-size: 0.85rem; }
       footer .footer-content { display: flex; justify-content: center; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
       footer .divider { color: #ffc107; font-weight: bold; }
+      .print-header { display:none; width:100%; background-color:#003366 !important; color:#fff; padding:0.75rem 1.5rem; margin-bottom:1rem; -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+      .print-header-content { display:flex; align-items:center; justify-content:space-between; gap:1rem; }
+      .print-header-logo { background-color:#fff !important; padding:8px 12px; border-radius:8px; display:flex; align-items:center; -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+      .print-header-logo img { height:50px; width:auto; }
+      .print-header-title { flex:1; text-align:center; font-size:18px; font-weight:bold; letter-spacing:0.5px; color:#fff !important; }
       @media print {
+        .print-header { display:block !important; background-color:#003366 !important; -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+        .print-header-content { display:flex; align-items:center; justify-content:space-between; }
+        .print-header-logo { display:flex; align-items:center; }
+        .print-header-title { color:#fff !important; }
         .no-print { display:none !important; }
-        body { background:white; font-size:12px; }
-        .card { box-shadow:none; border:none; }
-        table { page-break-inside:avoid; }
-        .report-info, .report-summary { background:#fff; border:none; padding:0; margin:0 0 1rem 0; }
-        .card.page-break { border:none; padding-top:0; page-break-before:always; }
+        body { background:white; font-size:11px; margin:0; padding:0; }
+        .container { max-width:100%; padding:0; margin:0; }
+        .card { box-shadow:none; border:none; padding:0; margin:0 0 0.25rem 0; }
+        .worklog-header { display:none; }
+        table { page-break-inside:avoid; width:100%; border-collapse:collapse; }
+        table th, table td { border:1px solid #000; padding:6px 8px; text-align:left; }
+        table th { background:none; color:#000; font-weight:bold; }
+        .report-info, .report-summary, .ai-summary { background:none; border:none; padding:0; margin:0.5rem 0; }
+        .worklog-header { text-align:center; }
+        .worklog-header h5, .worklog-header h6 { margin:0.25rem 0; }
+        .signature { margin:1rem 0 0 0; text-align:right; }
+        .category-task-item { border:none; background:none; padding:0; margin:0.25rem 0; }
+        .category-name { font-weight:bold; }
         footer { display: none !important; }
       }
     </style>
   </head>
   <body>
     <div class="container py-3 main-container">
+      <div class="print-header">
+        <div class="print-header-content">
+          <div class="print-header-logo">
+            <img src="{{ url_for('static', filename='christ_logo.png') }}" alt="CHRIST Logo">
+          </div>
+          <div class="print-header-title">INTERNAL QUALITY ASSURANCE CELL (IQAC)</div>
+          <div style="width:80px;"></div>
+        </div>
+      </div>
       <header class="d-flex justify-content-between align-items-center no-print">
         <a href="/admin" class="text-decoration-none d-flex align-items-center">
           <div class="logo-container">
@@ -76,6 +102,7 @@
           <h5>INTERNAL QUALITY ASSURANCE CELL (IQAC)</h5>
         </div>
         <div>
+          <a href="/admin_report_ai" class="btn btn-light btn-sm me-2"><i class="bi bi-lightning-charge"></i> Quick AI Summary</a>
           <a href="/admin" class="btn btn-light btn-sm me-2"><i class="bi bi-arrow-left"></i> Back to Admin</a>
           <a href="/logout" class="btn btn-outline-light btn-sm">Logout</a>
         </div>
@@ -129,21 +156,21 @@
             <div id="date_range_fields" class="col-md-5 d-flex gap-2" style="{% if filter_mode in ['month', 'academic_year'] %}display:none !important;{% else %}display:flex !important;{% endif %}">
               <div class="flex-fill">
                 <label class="form-label">From Date</label>
-                <input type="date" name="from_date" id="from_date" class="form-control" value="{{ from_date or '' }}">
+                <input type="date" name="from_date" id="from_date" class="form-control" placeholder="MM/DD/YYYY" value="{{ from_date or today_date or '' }}">
               </div>
               <div class="flex-fill">
                 <label class="form-label">To Date</label>
-                <input type="date" name="to_date" id="to_date" class="form-control" value="{{ to_date or '' }}">
+                <input type="date" name="to_date" id="to_date" class="form-control" placeholder="MM/DD/YYYY" value="{{ to_date or today_date or '' }}">
               </div>
             </div>
             <div id="month_field" class="col-md-3" style="{% if filter_mode == 'month' %}display:block !important;{% else %}display:none !important;{% endif %}">
               <label class="form-label">Select Month & Year (YYYY-MM)</label>
-              <input type="month" name="month" id="month_input" class="form-control" value="{{ selected_month or '' }}">
+              <input type="month" name="month" id="month_input" class="form-control" value="{{ selected_month or current_month or '' }}" placeholder="YYYY-MM">
             </div>
             <div id="academic_year_field" class="col-md-3" style="{% if filter_mode == 'academic_year' %}display:block !important;{% else %}display:none !important;{% endif %}">
               <label class="form-label">Select Academic Year</label>
               <select name="academic_year" id="academic_year_input" class="form-select">
-                <option value="" disabled {% if not selected_academic_year %}selected{% endif %}>Select Year</option>
+                <option value="" disabled {% if not selected_academic_year %}selected{% endif %}>This Academic Year</option>
                 {% set current_year = datetime.now().year %}
                 {% set current_month = datetime.now().month %}
                 {% set start_year = current_year if current_month >= 5 else current_year - 1 %}
@@ -202,7 +229,7 @@
                   <tbody>
                     {% for log in entries %}
                       <tr>
-                        <td class="text-center">{{ log['date'] }}</td>
+                        <td class="text-center">{{ log['date'] | datetimeformat }}</td>
                         <td>
                           {% if log.tasks_dict %}
                             {% for cat, task in log.tasks_dict.items() %}
@@ -252,7 +279,7 @@
                 <tbody>
                   {% for log in logs %}
                     <tr>
-                      <td class="text-center">{{ log['date'] }}</td>
+                      <td class="text-center">{{ log['date'] | datetimeformat }}</td>
                       <td>
                         {% if log.tasks_dict %}
                           {% for cat, task in log.tasks_dict.items() %}
@@ -281,6 +308,29 @@
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
     <script>
       document.addEventListener("DOMContentLoaded", function () {
+        // Set default dates on page load
+        const today = new Date();
+        const todayString = today.toISOString().split('T')[0]; // YYYY-MM-DD format
+        const currentMonthString = today.toISOString().split('T')[0].substring(0, 7); // YYYY-MM format
+        
+        // Set default From Date and To Date if empty
+        const fromDateInput = document.getElementById('from_date');
+        const toDateInput = document.getElementById('to_date');
+        const monthInput = document.getElementById('month_input');
+        
+        if (!fromDateInput.value) fromDateInput.value = todayString;
+        if (!toDateInput.value) toDateInput.value = todayString;
+        if (!monthInput.value) monthInput.value = currentMonthString;
+        
+        // Set default academic year
+        const academicYearSelect = document.getElementById('academic_year_input');
+        if (!academicYearSelect.value) {
+          const currentYear = today.getFullYear();
+          const currentMonth = today.getMonth() + 1;
+          const startYear = currentMonth >= 5 ? currentYear : currentYear - 1;
+          academicYearSelect.value = startYear + '-' + (startYear + 1);
+        }
+        
         const modeSelect = document.getElementById("filter_mode");
         const dateFields = document.getElementById("date_range_fields");
         const monthField = document.getElementById("month_field");

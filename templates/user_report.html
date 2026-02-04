@@ -79,17 +79,10 @@
           <h5>INTERNAL QUALITY ASSURANCE CELL (IQAC)</h5>
         </div>
         <div>
-          <span class="text-light me-3">Welcome, {{ username }}</span>
-          <a href="/logout" class="btn btn-light btn-sm">Logout</a>
+          <a href="/dashboard" class="btn btn-light btn-sm me-2"><i class="bi bi-arrow-left"></i> Back to Dashboard</a>
+          <a href="/logout" class="btn btn-outline-light btn-sm">Logout</a>
         </div>
       </header>
-
-      <!-- Action Buttons -->
-      <div class="mb-3 d-flex gap-2 no-print">
-        <a href="/dashboard" class="btn btn-outline-primary btn-sm">
-          <i class="bi bi-arrow-left"></i> Back to Dashboard
-        </a>
-      </div>
 
       {% with messages = get_flashed_messages(with_categories=true) %}
         {% for category, message in messages %}
@@ -197,7 +190,7 @@
               <tbody>
                 {% for log in logs %}
                   <tr>
-                    <td class="text-center">{{ log['date'] }}</td>
+                    <td class="text-center">{{ log['date'] | datetimeformat }}</td>
                     <td>
                       {% if log.tasks_dict %}
                         {% for cat, task in log.tasks_dict.items() %}

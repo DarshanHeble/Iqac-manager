@@ -81,17 +81,10 @@
           <h5>INTERNAL QUALITY ASSURANCE CELL (IQAC)</h5>
         </div>
         <div>
-          <span class="text-light me-3">Welcome, {{ username }}</span>
-          <a href="/logout" class="btn btn-light btn-sm">Logout</a>
+          <a href="/dashboard" class="btn btn-light btn-sm me-2"><i class="bi bi-arrow-left"></i> Back to Dashboard</a>
+          <a href="/logout" class="btn btn-outline-light btn-sm">Logout</a>
         </div>
       </header>
-
-      <!-- Back Button -->
-      <div class="mb-3">
-        <a href="/dashboard" class="btn btn-outline-primary btn-sm">
-          <i class="bi bi-arrow-left"></i> Back to Dashboard
-        </a>
-      </div>
 
       <!-- Toast Messages -->
       {% with messages = get_flashed_messages(with_categories=true) %}
@@ -125,8 +118,28 @@
               </div>
             </div>
 
-            <h6 class="text-primary mb-3">Select Categories & Enter Tasks</h6>
-            <p class="text-muted small mb-3">Check the categories you worked on and enter the tasks performed for each.</p>
+            <div class="row mb-4">
+              <div class="col-md-6">
+                <div class="form-check form-check-inline">
+                  <input class="form-check-input" type="checkbox" id="isHoliday" name="is_holiday" value="1" onchange="toggleSpecialDay()">
+                  <label class="form-check-label" for="isHoliday">
+                    <strong>Holiday</strong> <span class="text-muted small">(Mark this day as a holiday)</span>
+                  </label>
+                </div>
+              </div>
+              <div class="col-md-6">
+                <div class="form-check form-check-inline">
+                  <input class="form-check-input" type="checkbox" id="isLeave" name="is_leave" value="1" onchange="toggleSpecialDay()">
+                  <label class="form-check-label" for="isLeave">
+                    <strong>Leave</strong> <span class="text-muted small">(Mark this day as leave)</span>
+                  </label>
+                </div>
+              </div>
+            </div>
+
+            <div id="categoriesSection">
+              <h6 class="text-primary mb-3">Select Categories & Enter Tasks</h6>
+              <p class="text-muted small mb-3">Check the categories you worked on and enter the tasks performed for each.</p>
 
             <!-- Documentation and Audits -->
             <div class="category-section">
@@ -193,6 +206,7 @@
                 <textarea name="task_others" class="form-control" rows="3" placeholder="Enter other tasks..."></textarea>
               </div>
             </div>
+            </div>
 
             <button type="submit" class="btn btn-primary mt-2">Submit Entry</button>
           </form>
@@ -211,6 +225,78 @@
         } else {
           taskDiv.classList.remove('show');
         }
+      }
+
+      // Toggle special day (Holiday/Leave) - disable categories when checked
+      function toggleSpecialDay() {
+        const isHoliday = document.getElementById('isHoliday').checked;
+        const isLeave = document.getElementById('isLeave').checked;
+        const categoriesSection = document.getElementById('categoriesSection');
+        
+        // Only one can be selected at a time
+        if (isHoliday) {
+          document.getElementById('isLeave').checked = false;
+        } else if (isLeave) {
+          document.getElementById('isHoliday').checked = false;
+        }
+        
+        // Disable/enable categories and tasks
+        const isSpecialDay = isHoliday || isLeave;
+        const categoryCheckboxes = document.querySelectorAll('input[name="categories"]');
+        const taskTextareas = document.querySelectorAll('.task-textarea textarea');
+        
+        categoryCheckboxes.forEach(cb => {
+          cb.disabled = isSpecialDay;
+          if (isSpecialDay) cb.checked = false;
+        });
+        
+        taskTextareas.forEach(ta => {
+          ta.disabled = isSpecialDay;
+          if (isSpecialDay) ta.value = '';
+        });
+        
+        // Hide/show task divs
+        document.querySelectorAll('.task-textarea').forEach(div => {
+          div.classList.remove('show');
+        });
+        
+        // Gray out categories section
+        if (isSpecialDay) {
+          categoriesSection.style.opacity = '0.5';
+          categoriesSection.style.pointerEvents = 'none';
+        } else {
+          categoriesSection.style.opacity = '1';
+          categoriesSection.style.pointerEvents = 'auto';
+        }
+      }
+
+      // Helper function to get the nth occurrence of a weekday in a month
+      function getNthWeekdayOfMonth(year, month, weekday, n) {
+        const firstDay = new Date(year, month, 1);
+        const firstWeekday = firstDay.getDay();
+        const daysToAdd = (weekday - firstWeekday + 7) % 7;
+        const nthDate = 1 + daysToAdd + (n - 1) * 7;
+        return new Date(year, month, nthDate);
+      }
+
+      // Check if date is a working day
+      function isWorkingDay(date) {
+        const day = date.getDay();
+        const year = date.getFullYear();
+        const month = date.getMonth();
+        
+        // Sunday = 0, Saturday = 6
+        if (day === 0) return false; // Sunday
+        
+        // Check if it's 3rd Saturday
+        if (day === 6) {
+          const thirdSaturday = getNthWeekdayOfMonth(year, month, 6, 3);
+          if (date.getDate() === thirdSaturday.getDate()) {
+            return false;
+          }
+        }
+        
+        return true;
       }
 
       // Set date restrictions: current month only, previous month allowed until 2nd of current month
@@ -232,35 +318,47 @@
         } else {
           minDate = new Date(currentYear, currentMonth - 1, 1);
         }
-        dateHelpText.textContent = "You can add entries for this month and previous month (until 2nd of each month).";
+        dateHelpText.textContent = "You can add entries for this month and previous month (until 2nd). Note: Sundays and 3rd Saturdays are non-working days.";
       } else {
         // After 2nd, only allow current month dates
         minDate = new Date(currentYear, currentMonth, 1);
-        dateHelpText.textContent = "You can only add entries for this month (previous month is locked after 2nd).";
+        dateHelpText.textContent = "You can only add entries for this month (previous month is locked after 2nd). Note: Sundays and 3rd Saturdays are non-working days.";
       }
       
-      // Format dates for input min/max attributes (YYYY-MM-DD)
+      // Format dates for input (YYYY-MM-DD)
       const formatDate = (d) => d.toISOString().split('T')[0];
       
+      // Set min and max dates
       dateInput.max = formatDate(today);
       dateInput.min = formatDate(minDate);
       dateInput.value = formatDate(today); // Default to today
       
       // Additional validation on change
       dateInput.addEventListener('change', () => {
-        const selectedDate = new Date(dateInput.value);
+        const selectedDate = new Date(dateInput.value + 'T00:00:00'); // Add time to avoid timezone issues
+        
+        if (!selectedDate || isNaN(selectedDate.getTime())) {
+          alert("Invalid date.");
+          dateInput.value = formatDate(today);
+          return;
+        }
+        
         const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate());
         const minDateStart = new Date(minDate.getFullYear(), minDate.getMonth(), minDate.getDate());
+        const selectedStart = new Date(selectedDate.getFullYear(), selectedDate.getMonth(), selectedDate.getDate());
         
-        if (selectedDate > todayStart) {
+        if (selectedStart > todayStart) {
           alert("You cannot add entries for future dates.");
           dateInput.value = formatDate(today);
-        } else if (selectedDate < minDateStart) {
+        } else if (selectedStart < minDateStart) {
           if (currentDay <= 2) {
             alert("You can only add entries for this month or the previous month.");
           } else {
             alert("Previous month is locked after the 2nd. You can only add entries for the current month.");
           }
+          dateInput.value = formatDate(today);
+        } else if (!isWorkingDay(selectedStart)) {
+          alert("You cannot add entries for Sundays or 3rd Saturdays (non-working days).");
           dateInput.value = formatDate(today);
         }
       });

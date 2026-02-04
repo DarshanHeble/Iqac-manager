@@ -7,6 +7,7 @@ import calendar
 from dotenv import load_dotenv
 import psycopg2
 import psycopg2.extras
+import google.generativeai as genai
 
 # Load environment variables from .env file (override any existing env vars)
 load_dotenv(override=True)
@@ -58,6 +59,256 @@ SMTP_EMAIL = os.getenv("SMTP_EMAIL")
 SMTP_PASSWORD = os.getenv("SMTP_PASSWORD")
 SMTP_SERVER = "smtp.gmail.com"
 SMTP_PORT = 587
+
+# ------------------ EMAIL REMINDER FUNCTIONS ------------------
+def get_nth_weekday_of_month(year, month, weekday, n):
+    """Get the nth occurrence of a weekday in a month (0=Monday, 6=Sunday)"""
+    first_day = datetime(year, month, 1)
+    first_weekday = first_day.weekday()
+    # Convert to weekday() format where Monday=0, Sunday=6
+    days_to_add = (weekday - first_weekday) % 7
+    nth_date = 1 + days_to_add + (n - 1) * 7
+    return datetime(year, month, nth_date).date()
+
+def is_working_day(date):
+    """Check if a date is a working day (not Sunday or 3rd Saturday)"""
+    weekday = date.weekday()  # Monday=0, Sunday=6
+    
+    # Sunday
+    if weekday == 6:
+        return False
+    
+    # Check if it's 3rd Saturday
+    if weekday == 5:  # Saturday
+        third_saturday = get_nth_weekday_of_month(date.year, date.month, 5, 3)
+        if date == third_saturday:
+            return False
+    
+    return True
+
+def get_working_days_in_month(year, month):
+    """Get all working days in a given month"""
+    last_day = calendar.monthrange(year, month)[1]
+    working_days = []
+    
+    for day in range(1, last_day + 1):
+        date = datetime(year, month, day).date()
+        if is_working_day(date):
+            working_days.append(date)
+    
+    return working_days
+
+def get_missing_entries(username, year, month):
+    """Get list of working days without worklog entries for a user"""
+    conn = get_db_connection()
+    cursor = get_cursor(conn)
+    
+    # Get all worklog entries for the user in the specified month
+    cursor.execute("""
+        SELECT date FROM worklog 
+        WHERE username=%s 
+        AND EXTRACT(YEAR FROM date::date) = %s 
+        AND EXTRACT(MONTH FROM date::date) = %s
+    """, (username, year, month))
+    
+    filled_dates = {row['date'] for row in cursor.fetchall()}
+    conn.close()
+    
+    # Get all working days in the month
+    working_days = get_working_days_in_month(year, month)
+    
+    # Find missing entries (only for past dates)
+    today = datetime.now().date()
+    missing_dates = [d for d in working_days if d not in filled_dates and d <= today]
+    
+    return missing_dates
+
+def send_reminder_email(to_email, subject, body):
+    """Send an email reminder"""
+    try:
+        msg = MIMEText(body, 'plain', 'utf-8')
+        msg['Subject'] = subject
+        msg['From'] = SMTP_EMAIL
+        msg['To'] = to_email
+        
+        with smtplib.SMTP(SMTP_SERVER, SMTP_PORT) as server:
+            server.starttls()
+            server.login(SMTP_EMAIL, SMTP_PASSWORD)
+            server.send_message(msg)
+        return True
+    except Exception as e:
+        print(f"Failed to send email to {to_email}: {str(e)}")
+        return False
+
+def send_29th_reminder():
+    """Send reminder on 29th of month about missing entries"""
+    conn = get_db_connection()
+    cursor = get_cursor(conn)
+    
+    # Get all non-admin users
+    cursor.execute("SELECT username, email FROM users WHERE role != 'admin'")
+    users = cursor.fetchall()
+    conn.close()
+    
+    today = datetime.now().date()
+    current_year = today.year
+    current_month = today.month
+    
+    for user in users:
+        username = user['username']
+        email = user['email']
+        
+        missing_dates = get_missing_entries(username, current_year, current_month)
+        
+        if missing_dates:
+            # Format missing dates
+            missing_dates_str = ', '.join([d.strftime('%d/%m/%Y') for d in sorted(missing_dates)])
+            
+            subject = f"IQAC Worklog Reminder - Missing Entries for {calendar.month_name[current_month]} {current_year}"
+            body = f"""Dear {username},
+
+This is a reminder from the IQAC Worklog System.
+
+We noticed that you have not filled worklog entries for the following dates in {calendar.month_name[current_month]} {current_year}:
+
+{missing_dates_str}
+
+Total missing entries: {len(missing_dates)}
+
+Please log in to the IQAC Worklog System and complete your entries before the month ends.
+
+The deadline for submitting entries for the current month is midnight on the 2nd of next month.
+
+Login here: http://127.0.0.1:5000/login
+
+Thank you for your cooperation.
+
+Best regards,
+IQAC Team
+CHRIST (Deemed to be University)
+"""
+            send_reminder_email(email, subject, body)
+    
+    return f"29th reminder sent to {len(users)} users"
+
+def send_1st_deadline_reminder():
+    """Send final reminder on 1st of month - deadline is today midnight"""
+    conn = get_db_connection()
+    cursor = get_cursor(conn)
+    
+    # Get all non-admin users
+    cursor.execute("SELECT username, email FROM users WHERE role != 'admin'")
+    users = cursor.fetchall()
+    conn.close()
+    
+    today = datetime.now().date()
+    # Previous month
+    if today.month == 1:
+        prev_month = 12
+        prev_year = today.year - 1
+    else:
+        prev_month = today.month - 1
+        prev_year = today.year
+    
+    for user in users:
+        username = user['username']
+        email = user['email']
+        
+        missing_dates = get_missing_entries(username, prev_year, prev_month)
+        
+        if missing_dates:
+            # Format missing dates
+            missing_dates_str = ', '.join([d.strftime('%d/%m/%Y') for d in sorted(missing_dates)])
+            
+            subject = f"URGENT: IQAC Worklog Deadline TODAY - {calendar.month_name[prev_month]} {prev_year}"
+            body = f"""Dear {username},
+
+*** URGENT REMINDER - DEADLINE TODAY MIDNIGHT ***
+
+This is the final reminder from the IQAC Worklog System.
+
+You still have unfilled worklog entries for {calendar.month_name[prev_month]} {prev_year}:
+
+{missing_dates_str}
+
+Total missing entries: {len(missing_dates)}
+
+DEADLINE: Today, {today.strftime('%d/%m/%Y')} at MIDNIGHT (23:59)
+
+After midnight tonight, you will no longer be able to add entries for {calendar.month_name[prev_month]} {prev_year}.
+
+Please log in immediately and complete your worklog entries:
+http://127.0.0.1:5000/login
+
+This is your last opportunity to submit entries for the previous month.
+
+Thank you for your immediate attention.
+
+Best regards,
+IQAC Team
+CHRIST (Deemed to be University)
+"""
+            send_reminder_email(email, subject, body)
+    
+    return f"1st deadline reminder sent to {len(users)} users"
+
+# ------------------ GEMINI AI SETTINGS ------------------
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+if GEMINI_API_KEY and GEMINI_API_KEY != "your_gemini_api_key_here":
+    genai.configure(api_key=GEMINI_API_KEY)
+
+def build_ai_summary_prompt(logs, selected_user, filter_mode, from_date, to_date, selected_month, selected_academic_year, category_filter):
+    period_label = "Custom Date Range"
+    period_value = f"{from_date or '—'} to {to_date or '—'}"
+    if filter_mode == "month":
+        period_label = "Month-wise"
+        period_value = selected_month or "—"
+    elif filter_mode == "academic_year":
+        period_label = "Academic Year"
+        period_value = selected_academic_year or "—"
+
+    lines = [
+        "You are an assistant summarizing worklog entries for an IQAC report.",
+        "Summarize the key activities, major focus areas, and any patterns or trends.",
+        "Write in a formal, official report tone.",
+        "Do not use markdown, bullets, or asterisks. Use plain text with headings followed by paragraphs.",
+        "",
+        f"User: {selected_user or '—'}",
+        f"Category Filter: {category_filter or 'All'}",
+        f"Report Type: {period_label}",
+        f"Period: {period_value}",
+        f"Total Entries: {len(logs)}",
+        "",
+        "Entries:"
+    ]
+
+    if selected_user == "All":
+        grouped = {}
+        for log in logs:
+            uname = log.get("username")
+            grouped.setdefault(uname, []).append(log)
+        for uname, entries in grouped.items():
+            lines.append(f"User: {uname}")
+            for log in entries:
+                date = log.get("date") or "—"
+                tasks_dict = log.get("tasks_dict") or {}
+                if tasks_dict:
+                    for cat, task in tasks_dict.items():
+                        lines.append(f"- {date} | {cat}: {task}")
+                else:
+                    lines.append(f"- {date} | No tasks recorded")
+            lines.append("")
+    else:
+        for log in logs:
+            date = log.get("date") or "—"
+            tasks_dict = log.get("tasks_dict") or {}
+            if tasks_dict:
+                for cat, task in tasks_dict.items():
+                    lines.append(f"- {date} | {cat}: {task}")
+            else:
+                lines.append(f"- {date} | No tasks recorded")
+
+    return "\n".join(lines)
 
 # ------------------ DISABLE CACHING ------------------
 @app.after_request
@@ -333,42 +584,72 @@ def user_add_entry():
             if exists:
                 flash("An entry already exists for this date.", "danger")
             else:
-                # Get selected categories
-                categories = request.form.getlist("categories")
+                # Check if it's a holiday or leave
+                is_holiday = request.form.get("is_holiday") == "1"
+                is_leave = request.form.get("is_leave") == "1"
                 
-                # Build category-wise tasks dictionary
-                category_tasks = {}
-                task_mapping = {
-                    "Documentation and Audits": "task_documentation",
-                    "Rankings": "task_rankings",
-                    "Publications": "task_publications",
-                    "Training and Development": "task_training",
-                    "Strategic Initiatives": "task_strategic",
-                    "Others": "task_others"
-                }
-                
-                for cat in categories:
-                    field_name = task_mapping.get(cat)
-                    if field_name:
-                        task_text = request.form.get(field_name, "").strip()
-                        if task_text:
-                            category_tasks[cat] = task_text
-                
-                if not category_tasks:
-                    flash("Please select at least one category and enter tasks.", "danger")
-                else:
-                    # Store categories as comma-separated and tasks as JSON
-                    category_str = ", ".join(category_tasks.keys())
-                    task_json = json.dumps(category_tasks)
+                if is_holiday:
+                    # Create holiday entry
+                    category_str = "Holiday"
+                    task_json = json.dumps({"Holiday": "Holiday"})
                     
-                    cursor.execute("""
-                        INSERT INTO worklog (username, date, status, category, task)
-                        VALUES (%s, %s, %s, %s, %s)
-                    """, (username, date_iso, "Present", category_str, task_json))
+                    cursor.execute("INSERT INTO worklog (username, date, category, task) VALUES (%s, %s, %s, %s)",
+                                   (username, date_iso, category_str, task_json))
                     conn.commit()
-                    flash("Worklog entry added successfully!", "success")
                     conn.close()
+                    flash("Holiday entry added successfully!", "success")
                     return redirect("/dashboard")
+                    
+                elif is_leave:
+                    # Create leave entry
+                    category_str = "Leave"
+                    task_json = json.dumps({"Leave": "Leave"})
+                    
+                    cursor.execute("INSERT INTO worklog (username, date, category, task) VALUES (%s, %s, %s, %s)",
+                                   (username, date_iso, category_str, task_json))
+                    conn.commit()
+                    conn.close()
+                    flash("Leave entry added successfully!", "success")
+                    return redirect("/dashboard")
+                    
+                else:
+                    # Regular worklog entry
+                    # Get selected categories
+                    categories = request.form.getlist("categories")
+                    
+                    # Build category-wise tasks dictionary
+                    category_tasks = {}
+                    task_mapping = {
+                        "Documentation and Audits": "task_documentation",
+                        "Rankings": "task_rankings",
+                        "Publications": "task_publications",
+                        "Training and Development": "task_training",
+                        "Strategic Initiatives": "task_strategic",
+                        "Others": "task_others"
+                    }
+                    
+                    for cat in categories:
+                        field_name = task_mapping.get(cat)
+                        if field_name:
+                            task_text = request.form.get(field_name, "").strip()
+                            if task_text:
+                                category_tasks[cat] = task_text
+                    
+                    if not category_tasks:
+                        flash("Please select at least one category and enter tasks.", "danger")
+                    else:
+                        # Store categories as comma-separated and tasks as JSON
+                        category_str = ", ".join(category_tasks.keys())
+                        task_json = json.dumps(category_tasks)
+                        
+                        cursor.execute("""
+                            INSERT INTO worklog (username, date, status, category, task)
+                            VALUES (%s, %s, %s, %s, %s)
+                        """, (username, date_iso, "Present", category_str, task_json))
+                        conn.commit()
+                        conn.close()
+                        flash("Worklog entry added successfully!", "success")
+                        return redirect("/dashboard")
 
     conn.close()
     return render_template("user_add_entry.html", username=username)
@@ -1111,6 +1392,205 @@ def admin_report():
     )
 
 
+@app.route("/admin_report_ai", methods=["GET", "POST"])
+def admin_report_ai():
+    if "username" not in session:
+        return redirect("/login")
+
+    conn = get_db_connection()
+    cursor = get_cursor(conn)
+
+    # Ensure admin
+    cursor.execute("SELECT * FROM users WHERE username=%s", (session["username"],))
+    admin = cursor.fetchone()
+
+    if not admin or admin["role"].lower() != "admin":
+        conn.close()
+        flash("Access denied.", "danger")
+        return redirect("/dashboard")
+
+    # Fetch users
+    cursor.execute("SELECT username, emp_id FROM users WHERE role!='Admin'")
+    users = cursor.fetchall()
+
+    logs = []
+    selected_user = None
+    filter_mode = "date"
+    from_date = None
+    to_date = None
+    selected_month = None
+    selected_academic_year = None
+    category_filter = "All"
+    ai_summary = None
+    ai_error = None
+
+    if request.method == "POST":
+        selected_user = request.form.get("user")
+        filter_mode = request.form.get("filter_mode")
+        from_date = request.form.get("from_date")
+        to_date = request.form.get("to_date")
+        selected_month = request.form.get("month")
+        selected_academic_year = request.form.get("academic_year")
+        category_filter = request.form.get("category_filter", "All")
+
+        if not selected_user:
+            flash("Please select a user.", "danger")
+
+        elif filter_mode == "academic_year":
+            if not selected_academic_year:
+                flash("Please select an academic year.", "danger")
+            else:
+                # Academic year format: "2025-2026" means May 2025 to April 2026
+                start_year, end_year = selected_academic_year.split("-")
+                first = f"{start_year}-05-01"  # May 1st of start year
+                last = f"{end_year}-04-30"     # April 30th of end year
+
+                if selected_user == "All":
+                    cursor.execute("""
+                        SELECT w.*, u.emp_id, u.designation, u.username
+                        FROM worklog w
+                        JOIN users u ON w.username=u.username
+                        WHERE w.date BETWEEN %s AND %s
+                        ORDER BY w.username, w.date
+                    """, (first, last))
+                else:
+                    cursor.execute("""
+                        SELECT w.*, u.emp_id, u.designation, u.username
+                        FROM worklog w
+                        JOIN users u ON w.username=u.username
+                        WHERE w.username=%s AND w.date BETWEEN %s AND %s
+                        ORDER BY w.date
+                    """, (selected_user, first, last))
+
+                logs = cursor.fetchall()
+
+        elif filter_mode == "month":
+            if not selected_month:
+                flash("Please select a month.", "danger")
+            else:
+                year, month = selected_month.split("-")
+                first = f"{year}-{month}-01"
+                last = f"{year}-{month}-{calendar.monthrange(int(year), int(month))[1]}"
+
+                if selected_user == "All":
+                    cursor.execute("""
+                        SELECT w.*, u.emp_id, u.designation, u.username
+                        FROM worklog w
+                        JOIN users u ON w.username=u.username
+                        WHERE w.date BETWEEN %s AND %s
+                        ORDER BY w.username, w.date
+                    """, (first, last))
+                else:
+                    cursor.execute("""
+                        SELECT w.*, u.emp_id, u.designation, u.username
+                        FROM worklog w
+                        JOIN users u ON w.username=u.username
+                        WHERE w.username=%s AND w.date BETWEEN %s AND %s
+                        ORDER BY w.date
+                    """, (selected_user, first, last))
+
+                logs = cursor.fetchall()
+
+        elif filter_mode == "date":
+            if not from_date or not to_date:
+                flash("Select From and To dates.", "danger")
+            else:
+                if selected_user == "All":
+                    cursor.execute("""
+                        SELECT w.*, u.emp_id, u.designation, u.username
+                        FROM worklog w
+                        JOIN users u ON w.username=u.username
+                        WHERE w.date BETWEEN %s AND %s
+                        ORDER BY w.username, w.date
+                    """, (from_date, to_date))
+                else:
+                    cursor.execute("""
+                        SELECT w.*, u.emp_id, u.designation, u.username
+                        FROM worklog w
+                        JOIN users u ON w.username=u.username
+                        WHERE w.username=%s AND w.date BETWEEN %s AND %s
+                        ORDER BY w.date
+                    """, (selected_user, from_date, to_date))
+
+                logs = cursor.fetchall()
+
+    # Process logs to parse JSON tasks and filter by category
+    processed_logs = []
+    for log in logs:
+        log_dict = dict(log)
+        tasks_dict = {}
+        task_raw = log["task"]
+        if task_raw:
+            try:
+                tasks_dict = json.loads(task_raw)
+            except (json.JSONDecodeError, TypeError):
+                # Legacy format - use category as key
+                if log["category"]:
+                    tasks_dict = {log["category"]: task_raw}
+
+        # Apply category filter
+        if category_filter and category_filter != "All":
+            if category_filter in tasks_dict:
+                # Only show the selected category's task
+                tasks_dict = {category_filter: tasks_dict[category_filter]}
+            else:
+                # Skip this log if selected category not present
+                continue
+
+        log_dict["tasks_dict"] = tasks_dict
+        processed_logs.append(log_dict)
+
+    if request.method == "POST" and processed_logs:
+        if not GEMINI_API_KEY or GEMINI_API_KEY == "your_gemini_api_key_here":
+            ai_error = "Gemini API key is not configured. Please add GEMINI_API_KEY in your .env file."
+        else:
+            try:
+                # List available models to find the correct one
+                available_models = [m.name for m in genai.list_models() if 'generateContent' in m.supported_generation_methods]
+                if not available_models:
+                    ai_error = "No compatible Gemini models found."
+                else:
+                    # Use the first available model
+                    model_name = available_models[0]
+                    model = genai.GenerativeModel(model_name)
+                    prompt = build_ai_summary_prompt(
+                        processed_logs,
+                        selected_user,
+                        filter_mode,
+                        from_date,
+                        to_date,
+                        selected_month,
+                        selected_academic_year,
+                        category_filter
+                    )
+                    response = model.generate_content(prompt)
+                    ai_summary = (response.text or "").strip() if response else ""
+                    ai_summary = ai_summary.replace("**", "").replace("*", "")
+                    if not ai_summary:
+                        ai_error = "AI summary could not be generated. Please try again."
+            except Exception as e:
+                ai_error = f"AI summary error: {str(e)}"
+
+    conn.close()
+
+    return render_template(
+        "admin_report_ai.html",
+        users=users,
+        logs=processed_logs,
+        selected_user=selected_user,
+        from_date=from_date,
+        to_date=to_date,
+        selected_month=selected_month,
+        selected_academic_year=selected_academic_year,
+        filter_mode=filter_mode,
+        category_filter=category_filter,
+        user=admin,
+        datetime=datetime,
+        ai_summary=ai_summary,
+        ai_error=ai_error
+    )
+
+
 # ------------------ ADMIN: MANAGE USERS ------------------
 @app.route("/admin_manage_users")
 def admin_manage_users():
@@ -1312,6 +1792,31 @@ IQAC Admin
 
     return redirect("/admin_manage_users")
 
+
+# ------------------ EMAIL REMINDER ROUTES (for scheduler/cron) ------------------
+@app.route("/send_29th_reminders")
+def trigger_29th_reminders():
+    """Trigger 29th reminder emails - can be called by scheduler"""
+    today = datetime.now().date()
+    
+    # Only send on 29th of the month
+    if today.day != 29:
+        return f"Not the 29th. Today is {today.strftime('%d/%m/%Y')}", 400
+    
+    result = send_29th_reminder()
+    return result, 200
+
+@app.route("/send_1st_deadline_reminders")
+def trigger_1st_deadline_reminders():
+    """Trigger 1st deadline reminder emails - can be called by scheduler"""
+    today = datetime.now().date()
+    
+    # Only send on 1st of the month
+    if today.day != 1:
+        return f"Not the 1st. Today is {today.strftime('%d/%m/%Y')}", 400
+    
+    result = send_1st_deadline_reminder()
+    return result, 200
 
 # ------------------ RUN APP ------------------
 if __name__ == "__main__":
