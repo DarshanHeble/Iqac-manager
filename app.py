@@ -161,31 +161,31 @@ def send_29th_reminder():
         missing_dates = get_missing_entries(username, current_year, current_month)
         
         if missing_dates:
-            # Format missing dates
-            missing_dates_str = ', '.join([d.strftime('%d/%m/%Y') for d in sorted(missing_dates)])
+            # Format missing dates in cleaner format (Feb 2, Feb 3, etc.)
+            sorted_dates = sorted(missing_dates)
+            dates_list = ', '.join([d.strftime('%b %d') for d in sorted_dates])
+            # Get deadline date (2nd of next month)
+            if current_month == 12:
+                deadline_date = datetime(current_year + 1, 1, 2).date()
+            else:
+                deadline_date = datetime(current_year, current_month + 1, 2).date()
+            deadline_str = deadline_date.strftime('%b %d, %Y')
             
-            subject = f"IQAC Worklog Reminder - Missing Entries for {calendar.month_name[current_month]} {current_year}"
+            subject = f"IQAC Worklog Reminder - Missing Entries"
             body = f"""Dear {username},
 
-This is a reminder from the IQAC Worklog System.
+This is a kind reminder to complete and submit your work logs for the dates:
 
-We noticed that you have not filled worklog entries for the following dates in {calendar.month_name[current_month]} {current_year}:
+{dates_list}
 
-{missing_dates_str}
+The final date to submit your log is {deadline_str}. Please log in to the portal and complete the submission before the deadline.
 
-Total missing entries: {len(missing_dates)}
+Portal Link: http://127.0.0.1:5000/login
 
-Please log in to the IQAC Worklog System and complete your entries before the month ends.
+If you have already submitted the work logs kindly disregard this email.
 
-The deadline for submitting entries for the current month is midnight on the 2nd of next month.
-
-Login here: http://127.0.0.1:5000/login
-
-Thank you for your cooperation.
-
-Best regards,
-IQAC Team
-CHRIST (Deemed to be University)
+---
+This is an auto-generated email. Please do not reply to this message.
 """
             send_reminder_email(email, subject, body)
     
@@ -217,37 +217,28 @@ def send_1st_deadline_reminder():
         missing_dates = get_missing_entries(username, prev_year, prev_month)
         
         if missing_dates:
-            # Format missing dates
-            missing_dates_str = ', '.join([d.strftime('%d/%m/%Y') for d in sorted(missing_dates)])
+            # Format missing dates in cleaner format (Feb 2, Feb 3, etc.)
+            sorted_dates = sorted(missing_dates)
+            dates_list = ', '.join([d.strftime('%b %d') for d in sorted_dates])
+            deadline_str = today.strftime('%b %d, %Y')
             
-            subject = f"URGENT: IQAC Worklog Deadline TODAY - {calendar.month_name[prev_month]} {prev_year}"
+            subject = f"URGENT: IQAC Worklog Submission Deadline - TODAY"
             body = f"""Dear {username},
 
-*** URGENT REMINDER - DEADLINE TODAY MIDNIGHT ***
+This is a kind reminder to complete and submit your work logs for the dates:
 
-This is the final reminder from the IQAC Worklog System.
+{dates_list}
 
-You still have unfilled worklog entries for {calendar.month_name[prev_month]} {prev_year}:
+The final date to submit your log is {deadline_str} (TODAY). Please log in to the portal and complete the submission before the deadline.
 
-{missing_dates_str}
+Portal Link: http://127.0.0.1:5000/login
 
-Total missing entries: {len(missing_dates)}
+If you have already submitted the work logs kindly disregard this email.
 
-DEADLINE: Today, {today.strftime('%d/%m/%Y')} at MIDNIGHT (23:59)
-
-After midnight tonight, you will no longer be able to add entries for {calendar.month_name[prev_month]} {prev_year}.
-
-Please log in immediately and complete your worklog entries:
-http://127.0.0.1:5000/login
-
-This is your last opportunity to submit entries for the previous month.
-
-Thank you for your immediate attention.
-
-Best regards,
-IQAC Team
-CHRIST (Deemed to be University)
+---
+This is an auto-generated email. Please do not reply to this message.
 """
+            send_reminder_email(email, subject, body)
             send_reminder_email(email, subject, body)
     
     return f"1st deadline reminder sent to {len(users)} users"
