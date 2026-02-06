@@ -1173,7 +1173,7 @@ Your IQAC Worklog account has been created.
 Username: {username}
 Password: {password}
 
-Login: http://127.0.0.1:5000/login
+Login: https://iqacworklog.christuniversity.in/login
 
 Regards,
 IQAC Admin
@@ -1225,13 +1225,21 @@ def forgot_password():
     # Email password
     try:
         msg = MIMEText(f"""
-Your password has been reset.
+    Dear {username},
 
-Username: {username}
-New Password: {new_password}
+    Your password for the IQAC Worklog account has been successfully reset. Please find your updated login credentials below:
 
-Login: http://127.0.0.1:5000/login
-""")
+    Username: {username}
+    New Password: {new_password}
+
+    You may log in using the following link:
+    https://iqacworklog.christuniversity.in
+
+    If you did not request this reset or require any assistance, please contact the admin.
+
+    Regards,
+    IQAC Admin
+    """)
 
         msg["Subject"] = "IQAC Worklog Password Reset"
         msg["From"] = SMTP_EMAIL
@@ -1787,18 +1795,21 @@ def admin_reset_password(id):
     # Send email
     try:
         msg = MIMEText(f"""
-Dear {user['username']},
+    Dear {user['username']},
 
-Your password has been reset by the administrator.
+    Your password for the IQAC Worklog account has been successfully reset. Please find your updated login credentials below:
 
-Username: {user['username']}
-New Password: {new_password}
+    Username: {user['username']}
+    New Password: {new_password}
 
-Login: http://127.0.0.1:5000/login
+    You may log in using the following link:
+    https://iqacworklog.christuniversity.in
 
-Regards,
-IQAC Admin
-""")
+    If you did not request this reset or require any assistance, please contact the admin.
+
+    Regards,
+    IQAC Admin
+    """)
         msg["Subject"] = "IQAC Worklog - Password Reset"
         msg["From"] = SMTP_EMAIL
         msg["To"] = user["email"]

@@ -166,7 +166,7 @@ createdb iqac_worklog
 python app.py
 ```
 
-Access the application at: `http://127.0.0.1:5000`
+Access the application at: `https://iqacworklog.christuniversity.in`
 
 ## Configuration
 
