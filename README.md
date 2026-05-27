@@ -130,7 +130,7 @@ A comprehensive Flask-based worklog management system for CHRIST (Deemed to be U
 
 1. **Clone the repository**:
 ```bash
-git clone https://github.com/yourusername/iqac-worklog.git
+git clone https://github.com/vvaish/iqac-worklog.git
 cd iqac-worklog
 ```
 
