@@ -110,6 +110,9 @@
               <label class="form-label">Role</label>
               <select name="role" class="form-select" required {% if user.username == 'admin' %}disabled{% endif %}>
                 <option value="Employee" {% if user.role == 'Employee' %}selected{% endif %}>Employee</option>
+                <option value="Intern" {% if user.role == 'Intern' %}selected{% endif %}>Intern</option>
+                <option value="School IQAC Coordinator" {% if user.role == 'School IQAC Coordinator' %}selected{% endif %}>School IQAC Coordinator</option>
+                <option value="Campus IQAC Coordinator" {% if user.role == 'Campus IQAC Coordinator' %}selected{% endif %}>Campus IQAC Coordinator</option>
                 <option value="Admin" {% if user.role == 'Admin' %}selected{% endif %}>Admin</option>
               </select>
               {% if user.username == 'admin' %}

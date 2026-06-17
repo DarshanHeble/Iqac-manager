@@ -1,0 +1,336 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Monthly Work Done Report - IQAC</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css" rel="stylesheet">
+    <style>
+      html { height: 100%; }
+      body { background-color: #f8fafc; font-size: 15px; min-height: 100%; display: flex; flex-direction: column; }
+      .main-container { flex: 1; }
+      header { background-color: #003366; color: #fff; padding: 1rem 1.5rem; border-radius: .5rem; margin-bottom: 1.5rem; position: relative; }
+      .logo-container { background-color: #fff; padding: 8px 12px; border-radius: 8px; display: inline-block; flex-shrink: 0; }
+      .logo-container img { height: 75px; width: auto; }
+      .header-title { color: #fff; margin: 0; position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); text-align: center; }
+      .header-title h5 { font-size: 1.25rem; font-weight: 700; margin: 0; }
+      .card { box-shadow: 0 0.5rem 1rem rgba(0,0,0,.1); border: none; border-radius: 0.5rem; }
+      .btn-primary { background-color: #003366; border-color: #003366; }
+      .btn-primary:hover { background-color: #004080; border-color: #004080; }
+      .btn-outline-primary { color: #003366; border-color: #003366; }
+      .btn-outline-primary:hover { background-color: #003366; color: #fff; }
+      .form-label { font-weight: 600; color: #003366; }
+      .text-primary { color: #003366 !important; }
+      .section-header { background-color: #003366; color: #fff; padding: 0.5rem 1rem; border-radius: 0.3rem; font-weight: 700; margin-bottom: 1rem; margin-top: 1rem; }
+      .table thead { background-color: #003366; color: #fff; }
+      .table-sm td, .table-sm th { vertical-align: middle; }
+      footer { background: linear-gradient(135deg, #002244 0%, #003366 50%, #004080 100%); color: #fff; padding: 0.75rem 1rem; text-align: center; margin-top: auto; border-top: 3px solid #ffc107; font-size: 0.85rem; }
+      footer .footer-content { display: flex; justify-content: center; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
+      footer .divider { color: #ffc107; font-weight: bold; }
+      .table input, .table textarea { font-size: 0.85rem; }
+      .btn-add-row { font-size: 0.8rem; }
+      .btn-del-row { font-size: 0.8rem; padding: 2px 8px; }
+    </style>
+  </head>
+  <body>
+    <div class="container py-3 main-container">
+      <!-- Header -->
+      <header class="d-flex justify-content-between align-items-center">
+        <a href="/iqac_dashboard" class="text-decoration-none d-flex align-items-center">
+          <div class="logo-container">
+            <img src="{{ url_for('static', filename='christ_logo.png') }}" alt="CHRIST Logo">
+          </div>
+        </a>
+        <div class="header-title">
+          <h5>INTERNAL QUALITY ASSURANCE CELL (IQAC)</h5>
+          <small style="font-size:0.8rem; font-weight:400;">Monthly Work Done Report</small>
+        </div>
+        <div>
+          <span class="text-light me-3">{{ username.title() }}</span>
+          <a href="/iqac_dashboard" class="btn btn-light btn-sm me-1"><i class="bi bi-arrow-left"></i> Back</a>
+          <a href="/logout" class="btn btn-outline-light btn-sm">Logout</a>
+        </div>
+      </header>
+
+      <form method="POST" action="/iqac_monthly_report/download" id="reportForm">
+
+        <!-- ── Report Header ── -->
+        <div class="card mb-4">
+          <div class="card-body">
+            <h6 class="text-primary mb-3">Monthly Work Done Report of IQAC Coordinators</h6>
+            <div class="row g-3">
+              <div class="col-md-5">
+                <label class="form-label">Name of the IQAC Coordinator</label>
+                <input type="text" name="coordinator_name" class="form-control" value="{{ user.username.title() }}" required>
+              </div>
+              <div class="col-md-4">
+                <label class="form-label">School / Campus</label>
+                <input type="text" name="school_campus" class="form-control" value="{{ user.department or '' }}" placeholder="e.g., School of Sciences, Bangalore">
+              </div>
+              <div class="col-md-3">
+                <label class="form-label">Reporting Month</label>
+                <input type="month" name="reporting_month" class="form-control" required>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ── Section I ── -->
+        <div class="section-header">Section I: Quality Assurance Initiatives</div>
+
+        <!-- Part (a) -->
+        <div class="card mb-3">
+          <div class="card-body">
+            <p class="mb-2" style="font-size:0.9rem; font-weight:600; color:#003366;">(a) Meetings / Activities conducted relating to IQAC Coordinator's responsibility areas</p>
+            <p class="text-muted small mb-3">Such as: Monitoring Strategic Plan Implementation, Benchmarking, Gap Analysis and Guidance, Data and Document Management, Audit Coordination, Engagement with University Offices/Centres, Participation in Rankings and Accreditations, Monitoring website updates, Report Preparation and Submission.</p>
+
+            <div class="table-responsive">
+              <table class="table table-bordered table-sm" id="tableA">
+                <thead>
+                  <tr>
+                    <th style="width:12%;">Date of Meeting</th>
+                    <th style="width:14%;">Department Name</th>
+                    <th style="width:16%;">Participants' Details</th>
+                    <th style="width:20%;">Topics Discussed</th>
+                    <th style="width:20%;">Action Points / Plan</th>
+                    <th style="width:14%;">Related Responsibility Area</th>
+                    <th style="width:4%;"></th>
+                  </tr>
+                </thead>
+                <tbody id="tableA-body">
+                  <tr class="row-template-a">
+                    <td><input type="date" name="meeting_date[]" class="form-control form-control-sm"></td>
+                    <td><input type="text" name="dept_name[]" class="form-control form-control-sm" placeholder="Department"></td>
+                    <td><input type="text" name="participants[]" class="form-control form-control-sm" placeholder="Names / Designations"></td>
+                    <td><textarea name="topics[]" class="form-control form-control-sm topics-field" rows="2" placeholder="Auto-filled or type here"></textarea></td>
+                    <td><textarea name="action_points[]" class="form-control form-control-sm" rows="2" placeholder="Action points"></textarea></td>
+                    <td>
+                      <select name="responsibility_area[]" class="form-select form-select-sm resp-area-select" onchange="fillTopics(this)">
+                        <option value="">-- Select Area --</option>
+                        <option>Monitoring Strategic Plan Implementation</option>
+                        <option>Benchmarking</option>
+                        <option>Gap Analysis and Guidance</option>
+                        <option>Data and Document Management</option>
+                        <option>Audit Coordination</option>
+                        <option>Engagement with University Offices/Centres</option>
+                        <option>Participation in Rankings and Accreditations</option>
+                        <option>Monitoring website updates of department activities</option>
+                        <option>Report Preparation and Submission</option>
+                      </select>
+                    </td>
+                    <td class="text-center"><button type="button" class="btn btn-danger btn-del-row" onclick="delRow(this)"><i class="bi bi-trash"></i></button></td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <button type="button" class="btn btn-outline-primary btn-add-row" onclick="addRow('A')">
+              <i class="bi bi-plus-circle me-1"></i> Add Row
+            </button>
+            <p class="text-muted small mt-2 mb-0">(Additional tables may be inserted for each department)</p>
+          </div>
+        </div>
+
+        <!-- Part (b) -->
+        <div class="card mb-3">
+          <div class="card-body">
+            <p class="mb-3" style="font-size:0.9rem; font-weight:600; color:#003366;">(b) Workshops / Seminars / Training Programs organised by the IQAC coordinator (If any)</p>
+
+            <div class="table-responsive">
+              <table class="table table-bordered table-sm" id="tableB">
+                <thead>
+                  <tr>
+                    <th style="width:12%;">Date</th>
+                    <th style="width:14%;">Venue</th>
+                    <th style="width:18%;">Title of the Program</th>
+                    <th style="width:10%;">No. of Participants</th>
+                    <th style="width:22%;">Name of the Resource Person/s</th>
+                    <th style="width:20%;">Related Responsibility Area</th>
+                    <th style="width:4%;"></th>
+                  </tr>
+                </thead>
+                <tbody id="tableB-body">
+                  <tr class="row-template-b">
+                    <td><input type="date" name="ws_date[]" class="form-control form-control-sm"></td>
+                    <td><input type="text" name="ws_venue[]" class="form-control form-control-sm" placeholder="Venue"></td>
+                    <td><input type="text" name="ws_title[]" class="form-control form-control-sm" placeholder="Program title"></td>
+                    <td><input type="number" name="ws_participants[]" class="form-control form-control-sm" placeholder="0" min="0"></td>
+                    <td><input type="text" name="ws_resource[]" class="form-control form-control-sm" placeholder="Resource person(s)"></td>
+                    <td>
+                      <select name="ws_responsibility[]" class="form-select form-select-sm">
+                        <option value="">-- Select Area --</option>
+                        <option>Monitoring Strategic Plan Implementation</option>
+                        <option>Benchmarking</option>
+                        <option>Gap Analysis and Guidance</option>
+                        <option>Data and Document Management</option>
+                        <option>Audit Coordination</option>
+                        <option>Engagement with University Offices/Centres</option>
+                        <option>Participation in Rankings and Accreditations</option>
+                        <option>Monitoring website updates of department activities</option>
+                        <option>Report Preparation and Submission</option>
+                      </select>
+                    </td>
+                    <td class="text-center"><button type="button" class="btn btn-danger btn-del-row" onclick="delRow(this)"><i class="bi bi-trash"></i></button></td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <button type="button" class="btn btn-outline-primary btn-add-row" onclick="addRow('B')">
+              <i class="bi bi-plus-circle me-1"></i> Add Row
+            </button>
+          </div>
+        </div>
+
+        <!-- Report Description -->
+        <div class="card mb-4">
+          <div class="card-body">
+            <label class="form-label">Report: <span class="fw-normal text-muted">(to be attached)</span></label>
+            <p class="text-muted small mb-2">[Brief description of the Program covering the objectives, outcomes and SDG goals, if any. Kindly attach photographs, the attendance sheet and feedback.]</p>
+            <textarea name="report_description" class="form-control" rows="4" placeholder="Enter a brief description here (optional)..."></textarea>
+          </div>
+        </div>
+
+        <!-- ── Section II ── -->
+        <div class="section-header">Section II: Plans for Next Month</div>
+
+        <div class="card mb-4">
+          <div class="card-body">
+            <div id="plans-container">
+              <div class="input-group mb-2 plan-item">
+                <span class="input-group-text">1.</span>
+                <input type="text" name="plan[]" class="form-control" placeholder="Plan item 1">
+                <button type="button" class="btn btn-danger btn-del-row" onclick="delPlan(this)"><i class="bi bi-trash"></i></button>
+              </div>
+              <div class="input-group mb-2 plan-item">
+                <span class="input-group-text">2.</span>
+                <input type="text" name="plan[]" class="form-control" placeholder="Plan item 2">
+                <button type="button" class="btn btn-danger btn-del-row" onclick="delPlan(this)"><i class="bi bi-trash"></i></button>
+              </div>
+              <div class="input-group mb-2 plan-item">
+                <span class="input-group-text">3.</span>
+                <input type="text" name="plan[]" class="form-control" placeholder="Plan item 3">
+                <button type="button" class="btn btn-danger btn-del-row" onclick="delPlan(this)"><i class="bi bi-trash"></i></button>
+              </div>
+            </div>
+            <button type="button" class="btn btn-outline-primary btn-add-row mt-1" onclick="addPlan()">
+              <i class="bi bi-plus-circle me-1"></i> Add Plan Item
+            </button>
+          </div>
+        </div>
+
+        <!-- ── Signatures ── -->
+        <div class="card mb-4">
+          <div class="card-body">
+            <h6 class="text-primary mb-3">Signatures <span class="text-muted fw-normal small">(actual signatures will be done on the printed copy)</span></h6>
+            <div class="row g-3">
+              <div class="col-md-4">
+                <label class="form-label">Name of the IQAC Coordinator</label>
+                <input type="text" name="sig_coordinator_name" class="form-control" value="{{ user.username.title() }}">
+                <small class="text-muted">Signature: ________________________</small>
+              </div>
+              <div class="col-md-4">
+                <label class="form-label">Remarks of the Dean</label>
+                <input type="text" name="sig_dean_remarks" class="form-control" placeholder="Dean's remarks (if any)">
+                <small class="text-muted">Signature: ________________________</small>
+              </div>
+              <div class="col-md-4">
+                <label class="form-label">Remarks of Director IQAC</label>
+                <input type="text" name="sig_director_remarks" class="form-control" placeholder="Director IQAC's remarks (if any)">
+                <small class="text-muted">Signature: ________________________</small>
+              </div>
+            </div>
+            <div class="row mt-3">
+              <div class="col-md-3">
+                <label class="form-label">Date</label>
+                <input type="date" name="footer_date" class="form-control" value="{{ datetime.now().strftime('%Y-%m-%d') }}">
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Download Button -->
+        <div class="d-flex gap-2 mb-4">
+          <button type="submit" class="btn btn-primary btn-lg px-5">
+            <i class="bi bi-file-earmark-pdf me-2"></i>Download as PDF
+          </button>
+          <a href="/iqac_dashboard" class="btn btn-outline-secondary btn-lg">Cancel</a>
+        </div>
+
+      </form>
+    </div>
+
+    <!-- Footer -->
+    <footer>
+      <div class="footer-content">
+        <span>Concept: <strong>Dr. Cecil Donald</strong></span>
+        <span class="divider">|</span>
+        <span>Developed by: <strong>Vaishnavi VK</strong> (MCA 2024-26)</span>
+      </div>
+    </footer>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+      // ── Auto-fill Topics Discussed from Responsibility Area ──
+      function fillTopics(selectEl) {
+        const row = selectEl.closest('tr');
+        const topicsField = row.querySelector('.topics-field');
+        if (topicsField && !topicsField.value) {
+          topicsField.value = selectEl.value;
+        }
+      }
+
+      // ── Dynamic table row management ──
+      function addRow(table) {
+        const tbody = document.getElementById('table' + table + '-body');
+        const templateClass = '.row-template-' + table.toLowerCase();
+        const template = tbody.querySelector(templateClass);
+        const newRow = template.cloneNode(true);
+        newRow.querySelectorAll('input, textarea').forEach(el => el.value = '');
+        newRow.querySelectorAll('select').forEach(el => el.selectedIndex = 0);
+        tbody.appendChild(newRow);
+      }
+
+      function delRow(btn) {
+        const tbody = btn.closest('tbody');
+        const rows = tbody.querySelectorAll('tr');
+        if (rows.length <= 1) {
+          // Clear rather than delete the last row
+          btn.closest('tr').querySelectorAll('input, textarea').forEach(el => el.value = '');
+          return;
+        }
+        btn.closest('tr').remove();
+      }
+
+      // ── Dynamic plan items ──
+      function addPlan() {
+        const container = document.getElementById('plans-container');
+        const count = container.querySelectorAll('.plan-item').length + 1;
+        const div = document.createElement('div');
+        div.className = 'input-group mb-2 plan-item';
+        div.innerHTML = `
+          <span class="input-group-text">${count}.</span>
+          <input type="text" name="plan[]" class="form-control" placeholder="Plan item ${count}">
+          <button type="button" class="btn btn-danger btn-del-row" onclick="delPlan(this)"><i class="bi bi-trash"></i></button>
+        `;
+        container.appendChild(div);
+        renumberPlans();
+      }
+
+      function delPlan(btn) {
+        const container = document.getElementById('plans-container');
+        const items = container.querySelectorAll('.plan-item');
+        if (items.length <= 1) return;
+        btn.closest('.plan-item').remove();
+        renumberPlans();
+      }
+
+      function renumberPlans() {
+        const items = document.querySelectorAll('#plans-container .plan-item');
+        items.forEach((item, i) => {
+          item.querySelector('.input-group-text').textContent = (i + 1) + '.';
+          item.querySelector('input').placeholder = 'Plan item ' + (i + 1);
+        });
+      }
+    </script>
+  </body>
+</html>

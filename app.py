@@ -1,13 +1,27 @@
-from flask import Flask, render_template, request, redirect, url_for, flash, session
+from flask import Flask, render_template, request, redirect, url_for, flash, session, send_file
 import os, random, string, smtplib, json
 from datetime import datetime, timedelta
 from email.mime.text import MIMEText
 from werkzeug.security import generate_password_hash, check_password_hash
+from werkzeug.utils import secure_filename
+from io import BytesIO
 import calendar
 from dotenv import load_dotenv
 import psycopg2
 import psycopg2.extras
 import google.generativeai as genai
+
+# ReportLab for PDF generation
+try:
+    from reportlab.lib.pagesizes import A4
+    from reportlab.lib import colors
+    from reportlab.lib.units import cm
+    from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, Image as RLImage, HRFlowable
+    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+    from reportlab.lib.enums import TA_CENTER, TA_LEFT
+    REPORTLAB_AVAILABLE = True
+except ImportError:
+    REPORTLAB_AVAILABLE = False
 
 # Load environment variables from .env file (override any existing env vars)
 load_dotenv(override=True)
@@ -15,8 +29,9 @@ load_dotenv(override=True)
 app = Flask(__name__)
 app.secret_key = os.getenv("SECRET_KEY", "your_secret_key")
 
-# Make datetime available in all templates
+# Make datetime and timedelta available in all templates
 app.jinja_env.globals['datetime'] = datetime
+app.jinja_env.globals['timedelta'] = timedelta
 
 # Add context processor for current year in footer
 @app.context_processor
@@ -165,11 +180,11 @@ def send_29th_reminder():
     conn = get_db_connection()
     cursor = get_cursor(conn)
     
-    # Get all non-admin users
-    cursor.execute("SELECT username, email FROM users WHERE role != 'admin'")
+    # Get all Employee/Intern users (exclude Admin and Coordinators)
+    cursor.execute("SELECT username, email FROM users WHERE LOWER(role) NOT IN ('admin', 'school iqac coordinator', 'campus iqac coordinator')")
     users = cursor.fetchall()
     conn.close()
-    
+
     today = datetime.now().date()
     current_year = today.year
     current_month = today.month
@@ -214,11 +229,11 @@ def send_1st_deadline_reminder():
     conn = get_db_connection()
     cursor = get_cursor(conn)
     
-    # Get all non-admin users
-    cursor.execute("SELECT username, email FROM users WHERE role != 'admin'")
+    # Get all Employee/Intern users (exclude Admin and Coordinators)
+    cursor.execute("SELECT username, email FROM users WHERE LOWER(role) NOT IN ('admin', 'school iqac coordinator', 'campus iqac coordinator')")
     users = cursor.fetchall()
     conn.close()
-    
+
     today = datetime.now().date()
     # Previous month
     if today.month == 1:
@@ -333,6 +348,57 @@ def build_ai_summary_prompt(logs, selected_user, filter_mode, from_date, to_date
 
     return "\n".join(lines)
 
+# ------------------ APP SETTINGS HELPER ------------------
+def get_submission_window():
+    """Return (open_day, close_day) from app_settings."""
+    try:
+        conn = get_db_connection()
+        cursor = get_cursor(conn)
+        cursor.execute("SELECT key, value FROM app_settings WHERE key IN ('submission_open_day', 'submission_close_day')")
+        rows = {r['key']: int(r['value']) for r in cursor.fetchall()}
+        conn.close()
+        return rows.get('submission_open_day', 1), rows.get('submission_close_day', 5)
+    except Exception:
+        return 1, 5
+
+def check_submission_window():
+    """
+    Returns (is_open, reporting_month_str, open_day, close_day, window_msg).
+    The window for last month's report opens on open_day and closes on close_day
+    of the current month.
+    """
+    open_day, close_day = get_submission_window()
+    today = datetime.now().date()
+    current_day = today.day
+
+    # The report being submitted is always for the previous month
+    if today.month == 1:
+        report_year, report_month = today.year - 1, 12
+    else:
+        report_year, report_month = today.year, today.month - 1
+
+    reporting_month_str = f"{report_year}-{report_month:02d}"
+    month_name = datetime(report_year, report_month, 1).strftime("%B %Y")
+
+    is_open = open_day <= current_day <= close_day
+
+    if is_open:
+        window_msg = f"Submission window for {month_name} is open until {today.strftime('%B')} {close_day}, {today.year}."
+    elif current_day < open_day:
+        window_msg = (f"Submission window for {month_name} opens on "
+                      f"{today.strftime('%B')} {open_day}, {today.year}.")
+    else:
+        # Past the close day — next window is next month
+        if today.month == 12:
+            next_open = datetime(today.year + 1, 1, open_day).strftime("%B %d, %Y")
+        else:
+            next_open = datetime(today.year, today.month + 1, open_day).strftime("%B %d, %Y")
+        window_msg = (f"Submission window for {month_name} closed on "
+                      f"{today.strftime('%B')} {close_day}, {today.year}. "
+                      f"Next window opens {next_open}.")
+
+    return is_open, reporting_month_str, open_day, close_day, window_msg
+
 # ------------------ DISABLE CACHING ------------------
 @app.after_request
 def disable_cache(resp):
@@ -374,6 +440,29 @@ def init_postgres():
         )
     """)
 
+    # Create signed_reports table for IQAC Coordinator uploaded reports
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS signed_reports (
+            id SERIAL PRIMARY KEY,
+            username VARCHAR(255) NOT NULL,
+            reporting_month VARCHAR(20),
+            uploaded_file_path VARCHAR(500),
+            uploaded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            status VARCHAR(20) DEFAULT 'pending'
+        )
+    """)
+
+    # Create app_settings table for configurable options
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS app_settings (
+            key VARCHAR(100) PRIMARY KEY,
+            value VARCHAR(255)
+        )
+    """)
+    # Default submission window: open on 1st, close on 5th of each month
+    cursor.execute("INSERT INTO app_settings (key, value) VALUES ('submission_open_day', '1') ON CONFLICT (key) DO NOTHING")
+    cursor.execute("INSERT INTO app_settings (key, value) VALUES ('submission_close_day', '5') ON CONFLICT (key) DO NOTHING")
+
     # Create indexes for better performance
     cursor.execute("""
         CREATE INDEX IF NOT EXISTS idx_worklog_username ON worklog(username)
@@ -384,6 +473,9 @@ def init_postgres():
     cursor.execute("""
         CREATE INDEX IF NOT EXISTS idx_users_role ON users(role)
     """)
+
+    # Migrate old 'IQAC Coordinator' role to 'School IQAC Coordinator'
+    cursor.execute("UPDATE users SET role='School IQAC Coordinator' WHERE role='IQAC Coordinator'")
 
     # Default admin
     cursor.execute("SELECT * FROM users WHERE username='admin'")
@@ -410,6 +502,9 @@ try:
     init_postgres()
 except Exception as e:
     print(f"Warning: Could not initialize database: {e}")
+
+# Ensure signed_reports upload directory exists
+os.makedirs(os.path.join(os.path.dirname(__file__), 'static', 'signed_reports'), exist_ok=True)
 
 # ------------------ TEMPLATE FILTER ------------------
 
@@ -442,8 +537,14 @@ def login():
 
         if user and check_password_hash(user["password"], password):
             session["username"] = username
+            session["role"] = user["role"]
             flash(f"Welcome, {username}!", "success")
-            return redirect("/admin") if user["role"].lower() == "admin" else redirect("/dashboard")
+            if user["role"].lower() == "admin":
+                return redirect("/admin")
+            elif user["role"].lower() in ("school iqac coordinator", "campus iqac coordinator"):
+                return redirect("/iqac_dashboard")
+            else:
+                return redirect("/dashboard")
         else:
             flash("Invalid username or password.", "danger")
 
@@ -475,6 +576,10 @@ def dashboard():
         conn.close()
         flash("Admins cannot access the employee dashboard.", "warning")
         return redirect("/admin")
+
+    if user["role"].lower() in ("school iqac coordinator", "campus iqac coordinator"):
+        conn.close()
+        return redirect("/iqac_dashboard")
 
     # Fetch logs for stats
     cursor.execute("SELECT * FROM worklog WHERE username=%s", (username,))
@@ -558,6 +663,11 @@ def user_add_entry():
         conn.close()
         flash("Admins cannot access this page.", "warning")
         return redirect("/admin")
+
+    if user["role"].lower() in ("school iqac coordinator", "campus iqac coordinator"):
+        conn.close()
+        flash("IQAC Coordinators do not have access to worklog entries.", "warning")
+        return redirect("/iqac_dashboard")
 
     # Handle form submit
     if request.method == "POST":
@@ -699,6 +809,11 @@ def user_view_entries():
         flash("Admins cannot access this page.", "warning")
         return redirect("/admin")
 
+    if user["role"].lower() in ("school iqac coordinator", "campus iqac coordinator"):
+        conn.close()
+        flash("IQAC Coordinators do not have access to worklog entries.", "warning")
+        return redirect("/iqac_dashboard")
+
     # Fetch logs
     cursor.execute("SELECT * FROM worklog WHERE username=%s", (username,))
     rows = cursor.fetchall()
@@ -770,6 +885,11 @@ def user_report():
         conn.close()
         flash("Admins should use the Admin Report page.", "warning")
         return redirect("/admin")
+
+    if user["role"].lower() in ("school iqac coordinator", "campus iqac coordinator"):
+        conn.close()
+        flash("IQAC Coordinators do not have worklog reports.", "warning")
+        return redirect("/iqac_dashboard")
 
     logs = []
     filter_mode = "date"
@@ -1005,8 +1125,8 @@ def admin_panel():
         flash("Access denied.", "danger")
         return redirect("/dashboard")
 
-    # Fetch users for dropdown
-    cursor.execute("SELECT username, emp_id FROM users WHERE role!='Admin'")
+    # Fetch employees for dropdown (exclude Admin and Coordinators)
+    cursor.execute("SELECT username, emp_id FROM users WHERE role NOT IN ('Admin', 'School IQAC Coordinator', 'Campus IQAC Coordinator') ORDER BY username")
     users = cursor.fetchall()
 
     # Get stats for dashboard cards
@@ -1023,6 +1143,94 @@ def admin_panel():
     cursor.execute("SELECT COUNT(*) FROM worklog WHERE date BETWEEN %s AND %s", (month_start, month_end))
     month_entries = cursor.fetchone()[0]
 
+    # IQAC Coordinator report submission progress for current month
+    current_report_month = now.strftime("%Y-%m")
+    cursor.execute("SELECT COUNT(*) FROM users WHERE role IN ('School IQAC Coordinator', 'Campus IQAC Coordinator')")
+    total_coordinators = cursor.fetchone()[0]
+    cursor.execute("SELECT COUNT(DISTINCT username) FROM signed_reports WHERE reporting_month = %s", (current_report_month,))
+    submitted_coordinators = cursor.fetchone()[0]
+    submission_pct = int((submitted_coordinators / total_coordinators * 100) if total_coordinators > 0 else 0)
+
+    # Which coordinators have NOT submitted
+    cursor.execute("""
+        SELECT username FROM users WHERE role IN ('School IQAC Coordinator', 'Campus IQAC Coordinator')
+        AND username NOT IN (
+            SELECT DISTINCT username FROM signed_reports WHERE reporting_month = %s
+        )
+    """, (current_report_month,))
+    pending_coordinators = [r['username'] for r in cursor.fetchall()]
+
+    # Which coordinators HAVE submitted
+    cursor.execute("""
+        SELECT DISTINCT u.username FROM users u
+        JOIN signed_reports sr ON sr.username = u.username
+        WHERE u.role IN ('School IQAC Coordinator', 'Campus IQAC Coordinator')
+        AND sr.reporting_month = %s
+    """, (current_report_month,))
+    submitted_coordinator_names = [r['username'] for r in cursor.fetchall()]
+
+    # Handle submission window settings update
+    if request.method == "POST" and "update_window" in request.form:
+        new_open = request.form.get("submission_open_day", "1").strip()
+        new_close = request.form.get("submission_close_day", "5").strip()
+        if new_open.isdigit() and new_close.isdigit():
+            open_i, close_i = int(new_open), int(new_close)
+            if 1 <= open_i <= 28 and 1 <= close_i <= 28 and open_i <= close_i:
+                cursor.execute("UPDATE app_settings SET value=%s WHERE key='submission_open_day'", (new_open,))
+                cursor.execute("UPDATE app_settings SET value=%s WHERE key='submission_close_day'", (new_close,))
+                conn.commit()
+                flash(f"Submission window updated: day {open_i} to day {close_i} of each month.", "success")
+            else:
+                flash("Invalid days. Open day must be ≤ close day, both between 1 and 28.", "danger")
+        conn.close()
+        return redirect("/admin")
+
+    # Fetch coordinators for dropdown
+    cursor.execute("SELECT username, role FROM users WHERE role IN ('School IQAC Coordinator', 'Campus IQAC Coordinator') ORDER BY username")
+    coordinators = cursor.fetchall()
+
+    # Coordinator summary form handling
+    coord_reports = None
+    coord_user = "All"
+    coord_report_type = "monthly"
+    coord_month_range = "1-3"
+    coord_year = str(now.year)
+
+    if request.method == "POST" and "coord_form" in request.form:
+        coord_user = request.form.get("coord_user", "All")
+        coord_report_type = request.form.get("coord_report_type", "monthly")
+        coord_month_range = request.form.get("coord_month_range", "1-3")
+        coord_year = request.form.get("coord_year", str(now.year))
+
+        year_int = int(coord_year)
+        if coord_report_type == "yearly":
+            start_m = f"{year_int}-01"
+            end_m = f"{year_int}-12"
+        else:
+            range_map = {"1-3": (1, 3), "4-6": (4, 6), "7-9": (7, 9), "10-12": (10, 12)}
+            ms, me = range_map.get(coord_month_range, (1, 3))
+            start_m = f"{year_int}-{ms:02d}"
+            end_m = f"{year_int}-{me:02d}"
+
+        if coord_user == "All":
+            cursor.execute("""
+                SELECT sr.*, u.designation, u.department, u.role
+                FROM signed_reports sr
+                JOIN users u ON sr.username = u.username
+                WHERE sr.reporting_month BETWEEN %s AND %s
+                ORDER BY sr.reporting_month, sr.username
+            """, (start_m, end_m))
+        else:
+            cursor.execute("""
+                SELECT sr.*, u.designation, u.department, u.role
+                FROM signed_reports sr
+                JOIN users u ON sr.username = u.username
+                WHERE sr.username = %s AND sr.reporting_month BETWEEN %s AND %s
+                ORDER BY sr.reporting_month
+            """, (coord_user, start_m, end_m))
+
+        coord_reports = cursor.fetchall()
+
     # Initialize filter variables
     filter_mode = "month"
     selected_month = datetime.now().strftime("%Y-%m")
@@ -1033,7 +1241,7 @@ def admin_panel():
     category_filter = "All"
 
     # Get filter values from form
-    if request.method == "POST":
+    if request.method == "POST" and "coord_form" not in request.form:
         filter_mode = request.form.get("filter_mode", "month")
         selected_month = request.form.get("month", datetime.now().strftime("%Y-%m"))
         from_date = request.form.get("from_date")
@@ -1116,7 +1324,20 @@ def admin_panel():
         summary=summary,
         total_users=total_users,
         total_entries=total_entries,
-        month_entries=month_entries
+        month_entries=month_entries,
+        total_coordinators=total_coordinators,
+        submitted_coordinators=submitted_coordinators,
+        submission_pct=submission_pct,
+        pending_coordinators=pending_coordinators,
+        submitted_coordinator_names=submitted_coordinator_names,
+        current_report_month=datetime.strptime(current_report_month, "%Y-%m").strftime("%B %Y"),
+        **dict(zip(('submission_open_day', 'submission_close_day'), get_submission_window())),
+        coordinators=coordinators,
+        coord_reports=coord_reports,
+        coord_user=coord_user,
+        coord_report_type=coord_report_type,
+        coord_month_range=coord_month_range,
+        coord_year=coord_year,
     )
 
 
@@ -1277,7 +1498,7 @@ def admin_report():
         return redirect("/dashboard")
 
     # Fetch users
-    cursor.execute("SELECT username, emp_id FROM users WHERE role!='Admin'")
+    cursor.execute("SELECT username, emp_id FROM users WHERE role NOT IN ('Admin', 'School IQAC Coordinator', 'Campus IQAC Coordinator') ORDER BY username")
     users = cursor.fetchall()
 
     logs = []
@@ -1392,7 +1613,7 @@ def admin_report():
                 # Legacy format - use category as key
                 if log["category"]:
                     tasks_dict = {log["category"]: task_raw}
-        
+
         # Apply category filter
         if category_filter and category_filter != "All":
             if category_filter in tasks_dict:
@@ -1401,7 +1622,7 @@ def admin_report():
             else:
                 # Skip this log if selected category not present
                 continue
-        
+
         log_dict["tasks_dict"] = tasks_dict
         processed_logs.append(log_dict)
 
@@ -1441,7 +1662,7 @@ def admin_report_ai():
         return redirect("/dashboard")
 
     # Fetch users
-    cursor.execute("SELECT username, emp_id FROM users WHERE role!='Admin'")
+    cursor.execute("SELECT username, emp_id FROM users WHERE role NOT IN ('Admin', 'School IQAC Coordinator', 'Campus IQAC Coordinator') ORDER BY username")
     users = cursor.fetchall()
 
     logs = []
@@ -1851,6 +2072,600 @@ def trigger_1st_deadline_reminders():
     
     result = send_1st_deadline_reminder()
     return result, 200
+
+# ------------------ IQAC COORDINATOR REPORT REMINDERS ------------------
+def send_iqac_report_reminder(is_deadline=False):
+    """Send reminder to IQAC Coordinators who haven't submitted their monthly report."""
+    today = datetime.now().date()
+    # Report is for the current month
+    reporting_month = today.strftime("%Y-%m")
+    month_display = today.strftime("%B %Y")
+    deadline_str = today.replace(day=5).strftime("%d %B %Y")
+
+    conn = get_db_connection()
+    cursor = get_cursor(conn)
+
+    # Get all IQAC Coordinators
+    cursor.execute("SELECT username, email FROM users WHERE role IN ('School IQAC Coordinator', 'Campus IQAC Coordinator')")
+    coordinators = cursor.fetchall()
+
+    sent_count = 0
+    for coord in coordinators:
+        username = coord['username']
+        email = coord['email']
+
+        # Check if they've already submitted for this month
+        cursor.execute("""
+            SELECT id FROM signed_reports
+            WHERE username = %s AND reporting_month = %s
+        """, (username, reporting_month))
+        already_submitted = cursor.fetchone()
+
+        if already_submitted:
+            continue  # Already submitted, skip
+
+        if is_deadline:
+            subject = f"URGENT: IQAC Monthly Report Due TODAY — {month_display}"
+            body = f"""Dear {username.title()},
+
+This is a final reminder that your Monthly Work Done Report for {month_display} is due TODAY ({deadline_str}).
+
+Please log in to the IQAC portal, generate your report, and upload the signed copy before end of day.
+
+Portal: https://iqacworklog.christuniversity.in/login
+
+If you have already submitted, please disregard this message.
+
+---
+This is an automated reminder. Please do not reply.
+"""
+        else:
+            body = f"""Dear {username.title()},
+
+This is a reminder that your Monthly Work Done Report for {month_display} is due by {deadline_str}.
+
+Please log in to the IQAC portal, fill in your monthly report, download the PDF, sign it, and upload the signed copy before the deadline.
+
+Portal: https://iqacworklog.christuniversity.in/login
+
+If you have already submitted, please disregard this message.
+
+---
+This is an automated reminder. Please do not reply.
+"""
+            subject = f"IQAC Monthly Report Reminder — Submit by {deadline_str}"
+
+        send_reminder_email(email, subject, body)
+        sent_count += 1
+
+    conn.close()
+    return f"IQAC reminder sent to {sent_count} coordinator(s) who haven't submitted for {month_display}."
+
+
+
+
+@app.route("/admin_trigger_iqac_reminder", methods=["POST"])
+def admin_trigger_iqac_reminder():
+    """Admin manually triggers IQAC reminder emails."""
+    if "username" not in session:
+        return redirect("/login")
+
+    conn = get_db_connection()
+    cursor = get_cursor(conn)
+    cursor.execute("SELECT * FROM users WHERE username=%s", (session["username"],))
+    admin = cursor.fetchone()
+    conn.close()
+
+    if not admin or admin["role"].lower() != "admin":
+        flash("Access denied.", "danger")
+        return redirect("/dashboard")
+
+    result = send_iqac_report_reminder(is_deadline=False)
+    flash(result, "success")
+    return redirect("/admin_signed_reports")
+
+
+# ------------------ IQAC COORDINATOR DASHBOARD ------------------
+@app.route("/iqac_dashboard")
+def iqac_dashboard():
+    if "username" not in session:
+        return redirect("/login")
+
+    username = session["username"]
+    conn = get_db_connection()
+    cursor = get_cursor(conn)
+
+    cursor.execute("SELECT * FROM users WHERE username=%s", (username,))
+    user = cursor.fetchone()
+
+    if not user or user["role"].lower() not in ("school iqac coordinator", "campus iqac coordinator"):
+        conn.close()
+        flash("Access denied.", "danger")
+        return redirect("/login")
+
+    # Fetch this coordinator's submitted reports
+    cursor.execute("SELECT * FROM signed_reports WHERE username=%s ORDER BY uploaded_at DESC", (username,))
+    submitted_reports = cursor.fetchall()
+    conn.close()
+
+    is_open, reporting_month_str, open_day, close_day, window_msg = check_submission_window()
+
+    return render_template("iqac_coordinator_dashboard.html",
+        username=username,
+        submitted_reports=submitted_reports,
+        upload_open=is_open,
+        reporting_month_str=reporting_month_str,
+        window_msg=window_msg,
+        open_day=open_day,
+        close_day=close_day,
+    )
+
+
+# ------------------ IQAC MONTHLY REPORT FORM ------------------
+@app.route("/iqac_monthly_report")
+def iqac_monthly_report():
+    if "username" not in session:
+        return redirect("/login")
+
+    username = session["username"]
+    conn = get_db_connection()
+    cursor = get_cursor(conn)
+
+    cursor.execute("SELECT * FROM users WHERE username=%s", (username,))
+    user = cursor.fetchone()
+    conn.close()
+
+    if not user or user["role"].lower() not in ("school iqac coordinator", "campus iqac coordinator"):
+        flash("Access denied.", "danger")
+        return redirect("/login")
+
+    return render_template("iqac_monthly_report.html", username=username, user=user)
+
+
+# ------------------ IQAC MONTHLY REPORT PDF DOWNLOAD ------------------
+@app.route("/iqac_monthly_report/download", methods=["POST"])
+def iqac_monthly_report_download():
+    if "username" not in session:
+        return redirect("/login")
+
+    username = session["username"]
+    conn = get_db_connection()
+    cursor = get_cursor(conn)
+
+    cursor.execute("SELECT * FROM users WHERE username=%s", (username,))
+    user = cursor.fetchone()
+    conn.close()
+
+    if not user or user["role"].lower() not in ("school iqac coordinator", "campus iqac coordinator"):
+        flash("Access denied.", "danger")
+        return redirect("/login")
+
+    if not REPORTLAB_AVAILABLE:
+        flash("PDF generation library (reportlab) is not installed on the server.", "danger")
+        return redirect("/iqac_monthly_report")
+
+    pdf_buffer = _generate_iqac_pdf(request.form)
+
+    reporting_month = request.form.get("reporting_month", "report")
+    filename = f"IQAC_Monthly_Report_{reporting_month}.pdf"
+
+    return send_file(
+        pdf_buffer,
+        mimetype="application/pdf",
+        as_attachment=True,
+        download_name=filename
+    )
+
+
+def _generate_iqac_pdf(form_data):
+    """Generate the IQAC Monthly Report PDF and return a BytesIO buffer."""
+    buffer = BytesIO()
+
+    usable_width = A4[0] - 3 * cm  # ~510 pts with 1.5cm margins each side
+
+    doc = SimpleDocTemplate(
+        buffer,
+        pagesize=A4,
+        leftMargin=1.5 * cm,
+        rightMargin=1.5 * cm,
+        topMargin=1.5 * cm,
+        bottomMargin=1.5 * cm
+    )
+
+    styles = getSampleStyleSheet()
+
+    navy = colors.HexColor('#003366')
+    light_blue = colors.HexColor('#E8F0FE')
+    alt_row = colors.HexColor('#F5F5F5')
+
+    def make_style(name, size=9, bold=False, align=TA_LEFT, space_before=0, space_after=4, italic=False):
+        fname = 'Helvetica'
+        if bold and italic:
+            fname = 'Helvetica-BoldOblique'
+        elif bold:
+            fname = 'Helvetica-Bold'
+        elif italic:
+            fname = 'Helvetica-Oblique'
+        return ParagraphStyle(name, parent=styles['Normal'], fontSize=size,
+                              fontName=fname, alignment=align,
+                              spaceBefore=space_before, spaceAfter=space_after)
+
+    small = make_style('small', size=7.5)
+
+    def table_style(has_header=True):
+        ts = [
+            ('FONTSIZE', (0, 0), (-1, -1), 7.5),
+            ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+            ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+            ('BOX', (0, 0), (-1, -1), 0.5, colors.black),
+            ('INNERGRID', (0, 0), (-1, -1), 0.5, colors.black),
+            ('TOPPADDING', (0, 0), (-1, -1), 4),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+            ('LEFTPADDING', (0, 0), (-1, -1), 3),
+            ('RIGHTPADDING', (0, 0), (-1, -1), 3),
+        ]
+        if has_header:
+            ts += [
+                ('BACKGROUND', (0, 0), (-1, 0), navy),
+                ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+                ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+                ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, alt_row]),
+            ]
+        return TableStyle(ts)
+
+    elements = []
+
+    # ── Header ──────────────────────────────────────────────────────────────
+    logo_path = os.path.join(os.path.dirname(__file__), 'static', 'christ_logo.png')
+    logo_cell = RLImage(logo_path, width=3.5 * cm, height=3.5 * cm) if os.path.exists(logo_path) else ''
+
+    hdr_data = [[
+        logo_cell,
+        [
+            Paragraph('CHRIST (Deemed to be University)', make_style('h1', size=13, bold=True, align=TA_CENTER, space_after=3)),
+            Paragraph('Internal Quality Assurance Cell (IQAC)', make_style('h2', size=11, bold=True, align=TA_CENTER, space_after=3)),
+            Paragraph('Monthly Work Done Report of IQAC Coordinators', make_style('h3', size=9, align=TA_CENTER, space_after=0)),
+        ],
+        '',
+    ]]
+    hdr_table = Table(hdr_data, colWidths=[4 * cm, usable_width - 8 * cm, 4 * cm])
+    hdr_table.setStyle(TableStyle([('VALIGN', (0, 0), (-1, -1), 'MIDDLE'), ('ALIGN', (1, 0), (1, 0), 'CENTER')]))
+    elements.append(hdr_table)
+    elements.append(HRFlowable(width=usable_width, thickness=2, color=navy, spaceAfter=8))
+
+    # ── Header Info ─────────────────────────────────────────────────────────
+    coord_name = form_data.get('coordinator_name', '')
+    school = form_data.get('school_campus', '')
+    rep_month_raw = form_data.get('reporting_month', '')
+    try:
+        rep_month_display = datetime.strptime(rep_month_raw, '%Y-%m').strftime('%B %Y')
+    except Exception:
+        rep_month_display = rep_month_raw
+
+    info_data = [
+        [Paragraph('Name of the IQAC Coordinator:', make_style('lbl', bold=True, size=9, space_after=0)),
+         Paragraph(coord_name, make_style('val', size=9, space_after=0)),
+         Paragraph('Reporting Month:', make_style('lbl2', bold=True, size=9, space_after=0)),
+         Paragraph(rep_month_display, make_style('val2', size=9, space_after=0))],
+        [Paragraph('School/Campus:', make_style('lbl3', bold=True, size=9, space_after=0)),
+         Paragraph(school, make_style('val3', size=9, space_after=0)),
+         '', ''],
+    ]
+    w = usable_width
+    info_table = Table(info_data, colWidths=[w * 0.28, w * 0.32, w * 0.18, w * 0.22])
+    info_table.setStyle(TableStyle([
+        ('BOX', (0, 0), (-1, -1), 0.5, colors.black),
+        ('INNERGRID', (0, 0), (-1, -1), 0.5, colors.black),
+        ('BACKGROUND', (0, 0), (0, -1), light_blue),
+        ('BACKGROUND', (2, 0), (2, -1), light_blue),
+        ('TOPPADDING', (0, 0), (-1, -1), 5),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 5),
+        ('LEFTPADDING', (0, 0), (-1, -1), 4),
+    ]))
+    elements.append(info_table)
+    elements.append(Spacer(1, 8))
+
+    # ── Section I ───────────────────────────────────────────────────────────
+    # (header added after we know if there's any data)
+
+    # Part (a)
+    part_a_label = (
+        '(a) Meetings/Activities conducted relating to IQAC Coordinator\'s responsibility areas such as: '
+        'Monitoring Strategic Plan Implementation, Benchmarking, Gap Analysis and Guidance, Data and Document Management, '
+        'Audit Coordination, Engagement with University Offices/Centres, Participation in Rankings and Accreditations, '
+        'Monitoring website updates of department activities, Report Preparation and Submission'
+    )
+
+    meet_dates = form_data.getlist('meeting_date[]')
+    dept_names = form_data.getlist('dept_name[]')
+    participants = form_data.getlist('participants[]')
+    topics = form_data.getlist('topics[]')
+    action_pts = form_data.getlist('action_points[]')
+    resp_areas = form_data.getlist('responsibility_area[]')
+
+    pa_headers = ['Date of\nMeeting', 'Department\nName', "Participants'\nDetails",
+                  'Topics\nDiscussed', 'Action Points\n/ Plan', 'Related\nResponsibility Area']
+    pa_cols = [w * 0.11, w * 0.16, w * 0.17, w * 0.20, w * 0.20, w * 0.16]
+
+    pa_rows_filled = [(meet_dates[i] if i < len(meet_dates) else '').strip() or
+                      (dept_names[i] if i < len(dept_names) else '').strip() or
+                      (topics[i] if i < len(topics) else '').strip()
+                      for i in range(len(meet_dates))]
+    has_pa_data = any(pa_rows_filled)
+
+    pa_data = [[Paragraph(h, make_style(f'ph{i}', size=7.5, bold=True, space_after=0)) for i, h in enumerate(pa_headers)]]
+    for i in range(len(meet_dates)):
+        if not pa_rows_filled[i]:
+            continue
+        pa_data.append([
+            Paragraph(meet_dates[i] if i < len(meet_dates) else '', small),
+            Paragraph(dept_names[i] if i < len(dept_names) else '', small),
+            Paragraph(participants[i] if i < len(participants) else '', small),
+            Paragraph(topics[i] if i < len(topics) else '', small),
+            Paragraph(action_pts[i] if i < len(action_pts) else '', small),
+            Paragraph(resp_areas[i] if i < len(resp_areas) else '', small),
+        ])
+
+    if has_pa_data:
+        elements.append(Paragraph('Section I: Quality Assurance Initiatives',
+                                   make_style('sec1', size=11, bold=True, space_before=4, space_after=4, align=TA_LEFT)))
+        elements.append(Paragraph(part_a_label, make_style('parta', size=8, bold=True, space_after=4)))
+        pa_table = Table(pa_data, colWidths=pa_cols, repeatRows=1)
+        pa_table.setStyle(table_style())
+        elements.append(pa_table)
+        elements.append(Paragraph('(Additional tables may be inserted for each department)',
+                                   make_style('note', size=7, italic=True, space_after=6)))
+
+    ws_dates = form_data.getlist('ws_date[]')
+    ws_venues = form_data.getlist('ws_venue[]')
+    ws_titles = form_data.getlist('ws_title[]')
+    ws_parts = form_data.getlist('ws_participants[]')
+    ws_res = form_data.getlist('ws_resource[]')
+    ws_resp = form_data.getlist('ws_responsibility[]')
+
+    pb_headers = ['Date', 'Venue', 'Title of the\nProgram',
+                  'No. of\nParticipants', 'Name of Resource\nPerson/s', 'Related\nResponsibility Area']
+    pb_cols = [w * 0.10, w * 0.14, w * 0.20, w * 0.10, w * 0.25, w * 0.21]
+
+    pb_rows_filled = [(ws_dates[i] if i < len(ws_dates) else '').strip() or
+                      (ws_titles[i] if i < len(ws_titles) else '').strip()
+                      for i in range(len(ws_dates))]
+    has_pb_data = any(pb_rows_filled)
+
+    if has_pb_data:
+        if not has_pa_data:
+            elements.append(Paragraph('Section I: Quality Assurance Initiatives',
+                                       make_style('sec1', size=11, bold=True, space_before=4, space_after=4, align=TA_LEFT)))
+        elements.append(Paragraph(
+            '(b) Workshops/Seminars/Training Programs organised by the IQAC coordinator (If any)',
+            make_style('partb', size=8, bold=True, space_before=6, space_after=4)))
+        pb_data = [[Paragraph(h, make_style(f'pbh{i}', size=7.5, bold=True, space_after=0)) for i, h in enumerate(pb_headers)]]
+        for i in range(len(ws_dates)):
+            if not pb_rows_filled[i]:
+                continue
+            pb_data.append([
+                Paragraph(ws_dates[i] if i < len(ws_dates) else '', small),
+                Paragraph(ws_venues[i] if i < len(ws_venues) else '', small),
+                Paragraph(ws_titles[i] if i < len(ws_titles) else '', small),
+                Paragraph(ws_parts[i] if i < len(ws_parts) else '', small),
+                Paragraph(ws_res[i] if i < len(ws_res) else '', small),
+                Paragraph(ws_resp[i] if i < len(ws_resp) else '', small),
+            ])
+        pb_table = Table(pb_data, colWidths=pb_cols, repeatRows=1)
+        pb_table.setStyle(table_style())
+        elements.append(pb_table)
+
+    # Report description — only include if Part (b) had data or description is filled
+    report_desc = form_data.get('report_description', '').strip()
+    if has_pb_data or report_desc:
+        elements.append(Spacer(1, 6))
+        elements.append(Paragraph('Report: (to be attached)', make_style('reph', size=9, bold=True, space_after=2)))
+        elements.append(Paragraph(
+            '[Brief description of the Program covering the objectives, outcomes and SDG goals, if any. '
+            'Kindly attach photographs, the attendance sheet and feedback.]',
+            make_style('repit', size=7.5, italic=True, space_after=2)))
+        if report_desc:
+            desc_data = [[Paragraph(report_desc, make_style('reptext', size=9, space_after=0))]]
+            desc_table = Table(desc_data, colWidths=[usable_width])
+            desc_table.setStyle(TableStyle([
+                ('BOX', (0, 0), (-1, -1), 0.5, colors.black),
+                ('TOPPADDING', (0, 0), (-1, -1), 6),
+                ('BOTTOMPADDING', (0, 0), (-1, -1), 10),
+                ('LEFTPADDING', (0, 0), (-1, -1), 4),
+                ('RIGHTPADDING', (0, 0), (-1, -1), 4),
+            ]))
+            elements.append(desc_table)
+
+    # ── Section II ──────────────────────────────────────────────────────────
+    plans = [p.strip() for p in form_data.getlist('plan[]') if p.strip()]
+    if plans:
+        elements.append(Spacer(1, 8))
+        elements.append(Paragraph('Section II: Plans for Next Month',
+                                   make_style('sec2', size=11, bold=True, space_before=4, space_after=4)))
+        plan_rows = []
+        for i, p in enumerate(plans, 1):
+            plan_rows.append([Paragraph(f'{i}.', make_style(f'pn{i}', size=9, space_after=0)),
+                              Paragraph(p, make_style(f'pt{i}', size=9, space_after=0))])
+
+        plan_table = Table(plan_rows, colWidths=[0.6 * cm, usable_width - 0.6 * cm])
+        plan_table.setStyle(TableStyle([
+            ('FONTSIZE', (0, 0), (-1, -1), 9),
+            ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+            ('TOPPADDING', (0, 0), (-1, -1), 5),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 12),
+            ('LEFTPADDING', (0, 0), (-1, -1), 4),
+            ('BOX', (0, 0), (-1, -1), 0.5, colors.black),
+            ('INNERGRID', (0, 0), (-1, -1), 0.5, colors.black),
+        ]))
+        elements.append(plan_table)
+
+    # ── Signature Footer ────────────────────────────────────────────────────
+    elements.append(Spacer(1, 16))
+
+    coord_sig = form_data.get('sig_coordinator_name', '')
+    dean_rem = form_data.get('sig_dean_remarks', '')
+    dir_rem = form_data.get('sig_director_remarks', '')
+    footer_date = form_data.get('footer_date', '')
+
+    def sig_cell(label, value):
+        return [
+            Paragraph(label, make_style('sigh', size=8, bold=True, space_after=2)),
+            Paragraph(value or ' ', make_style('sigv', size=8, space_after=2)),
+            Paragraph('_' * 30, make_style('sigl', size=8, space_after=0)),
+            Paragraph('(Signature)', make_style('sigs', size=7, italic=True, space_after=0)),
+        ]
+
+    third = usable_width / 3
+    sig_data = [
+        [sig_cell('Name & Signature of\nIQAC Coordinator', coord_sig),
+         sig_cell('Remarks & Signature of\nDean', dean_rem),
+         sig_cell('Remarks & Signature of\nDirector IQAC', dir_rem)],
+    ]
+    sig_table = Table(sig_data, colWidths=[third, third, third])
+    sig_table.setStyle(TableStyle([
+        ('BOX', (0, 0), (-1, -1), 0.5, colors.black),
+        ('INNERGRID', (0, 0), (-1, -1), 0.5, colors.black),
+        ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+        ('TOPPADDING', (0, 0), (-1, -1), 6),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 30),
+        ('LEFTPADDING', (0, 0), (-1, -1), 4),
+    ]))
+    elements.append(sig_table)
+    elements.append(Spacer(1, 6))
+    elements.append(Paragraph(f'Date: {footer_date}', make_style('datetext', size=9)))
+
+    doc.build(elements)
+    buffer.seek(0)
+    return buffer
+
+
+# ------------------ IQAC UPLOAD SIGNED REPORT ------------------
+ALLOWED_UPLOAD_EXTENSIONS = {'pdf', 'jpg', 'jpeg', 'png'}
+
+def _allowed_file(filename):
+    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_UPLOAD_EXTENSIONS
+
+@app.route("/iqac_upload_signed_report", methods=["POST"])
+def iqac_upload_signed_report():
+    if "username" not in session:
+        return redirect("/login")
+
+    username = session["username"]
+    conn = get_db_connection()
+    cursor = get_cursor(conn)
+
+    cursor.execute("SELECT * FROM users WHERE username=%s", (username,))
+    user = cursor.fetchone()
+
+    if not user or user["role"].lower() not in ("school iqac coordinator", "campus iqac coordinator"):
+        conn.close()
+        flash("Access denied.", "danger")
+        return redirect("/login")
+
+    reporting_month = request.form.get("reporting_month", "").strip()
+    uploaded_file = request.files.get("signed_report")
+
+    if not reporting_month:
+        flash("Please enter the reporting month.", "danger")
+        conn.close()
+        return redirect("/iqac_dashboard")
+
+    if not uploaded_file or uploaded_file.filename == "":
+        flash("Please select a file to upload.", "danger")
+        conn.close()
+        return redirect("/iqac_dashboard")
+
+    if not _allowed_file(uploaded_file.filename):
+        flash("Only PDF, JPG, JPEG, or PNG files are allowed.", "danger")
+        conn.close()
+        return redirect("/iqac_dashboard")
+
+    original_name = secure_filename(uploaded_file.filename)
+    ext = original_name.rsplit('.', 1)[1].lower()
+    timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
+    save_name = f"{secure_filename(username)}_{reporting_month}_{timestamp}.{ext}"
+    save_dir = os.path.join(os.path.dirname(__file__), 'static', 'signed_reports')
+    save_path = os.path.join(save_dir, save_name)
+    uploaded_file.save(save_path)
+
+    db_path = f"signed_reports/{save_name}"
+    cursor.execute("""
+        INSERT INTO signed_reports (username, reporting_month, uploaded_file_path, status)
+        VALUES (%s, %s, %s, 'pending')
+    """, (username, reporting_month, db_path))
+    conn.commit()
+    conn.close()
+
+    flash("Signed report uploaded successfully! It will be reviewed by the admin.", "success")
+    return redirect("/iqac_dashboard")
+
+
+# ------------------ ADMIN: VIEW SIGNED REPORTS ------------------
+@app.route("/admin_signed_reports")
+def admin_signed_reports():
+    if "username" not in session:
+        return redirect("/login")
+
+    conn = get_db_connection()
+    cursor = get_cursor(conn)
+
+    cursor.execute("SELECT * FROM users WHERE username=%s", (session["username"],))
+    admin = cursor.fetchone()
+
+    if not admin or admin["role"].lower() != "admin":
+        conn.close()
+        flash("Access denied.", "danger")
+        return redirect("/dashboard")
+
+    # Default to previous month (reports submitted in early current month cover last month)
+    now = datetime.now()
+    if now.month == 1:
+        default_month = f"{now.year - 1}-12"
+    else:
+        default_month = f"{now.year}-{now.month - 1:02d}"
+    selected_month = request.args.get("month", default_month)
+
+    cursor.execute("""
+        SELECT sr.*, u.designation, u.department
+        FROM signed_reports sr
+        JOIN users u ON sr.username = u.username
+        WHERE sr.reporting_month = %s
+        ORDER BY sr.uploaded_at DESC
+    """, (selected_month,))
+    reports = cursor.fetchall()
+    conn.close()
+
+    return render_template("admin_signed_reports.html",
+        username=session["username"],
+        reports=reports,
+        selected_month=selected_month
+    )
+
+
+@app.route("/admin_review_report/<int:id>", methods=["POST"])
+def admin_review_report(id):
+    if "username" not in session:
+        return redirect("/login")
+
+    conn = get_db_connection()
+    cursor = get_cursor(conn)
+
+    cursor.execute("SELECT * FROM users WHERE username=%s", (session["username"],))
+    admin = cursor.fetchone()
+
+    if not admin or admin["role"].lower() != "admin":
+        conn.close()
+        flash("Access denied.", "danger")
+        return redirect("/dashboard")
+
+    cursor.execute("UPDATE signed_reports SET status='reviewed' WHERE id=%s", (id,))
+    conn.commit()
+    conn.close()
+
+    flash("Report marked as reviewed.", "success")
+    return redirect("/admin_signed_reports")
+
 
 # ------------------ RUN APP ------------------
 if __name__ == "__main__":
