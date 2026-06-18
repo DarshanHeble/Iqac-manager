@@ -7,8 +7,8 @@ from werkzeug.utils import secure_filename
 from io import BytesIO
 import calendar
 from dotenv import load_dotenv
-import psycopg2
-import psycopg2.extras
+import psycopg
+from psycopg.rows import dict_row
 import google.generativeai as genai
 
 # ReportLab for PDF generation
@@ -53,21 +53,21 @@ def get_db_connection():
     
     # Try with SSL first (for cloud databases like Render, Supabase, etc.)
     try:
-        conn = psycopg2.connect(db_url, sslmode="require")
+        conn = psycopg.connect(db_url, sslmode="require", row_factory=dict_row)
         return conn
-    except psycopg2.OperationalError:
+    except psycopg.OperationalError:
         # Fallback to no SSL for local PostgreSQL
         try:
-            conn = psycopg2.connect(db_url, sslmode="prefer")
+            conn = psycopg.connect(db_url, sslmode="prefer", row_factory=dict_row)
             return conn
-        except psycopg2.OperationalError:
+        except psycopg.OperationalError:
             # Last attempt with no SSL at all
-            conn = psycopg2.connect(db_url, sslmode="disable")
+            conn = psycopg.connect(db_url, sslmode="disable", row_factory=dict_row)
             return conn
 
 def get_cursor(conn):
     """Get cursor for PostgreSQL database"""
-    return conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+    return conn.cursor()
 
 # ------------------ EMAIL SETTINGS (Environment Variables) ------------------
 SMTP_EMAIL = os.getenv("SMTP_EMAIL")
@@ -1130,25 +1130,25 @@ def admin_panel():
     users = cursor.fetchall()
 
     # Get stats for dashboard cards
-    cursor.execute("SELECT COUNT(*) FROM users WHERE role != 'Admin'")
-    total_users = cursor.fetchone()[0]
+    cursor.execute("SELECT COUNT(*) as count FROM users WHERE role != 'Admin'")
+    total_users = cursor.fetchone()['count']
 
-    cursor.execute("SELECT COUNT(*) FROM worklog")
-    total_entries = cursor.fetchone()[0]
+    cursor.execute("SELECT COUNT(*) as count FROM worklog")
+    total_entries = cursor.fetchone()['count']
 
     # This month's entries
     now = datetime.now()
     month_start = f"{now.year}-{now.month:02d}-01"
     month_end = f"{now.year}-{now.month:02d}-{calendar.monthrange(now.year, now.month)[1]}"
-    cursor.execute("SELECT COUNT(*) FROM worklog WHERE date BETWEEN %s AND %s", (month_start, month_end))
-    month_entries = cursor.fetchone()[0]
+    cursor.execute("SELECT COUNT(*) as count FROM worklog WHERE date BETWEEN %s AND %s", (month_start, month_end))
+    month_entries = cursor.fetchone()['count']
 
     # IQAC Coordinator report submission progress for current month
     current_report_month = now.strftime("%Y-%m")
-    cursor.execute("SELECT COUNT(*) FROM users WHERE role IN ('School IQAC Coordinator', 'Campus IQAC Coordinator')")
-    total_coordinators = cursor.fetchone()[0]
-    cursor.execute("SELECT COUNT(DISTINCT username) FROM signed_reports WHERE reporting_month = %s", (current_report_month,))
-    submitted_coordinators = cursor.fetchone()[0]
+    cursor.execute("SELECT COUNT(*) as count FROM users WHERE role IN ('School IQAC Coordinator', 'Campus IQAC Coordinator')")
+    total_coordinators = cursor.fetchone()['count']
+    cursor.execute("SELECT COUNT(DISTINCT username) as count FROM signed_reports WHERE reporting_month = %s", (current_report_month,))
+    submitted_coordinators = cursor.fetchone()['count']
     submission_pct = int((submitted_coordinators / total_coordinators * 100) if total_coordinators > 0 else 0)
 
     # Which coordinators have NOT submitted
@@ -1804,7 +1804,12 @@ def admin_report_ai():
                 else:
                     # Use the first available model
                     model_name = available_models[0]
-                    model = genai.GenerativeModel(model_name)
+                    system_instruction = (
+                        "You are an assistant summarizing worklog entries for an IQAC report. "
+                        "Write in a formal, official report tone. Do not use markdown, bullets, or asterisks. "
+                        "Do not include introductory or concluding remarks."
+                    )
+                    model = genai.GenerativeModel(model_name, system_instruction=system_instruction)
                     prompt = build_ai_summary_prompt(
                         processed_logs,
                         selected_user,
