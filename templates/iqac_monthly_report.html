@@ -53,7 +53,7 @@
         </div>
       </header>
 
-      <form method="POST" action="/iqac_monthly_report/download" id="reportForm">
+      <form method="POST" action="/iqac_monthly_report/download" id="reportForm" enctype="multipart/form-data">
 
         <!-- ── Report Header ── -->
         <div class="card mb-4">
@@ -70,7 +70,8 @@
               </div>
               <div class="col-md-3">
                 <label class="form-label">Reporting Month</label>
-                <input type="month" name="reporting_month" class="form-control" required>
+                <input type="hidden" name="reporting_month" value="{{ reporting_month_str }}">
+                <input type="text" class="form-control bg-light" value="{{ reporting_month_display }}" readonly style="cursor:not-allowed; color:#555;">
               </div>
             </div>
           </div>
@@ -83,14 +84,13 @@
         <div class="card mb-3">
           <div class="card-body">
             <p class="mb-2" style="font-size:0.9rem; font-weight:600; color:#003366;">(a) Meetings / Activities conducted relating to IQAC Coordinator's responsibility areas</p>
-            <p class="text-muted small mb-3">Such as: Monitoring Strategic Plan Implementation, Benchmarking, Gap Analysis and Guidance, Data and Document Management, Audit Coordination, Engagement with University Offices/Centres, Participation in Rankings and Accreditations, Monitoring website updates, Report Preparation and Submission.</p>
 
             <div class="table-responsive">
               <table class="table table-bordered table-sm" id="tableA">
                 <thead>
                   <tr>
                     <th style="width:12%;">Date of Meeting</th>
-                    <th style="width:14%;">Department Name</th>
+                    <th style="width:14%;">Department / School Name</th>
                     <th style="width:16%;">Participants' Details</th>
                     <th style="width:20%;">Topics Discussed</th>
                     <th style="width:20%;">Action Points / Plan</th>
@@ -101,23 +101,30 @@
                 <tbody id="tableA-body">
                   <tr class="row-template-a">
                     <td><input type="date" name="meeting_date[]" class="form-control form-control-sm"></td>
-                    <td><input type="text" name="dept_name[]" class="form-control form-control-sm" placeholder="Department"></td>
+                    <td><input type="text" name="dept_name[]" class="form-control form-control-sm" placeholder="Department / School"></td>
                     <td><input type="text" name="participants[]" class="form-control form-control-sm" placeholder="Names / Designations"></td>
                     <td><textarea name="topics[]" class="form-control form-control-sm topics-field" rows="2" placeholder="Auto-filled or type here"></textarea></td>
                     <td><textarea name="action_points[]" class="form-control form-control-sm" rows="2" placeholder="Action points"></textarea></td>
-                    <td>
-                      <select name="responsibility_area[]" class="form-select form-select-sm resp-area-select" onchange="fillTopics(this)">
-                        <option value="">-- Select Area --</option>
-                        <option>Monitoring Strategic Plan Implementation</option>
-                        <option>Benchmarking</option>
-                        <option>Gap Analysis and Guidance</option>
-                        <option>Data and Document Management</option>
-                        <option>Audit Coordination</option>
-                        <option>Engagement with University Offices/Centres</option>
-                        <option>Participation in Rankings and Accreditations</option>
-                        <option>Monitoring website updates of department activities</option>
-                        <option>Report Preparation and Submission</option>
-                      </select>
+                    <td style="min-width:180px;">
+                      <div class="resp-area-wrapper">
+                        <input type="hidden" name="responsibility_area[]" class="resp-area-hidden">
+                        <!-- Collapsed view: shows selected tags or placeholder -->
+                        <div class="resp-area-display border rounded px-2 py-1" style="min-height:34px; cursor:pointer; font-size:0.78rem; background:#fff; display:flex; flex-wrap:wrap; gap:3px; align-items:center;">
+                          <span class="resp-area-placeholder text-muted fst-italic" style="font-size:0.78rem;">Click to select…</span>
+                        </div>
+                        <!-- Expanded checklist -->
+                        <div class="resp-area-checklist border rounded p-2 mt-1 bg-white shadow-sm" style="display:none; max-height:160px; overflow-y:auto; font-size:0.78rem; z-index:10; position:relative;">
+                          <label class="d-flex align-items-start gap-1 mb-1"><input type="checkbox" class="resp-cb mt-1" value="Monitoring Strategic Plan Implementation"> Monitoring Strategic Plan Implementation</label>
+                          <label class="d-flex align-items-start gap-1 mb-1"><input type="checkbox" class="resp-cb mt-1" value="Benchmarking"> Benchmarking</label>
+                          <label class="d-flex align-items-start gap-1 mb-1"><input type="checkbox" class="resp-cb mt-1" value="Gap Analysis and Guidance"> Gap Analysis and Guidance</label>
+                          <label class="d-flex align-items-start gap-1 mb-1"><input type="checkbox" class="resp-cb mt-1" value="Data and Document Management"> Data and Document Management</label>
+                          <label class="d-flex align-items-start gap-1 mb-1"><input type="checkbox" class="resp-cb mt-1" value="Audit Coordination"> Audit Coordination</label>
+                          <label class="d-flex align-items-start gap-1 mb-1"><input type="checkbox" class="resp-cb mt-1" value="Engagement with University Offices/Centres"> Engagement with University Offices/Centres</label>
+                          <label class="d-flex align-items-start gap-1 mb-1"><input type="checkbox" class="resp-cb mt-1" value="Participation in Rankings and Accreditations"> Participation in Rankings and Accreditations</label>
+                          <label class="d-flex align-items-start gap-1 mb-1"><input type="checkbox" class="resp-cb mt-1" value="Monitoring website updates of department activities"> Monitoring website updates of department activities</label>
+                          <label class="d-flex align-items-start gap-1 mb-0"><input type="checkbox" class="resp-cb mt-1" value="Report Preparation and Submission"> Report Preparation and Submission</label>
+                        </div>
+                      </div>
                     </td>
                     <td class="text-center"><button type="button" class="btn btn-danger btn-del-row" onclick="delRow(this)"><i class="bi bi-trash"></i></button></td>
                   </tr>
@@ -140,12 +147,13 @@
               <table class="table table-bordered table-sm" id="tableB">
                 <thead>
                   <tr>
-                    <th style="width:12%;">Date</th>
-                    <th style="width:14%;">Venue</th>
-                    <th style="width:18%;">Title of the Program</th>
-                    <th style="width:10%;">No. of Participants</th>
-                    <th style="width:22%;">Name of the Resource Person/s</th>
-                    <th style="width:20%;">Related Responsibility Area</th>
+                    <th style="width:11%;">Date</th>
+                    <th style="width:12%;">Venue</th>
+                    <th style="width:16%;">Title of the Program</th>
+                    <th style="width:8%;">No. of Participants</th>
+                    <th style="width:18%;">Name of the Resource Person/s</th>
+                    <th style="width:18%;">Related Responsibility Area</th>
+                    <th style="width:13%;">Report (Optional)</th>
                     <th style="width:4%;"></th>
                   </tr>
                 </thead>
@@ -156,21 +164,33 @@
                     <td><input type="text" name="ws_title[]" class="form-control form-control-sm" placeholder="Program title"></td>
                     <td><input type="number" name="ws_participants[]" class="form-control form-control-sm" placeholder="0" min="0"></td>
                     <td><input type="text" name="ws_resource[]" class="form-control form-control-sm" placeholder="Resource person(s)"></td>
-                    <td>
-                      <select name="ws_responsibility[]" class="form-select form-select-sm">
-                        <option value="">-- Select Area --</option>
-                        <option>Monitoring Strategic Plan Implementation</option>
-                        <option>Benchmarking</option>
-                        <option>Gap Analysis and Guidance</option>
-                        <option>Data and Document Management</option>
-                        <option>Audit Coordination</option>
-                        <option>Engagement with University Offices/Centres</option>
-                        <option>Participation in Rankings and Accreditations</option>
-                        <option>Monitoring website updates of department activities</option>
-                        <option>Report Preparation and Submission</option>
-                      </select>
+                    <td style="min-width:180px;">
+                      <div class="resp-area-wrapper">
+                        <input type="hidden" name="ws_responsibility[]" class="resp-area-hidden">
+                        <div class="resp-area-display border rounded px-2 py-1" style="min-height:34px; cursor:pointer; font-size:0.78rem; background:#fff; display:flex; flex-wrap:wrap; gap:3px; align-items:center;">
+                          <span class="resp-area-placeholder text-muted fst-italic" style="font-size:0.78rem;">Click to select…</span>
+                        </div>
+                        <div class="resp-area-checklist border rounded p-2 mt-1 bg-white shadow-sm" style="display:none; max-height:160px; overflow-y:auto; font-size:0.78rem; z-index:10; position:relative;">
+                          <label class="d-flex align-items-start gap-1 mb-1"><input type="checkbox" class="resp-cb mt-1" value="Monitoring Strategic Plan Implementation"> Monitoring Strategic Plan Implementation</label>
+                          <label class="d-flex align-items-start gap-1 mb-1"><input type="checkbox" class="resp-cb mt-1" value="Benchmarking"> Benchmarking</label>
+                          <label class="d-flex align-items-start gap-1 mb-1"><input type="checkbox" class="resp-cb mt-1" value="Gap Analysis and Guidance"> Gap Analysis and Guidance</label>
+                          <label class="d-flex align-items-start gap-1 mb-1"><input type="checkbox" class="resp-cb mt-1" value="Data and Document Management"> Data and Document Management</label>
+                          <label class="d-flex align-items-start gap-1 mb-1"><input type="checkbox" class="resp-cb mt-1" value="Audit Coordination"> Audit Coordination</label>
+                          <label class="d-flex align-items-start gap-1 mb-1"><input type="checkbox" class="resp-cb mt-1" value="Engagement with University Offices/Centres"> Engagement with University Offices/Centres</label>
+                          <label class="d-flex align-items-start gap-1 mb-1"><input type="checkbox" class="resp-cb mt-1" value="Participation in Rankings and Accreditations"> Participation in Rankings and Accreditations</label>
+                          <label class="d-flex align-items-start gap-1 mb-1"><input type="checkbox" class="resp-cb mt-1" value="Monitoring website updates of department activities"> Monitoring website updates of department activities</label>
+                          <label class="d-flex align-items-start gap-1 mb-0"><input type="checkbox" class="resp-cb mt-1" value="Report Preparation and Submission"> Report Preparation and Submission</label>
+                        </div>
+                      </div>
                     </td>
-                    <td class="text-center"><button type="button" class="btn btn-danger btn-del-row" onclick="delRow(this)"><i class="bi bi-trash"></i></button></td>
+                    <td class="text-center align-middle">
+                      <input type="file" name="ws_report_file[]" class="d-none ws-file-input" accept=".pdf,.jpg,.jpeg,.png">
+                      <button type="button" class="btn btn-outline-secondary btn-sm ws-upload-btn" onclick="this.previousElementSibling.click()" title="Attach report file">
+                        <i class="bi bi-paperclip"></i>
+                      </button>
+                      <div class="ws-file-name text-muted mt-1" style="font-size:0.7rem; word-break:break-all;"></div>
+                    </td>
+                    <td class="text-center align-middle"><button type="button" class="btn btn-danger btn-sm btn-del-row" onclick="delRow(this)"><i class="bi bi-trash"></i></button></td>
                   </tr>
                 </tbody>
               </table>
@@ -178,15 +198,13 @@
             <button type="button" class="btn btn-outline-primary btn-add-row" onclick="addRow('B')">
               <i class="bi bi-plus-circle me-1"></i> Add Row
             </button>
-          </div>
-        </div>
 
-        <!-- Report Description -->
-        <div class="card mb-4">
-          <div class="card-body">
-            <label class="form-label">Report: <span class="fw-normal text-muted">(to be attached)</span></label>
-            <p class="text-muted small mb-2">[Brief description of the Program covering the objectives, outcomes and SDG goals, if any. Kindly attach photographs, the attendance sheet and feedback.]</p>
-            <textarea name="report_description" class="form-control" rows="4" placeholder="Enter a brief description here (optional)..."></textarea>
+            <!-- Report description (optional) -->
+            <div class="mt-3 pt-3 border-top">
+              <label class="form-label mb-1">Report Description <span class="fw-normal text-muted">(optional — to be attached)</span></label>
+              <p class="text-muted small mb-2">[Brief description covering objectives, outcomes and SDG goals, if any. Attach photographs, attendance sheet and feedback.]</p>
+              <textarea name="report_description" class="form-control" rows="3" placeholder="Enter a brief description here (optional)..."></textarea>
+            </div>
           </div>
         </div>
 
@@ -270,14 +288,78 @@
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
     <script>
-      // ── Auto-fill Topics Discussed from Responsibility Area ──
-      function fillTopics(selectEl) {
-        const row = selectEl.closest('tr');
-        const topicsField = row.querySelector('.topics-field');
-        if (topicsField && !topicsField.value) {
-          topicsField.value = selectEl.value;
+      function syncRespArea(wrapper) {
+        const checked = Array.from(wrapper.querySelectorAll('.resp-cb:checked')).map(c => c.value);
+        const hidden = wrapper.querySelector('.resp-area-hidden');
+        if (hidden) hidden.value = checked.join(', ');
+        const display = wrapper.querySelector('.resp-area-display');
+        if (!display) return;
+        display.innerHTML = '';
+        if (checked.length === 0) {
+          display.innerHTML = '<span class="resp-area-placeholder text-muted fst-italic" style="font-size:0.78rem;">Click to select…</span>';
+        } else {
+          checked.forEach(val => {
+            const badge = document.createElement('span');
+            badge.className = 'badge rounded-pill text-bg-primary me-1 mb-1';
+            badge.style.cssText = 'font-size:0.68rem; font-weight:500; white-space:normal; text-align:left;';
+            badge.textContent = val;
+            display.appendChild(badge);
+          });
         }
+        return checked;
       }
+
+      // ── On load: close all checklists and sync any browser-restored checkbox state ──
+      document.addEventListener('DOMContentLoaded', function() {
+        document.querySelectorAll('.resp-area-wrapper').forEach(wrapper => {
+          wrapper.querySelector('.resp-area-checklist').style.display = 'none';
+          syncRespArea(wrapper);
+        });
+      });
+
+      // ── Toggle checklist on display click ──
+      document.addEventListener('click', function(e) {
+        const display = e.target.closest('.resp-area-display');
+        if (display) {
+          const checklist = display.parentElement.querySelector('.resp-area-checklist');
+          checklist.style.display = checklist.style.display === 'none' ? 'block' : 'none';
+          return;
+        }
+        // Click outside wrapper → close all
+        if (!e.target.closest('.resp-area-wrapper')) {
+          document.querySelectorAll('.resp-area-checklist').forEach(cl => cl.style.display = 'none');
+        }
+      });
+
+      // ── Workshop file pick: show filename on button ──
+      document.addEventListener('change', function(e) {
+        if (!e.target.classList.contains('ws-file-input')) return;
+        const btn = e.target.nextElementSibling;
+        const nameDiv = btn.nextElementSibling;
+        if (e.target.files && e.target.files[0]) {
+          btn.classList.remove('btn-outline-secondary');
+          btn.classList.add('btn-success');
+          btn.innerHTML = '<i class="bi bi-check-circle-fill"></i>';
+          nameDiv.textContent = e.target.files[0].name;
+        } else {
+          btn.classList.remove('btn-success');
+          btn.classList.add('btn-outline-secondary');
+          btn.innerHTML = '<i class="bi bi-paperclip"></i>';
+          nameDiv.textContent = '';
+        }
+      });
+
+      // ── Checkbox change: sync display + hidden + topics ──
+      document.addEventListener('change', function(e) {
+        if (!e.target.classList.contains('resp-cb')) return;
+        const wrapper = e.target.closest('.resp-area-wrapper');
+        const row = e.target.closest('tr');
+        const checked = syncRespArea(wrapper);
+        const topicsField = row ? row.querySelector('.topics-field') : null;
+        if (topicsField && checked) {
+          topicsField.value = checked.join(', ');
+        }
+      });
 
       // ── Dynamic table row management ──
       function addRow(table) {
@@ -285,8 +367,16 @@
         const templateClass = '.row-template-' + table.toLowerCase();
         const template = tbody.querySelector(templateClass);
         const newRow = template.cloneNode(true);
-        newRow.querySelectorAll('input, textarea').forEach(el => el.value = '');
-        newRow.querySelectorAll('select').forEach(el => el.selectedIndex = 0);
+        newRow.querySelectorAll('input[type="text"], input[type="date"], input[type="hidden"], textarea').forEach(el => el.value = '');
+        newRow.querySelectorAll('input[type="number"]').forEach(el => el.value = '');
+        newRow.querySelectorAll('input[type="file"]').forEach(el => el.value = '');
+        newRow.querySelectorAll('.ws-file-name').forEach(el => el.textContent = '');
+        newRow.querySelectorAll('.ws-upload-btn').forEach(btn => { btn.classList.remove('btn-success'); btn.classList.add('btn-outline-secondary'); btn.innerHTML = '<i class="bi bi-paperclip"></i>'; });
+        newRow.querySelectorAll('.resp-cb').forEach(cb => cb.checked = false);
+        newRow.querySelectorAll('.resp-area-checklist').forEach(cl => cl.style.display = 'none');
+        newRow.querySelectorAll('.resp-area-display').forEach(d => {
+          d.innerHTML = '<span class="resp-area-placeholder text-muted fst-italic" style="font-size:0.78rem;">Click to select…</span>';
+        });
         tbody.appendChild(newRow);
       }
 
@@ -331,6 +421,68 @@
           item.querySelector('input').placeholder = 'Plan item ' + (i + 1);
         });
       }
+
+      // ── Row validation: if any field in a row is filled, all must be filled ──
+      document.getElementById('reportForm').addEventListener('submit', function(e) {
+        function highlight(el) {
+          el.style.border = '2px solid red';
+          el.addEventListener('input', () => el.style.border = '', { once: true });
+        }
+
+        let errors = [];
+
+        // Section (a)
+        document.querySelectorAll('#tableA-body tr').forEach((row, i) => {
+          const date   = row.querySelector('input[name="meeting_date[]"]');
+          const dept   = row.querySelector('input[name="dept_name[]"]');
+          const parts  = row.querySelector('input[name="participants[]"]');
+          const topics = row.querySelector('textarea[name="topics[]"]');
+          const action = row.querySelector('textarea[name="action_points[]"]');
+          const resp   = row.querySelector('input[name="responsibility_area[]"]');
+          const fields = [date, dept, parts, topics, action];
+          const vals   = fields.map(f => f.value.trim());
+          const respVal = resp ? resp.value.trim() : '';
+          const anyFilled = vals.some(v => v) || respVal;
+          if (anyFilled) {
+            let rowOk = true;
+            fields.forEach(f => { if (!f.value.trim()) { highlight(f); rowOk = false; } });
+            if (!respVal) {
+              const display = row.querySelector('.resp-area-display');
+              if (display) display.style.border = '2px solid red';
+              rowOk = false;
+            }
+            if (!rowOk) errors.push(`Section (a) row ${i + 1}: please fill all fields.`);
+          }
+        });
+
+        // Section (b)
+        document.querySelectorAll('#tableB-body tr').forEach((row, i) => {
+          const date     = row.querySelector('input[name="ws_date[]"]');
+          const venue    = row.querySelector('input[name="ws_venue[]"]');
+          const title    = row.querySelector('input[name="ws_title[]"]');
+          const resource = row.querySelector('input[name="ws_resource[]"]');
+          const resp     = row.querySelector('input[name="ws_responsibility[]"]');
+          const fields   = [date, venue, title, resource];
+          const vals     = fields.map(f => f.value.trim());
+          const respVal  = resp ? resp.value.trim() : '';
+          const anyFilled = vals.some(v => v) || respVal;
+          if (anyFilled) {
+            let rowOk = true;
+            fields.forEach(f => { if (!f.value.trim()) { highlight(f); rowOk = false; } });
+            if (!respVal) {
+              const display = row.querySelector('.resp-area-display');
+              if (display) display.style.border = '2px solid red';
+              rowOk = false;
+            }
+            if (!rowOk) errors.push(`Section (b) row ${i + 1}: please fill all fields.`);
+          }
+        });
+
+        if (errors.length) {
+          e.preventDefault();
+          alert('Please complete all fields in partially-filled rows:\n\n' + errors.join('\n'));
+        }
+      });
     </script>
   </body>
 </html>

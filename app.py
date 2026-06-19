@@ -2147,6 +2147,82 @@ This is an automated reminder. Please do not reply.
     return f"IQAC reminder sent to {sent_count} coordinator(s) who haven't submitted for {month_display}."
 
 
+def send_auto_iqac_reminders():
+    """Daily auto-reminder: fires on days 3–close_day of each month for pending coordinators."""
+    today = datetime.now().date()
+    open_day, close_day = get_submission_window()
+
+    if not (3 <= today.day <= close_day):
+        return f"Not a reminder day (today is {today.day}). Reminders fire on days 3–{close_day}."
+
+    # Reporting month is always the previous month
+    if today.month == 1:
+        report_year, report_month = today.year - 1, 12
+    else:
+        report_year, report_month = today.year, today.month - 1
+    reporting_month = f"{report_year}-{report_month:02d}"
+    month_display = datetime(report_year, report_month, 1).strftime("%B %Y")
+
+    days_left = close_day - today.day
+    deadline_date = today.replace(day=close_day).strftime("%d %B %Y")
+
+    if days_left == 0:
+        days_left_str = "TODAY is the last day"
+        subject = f"URGENT: IQAC Report Due TODAY — {month_display}"
+    elif days_left == 1:
+        days_left_str = "only 1 day left"
+        subject = f"IQAC Report Reminder — 1 Day Left — {month_display}"
+    else:
+        days_left_str = f"{days_left} days left"
+        subject = f"IQAC Report Reminder — {days_left} Days Left — {month_display}"
+
+    conn = get_db_connection()
+    cursor = get_cursor(conn)
+    cursor.execute(
+        "SELECT username, email FROM users WHERE role IN ('School IQAC Coordinator', 'Campus IQAC Coordinator')"
+    )
+    coordinators = cursor.fetchall()
+
+    sent_count = 0
+    for coord in coordinators:
+        cursor.execute(
+            "SELECT id FROM signed_reports WHERE username=%s AND reporting_month=%s",
+            (coord['username'], reporting_month)
+        )
+        if cursor.fetchone():
+            continue
+
+        body = f"""Dear {coord['username'].title()},
+
+This is an automated reminder that your Monthly Work Done Report for {month_display} has not yet been submitted.
+
+Deadline: {deadline_date} ({days_left_str})
+
+Steps to complete:
+  1. Log in to the IQAC portal
+  2. Go to "Generate Monthly Report", fill in your work details, and download the PDF
+  3. Sign and scan the printed copy
+  4. Upload the signed copy under "Upload Signed Report"
+
+Portal: https://iqacworklog.christuniversity.in/login
+
+If you have already submitted, please disregard this message.
+
+---
+This is an automated reminder. Please do not reply to this email.
+"""
+        send_reminder_email(coord['email'], subject, body)
+        sent_count += 1
+
+    conn.close()
+    return f"Auto IQAC reminder sent to {sent_count} coordinator(s) for {month_display} (day {today.day}, {days_left_str})."
+
+
+@app.route("/auto_iqac_reminders")
+def trigger_auto_iqac_reminders():
+    """Called daily by external cron (e.g. Render cron job). Self-checks whether to send."""
+    result = send_auto_iqac_reminders()
+    return result, 200
 
 
 @app.route("/admin_trigger_iqac_reminder", methods=["POST"])
@@ -2224,7 +2300,11 @@ def iqac_monthly_report():
         flash("Access denied.", "danger")
         return redirect("/login")
 
-    return render_template("iqac_monthly_report.html", username=username, user=user)
+    _, reporting_month_str, _, _, _ = check_submission_window()
+    reporting_month_display = datetime.strptime(reporting_month_str, "%Y-%m").strftime("%B %Y")
+    return render_template("iqac_monthly_report.html", username=username, user=user,
+                           reporting_month_str=reporting_month_str,
+                           reporting_month_display=reporting_month_display)
 
 
 # ------------------ IQAC MONTHLY REPORT PDF DOWNLOAD ------------------
@@ -2249,9 +2329,20 @@ def iqac_monthly_report_download():
         flash("PDF generation library (reportlab) is not installed on the server.", "danger")
         return redirect("/iqac_monthly_report")
 
+    # Save any optional workshop report files
+    ws_files = request.files.getlist("ws_report_file[]")
+    reporting_month = request.form.get("reporting_month", "report")
+    if ws_files:
+        import os
+        ws_upload_dir = os.path.join("static", "signed_reports", "workshop_attachments", username, reporting_month)
+        os.makedirs(ws_upload_dir, exist_ok=True)
+        for i, f in enumerate(ws_files):
+            if f and f.filename:
+                ext = os.path.splitext(f.filename)[1]
+                f.save(os.path.join(ws_upload_dir, f"workshop_{i+1}{ext}"))
+
     pdf_buffer = _generate_iqac_pdf(request.form)
 
-    reporting_month = request.form.get("reporting_month", "report")
     filename = f"IQAC_Monthly_Report_{reporting_month}.pdf"
 
     return send_file(
@@ -2266,24 +2357,25 @@ def _generate_iqac_pdf(form_data):
     """Generate the IQAC Monthly Report PDF and return a BytesIO buffer."""
     buffer = BytesIO()
 
-    usable_width = A4[0] - 3 * cm  # ~510 pts with 1.5cm margins each side
+    usable_width = A4[0] - 4 * cm  # 2cm margins each side
 
     doc = SimpleDocTemplate(
         buffer,
         pagesize=A4,
-        leftMargin=1.5 * cm,
-        rightMargin=1.5 * cm,
-        topMargin=1.5 * cm,
-        bottomMargin=1.5 * cm
+        leftMargin=2 * cm,
+        rightMargin=2 * cm,
+        topMargin=2 * cm,
+        bottomMargin=2 * cm
     )
 
     styles = getSampleStyleSheet()
 
-    navy = colors.HexColor('#003366')
-    light_blue = colors.HexColor('#E8F0FE')
-    alt_row = colors.HexColor('#F5F5F5')
+    accent      = colors.HexColor('#1F497D')   # dark navy — text only, no backgrounds
+    tbl_header  = colors.HexColor('#BDD7EE')   # light blue — section banners, table headers, info labels
+    light_blue  = colors.HexColor('#BDD7EE')   # same light blue — info label cells (unified)
+    alt_row     = colors.white                  # white — all data rows
 
-    def make_style(name, size=9, bold=False, align=TA_LEFT, space_before=0, space_after=4, italic=False):
+    def make_style(name, size=9, bold=False, align=TA_LEFT, space_before=0, space_after=4, italic=False, text_color=None):
         fname = 'Helvetica'
         if bold and italic:
             fname = 'Helvetica-BoldOblique'
@@ -2291,30 +2383,48 @@ def _generate_iqac_pdf(form_data):
             fname = 'Helvetica-Bold'
         elif italic:
             fname = 'Helvetica-Oblique'
-        return ParagraphStyle(name, parent=styles['Normal'], fontSize=size,
-                              fontName=fname, alignment=align,
-                              spaceBefore=space_before, spaceAfter=space_after)
+        kwargs = dict(parent=styles['Normal'], fontSize=size, fontName=fname,
+                      alignment=align, spaceBefore=space_before, spaceAfter=space_after)
+        if text_color:
+            kwargs['textColor'] = text_color
+        return ParagraphStyle(name, **kwargs)
 
     small = make_style('small', size=7.5)
 
+    _sh_counter = [0]
+    def section_header(text):
+        _sh_counter[0] += 1
+        t = Table([[Paragraph(text, make_style(f'sh_{_sh_counter[0]}', size=10, bold=True,
+                                               space_after=0, align=TA_LEFT, space_before=0,
+                                               text_color=accent))]],
+                  colWidths=[usable_width])
+        t.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, -1), tbl_header),
+            ('TOPPADDING', (0, 0), (-1, -1), 6),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
+            ('LEFTPADDING', (0, 0), (-1, -1), 8),
+            ('BOX', (0, 0), (-1, -1), 0.5, colors.HexColor('#AAAAAA')),
+        ]))
+        return t
+
     def table_style(has_header=True):
         ts = [
-            ('FONTSIZE', (0, 0), (-1, -1), 7.5),
+            ('FONTSIZE', (0, 0), (-1, -1), 8),
             ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
             ('VALIGN', (0, 0), (-1, -1), 'TOP'),
-            ('BOX', (0, 0), (-1, -1), 0.5, colors.black),
-            ('INNERGRID', (0, 0), (-1, -1), 0.5, colors.black),
-            ('TOPPADDING', (0, 0), (-1, -1), 4),
-            ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
-            ('LEFTPADDING', (0, 0), (-1, -1), 3),
-            ('RIGHTPADDING', (0, 0), (-1, -1), 3),
+            ('BOX', (0, 0), (-1, -1), 0.5, colors.HexColor('#AAAAAA')),
+            ('INNERGRID', (0, 0), (-1, -1), 0.4, colors.HexColor('#CCCCCC')),
+            ('TOPPADDING', (0, 0), (-1, -1), 5),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 5),
+            ('LEFTPADDING', (0, 0), (-1, -1), 4),
+            ('RIGHTPADDING', (0, 0), (-1, -1), 4),
         ]
         if has_header:
             ts += [
-                ('BACKGROUND', (0, 0), (-1, 0), navy),
-                ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+                ('BACKGROUND', (0, 0), (-1, 0), tbl_header),
+                ('TEXTCOLOR', (0, 0), (-1, 0), accent),
                 ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-                ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, alt_row]),
+                ('BACKGROUND', (0, 1), (-1, -1), colors.white),
             ]
         return TableStyle(ts)
 
@@ -2322,21 +2432,26 @@ def _generate_iqac_pdf(form_data):
 
     # ── Header ──────────────────────────────────────────────────────────────
     logo_path = os.path.join(os.path.dirname(__file__), 'static', 'christ_logo.png')
-    logo_cell = RLImage(logo_path, width=3.5 * cm, height=3.5 * cm) if os.path.exists(logo_path) else ''
+    logo_cell = RLImage(logo_path, width=5 * cm, height=5 * cm) if os.path.exists(logo_path) else ''
 
     hdr_data = [[
-        logo_cell,
+        '',
         [
-            Paragraph('CHRIST (Deemed to be University)', make_style('h1', size=13, bold=True, align=TA_CENTER, space_after=3)),
-            Paragraph('Internal Quality Assurance Cell (IQAC)', make_style('h2', size=11, bold=True, align=TA_CENTER, space_after=3)),
+            Paragraph('CHRIST (Deemed to be University)', make_style('h1', size=13, bold=True, align=TA_CENTER, space_after=4)),
+            Paragraph('Internal Quality Assurance Cell (IQAC)', make_style('h2', size=11, bold=True, align=TA_CENTER, space_after=4)),
             Paragraph('Monthly Work Done Report of IQAC Coordinators', make_style('h3', size=9, align=TA_CENTER, space_after=0)),
         ],
-        '',
+        logo_cell,
     ]]
-    hdr_table = Table(hdr_data, colWidths=[4 * cm, usable_width - 8 * cm, 4 * cm])
-    hdr_table.setStyle(TableStyle([('VALIGN', (0, 0), (-1, -1), 'MIDDLE'), ('ALIGN', (1, 0), (1, 0), 'CENTER')]))
+    hdr_table = Table(hdr_data, colWidths=[5.5 * cm, usable_width - 11 * cm, 5.5 * cm])
+    hdr_table.setStyle(TableStyle([
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ('ALIGN', (1, 0), (1, 0), 'CENTER'),
+        ('ALIGN', (2, 0), (2, 0), 'RIGHT'),
+    ]))
     elements.append(hdr_table)
-    elements.append(HRFlowable(width=usable_width, thickness=2, color=navy, spaceAfter=8))
+    elements.append(Spacer(1, 6))
+    elements.append(HRFlowable(width=usable_width, thickness=2, color=accent, spaceAfter=10))
 
     # ── Header Info ─────────────────────────────────────────────────────────
     coord_name = form_data.get('coordinator_name', '')
@@ -2359,13 +2474,13 @@ def _generate_iqac_pdf(form_data):
     w = usable_width
     info_table = Table(info_data, colWidths=[w * 0.28, w * 0.32, w * 0.18, w * 0.22])
     info_table.setStyle(TableStyle([
-        ('BOX', (0, 0), (-1, -1), 0.5, colors.black),
-        ('INNERGRID', (0, 0), (-1, -1), 0.5, colors.black),
+        ('BOX', (0, 0), (-1, -1), 0.5, colors.HexColor('#AAAAAA')),
+        ('INNERGRID', (0, 0), (-1, -1), 0.4, colors.HexColor('#CCCCCC')),
         ('BACKGROUND', (0, 0), (0, -1), light_blue),
         ('BACKGROUND', (2, 0), (2, -1), light_blue),
-        ('TOPPADDING', (0, 0), (-1, -1), 5),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 5),
-        ('LEFTPADDING', (0, 0), (-1, -1), 4),
+        ('TOPPADDING', (0, 0), (-1, -1), 6),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
+        ('LEFTPADDING', (0, 0), (-1, -1), 5),
     ]))
     elements.append(info_table)
     elements.append(Spacer(1, 8))
@@ -2374,12 +2489,7 @@ def _generate_iqac_pdf(form_data):
     # (header added after we know if there's any data)
 
     # Part (a)
-    part_a_label = (
-        '(a) Meetings/Activities conducted relating to IQAC Coordinator\'s responsibility areas such as: '
-        'Monitoring Strategic Plan Implementation, Benchmarking, Gap Analysis and Guidance, Data and Document Management, '
-        'Audit Coordination, Engagement with University Offices/Centres, Participation in Rankings and Accreditations, '
-        'Monitoring website updates of department activities, Report Preparation and Submission'
-    )
+    part_a_label = '(a) Meetings / Activities conducted relating to IQAC Coordinator\'s responsibility areas'
 
     meet_dates = form_data.getlist('meeting_date[]')
     dept_names = form_data.getlist('dept_name[]')
@@ -2398,7 +2508,7 @@ def _generate_iqac_pdf(form_data):
                       for i in range(len(meet_dates))]
     has_pa_data = any(pa_rows_filled)
 
-    pa_data = [[Paragraph(h, make_style(f'ph{i}', size=7.5, bold=True, space_after=0)) for i, h in enumerate(pa_headers)]]
+    pa_data = [[Paragraph(h, make_style(f'ph{i}', size=7.5, bold=True, space_after=0, text_color=accent)) for i, h in enumerate(pa_headers)]]
     for i in range(len(meet_dates)):
         if not pa_rows_filled[i]:
             continue
@@ -2412,14 +2522,13 @@ def _generate_iqac_pdf(form_data):
         ])
 
     if has_pa_data:
-        elements.append(Paragraph('Section I: Quality Assurance Initiatives',
-                                   make_style('sec1', size=11, bold=True, space_before=4, space_after=4, align=TA_LEFT)))
+        elements.append(section_header('Section I: Quality Assurance Initiatives'))
+        elements.append(Spacer(1, 4))
         elements.append(Paragraph(part_a_label, make_style('parta', size=8, bold=True, space_after=4)))
         pa_table = Table(pa_data, colWidths=pa_cols, repeatRows=1)
         pa_table.setStyle(table_style())
         elements.append(pa_table)
-        elements.append(Paragraph('(Additional tables may be inserted for each department)',
-                                   make_style('note', size=7, italic=True, space_after=6)))
+        elements.append(Spacer(1, 6))
 
     ws_dates = form_data.getlist('ws_date[]')
     ws_venues = form_data.getlist('ws_venue[]')
@@ -2439,12 +2548,12 @@ def _generate_iqac_pdf(form_data):
 
     if has_pb_data:
         if not has_pa_data:
-            elements.append(Paragraph('Section I: Quality Assurance Initiatives',
-                                       make_style('sec1', size=11, bold=True, space_before=4, space_after=4, align=TA_LEFT)))
+            elements.append(section_header('Section I: Quality Assurance Initiatives'))
+            elements.append(Spacer(1, 4))
         elements.append(Paragraph(
             '(b) Workshops/Seminars/Training Programs organised by the IQAC coordinator (If any)',
             make_style('partb', size=8, bold=True, space_before=6, space_after=4)))
-        pb_data = [[Paragraph(h, make_style(f'pbh{i}', size=7.5, bold=True, space_after=0)) for i, h in enumerate(pb_headers)]]
+        pb_data = [[Paragraph(h, make_style(f'pbh{i}', size=7.5, bold=True, space_after=0, text_color=accent)) for i, h in enumerate(pb_headers)]]
         for i in range(len(ws_dates)):
             if not pb_rows_filled[i]:
                 continue
@@ -2464,11 +2573,7 @@ def _generate_iqac_pdf(form_data):
     report_desc = form_data.get('report_description', '').strip()
     if has_pb_data or report_desc:
         elements.append(Spacer(1, 6))
-        elements.append(Paragraph('Report: (to be attached)', make_style('reph', size=9, bold=True, space_after=2)))
-        elements.append(Paragraph(
-            '[Brief description of the Program covering the objectives, outcomes and SDG goals, if any. '
-            'Kindly attach photographs, the attendance sheet and feedback.]',
-            make_style('repit', size=7.5, italic=True, space_after=2)))
+        elements.append(Paragraph('Report:', make_style('reph', size=9, bold=True, space_after=2)))
         if report_desc:
             desc_data = [[Paragraph(report_desc, make_style('reptext', size=9, space_after=0))]]
             desc_table = Table(desc_data, colWidths=[usable_width])
@@ -2485,8 +2590,8 @@ def _generate_iqac_pdf(form_data):
     plans = [p.strip() for p in form_data.getlist('plan[]') if p.strip()]
     if plans:
         elements.append(Spacer(1, 8))
-        elements.append(Paragraph('Section II: Plans for Next Month',
-                                   make_style('sec2', size=11, bold=True, space_before=4, space_after=4)))
+        elements.append(section_header('Section II: Plans for Next Month'))
+        elements.append(Spacer(1, 4))
         plan_rows = []
         for i, p in enumerate(plans, 1):
             plan_rows.append([Paragraph(f'{i}.', make_style(f'pn{i}', size=9, space_after=0)),
