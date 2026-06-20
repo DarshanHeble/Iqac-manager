@@ -1,5 +1,5 @@
 from flask import Flask, render_template, request, redirect, url_for, flash, session, send_file
-import os, random, string, smtplib, json
+import os, random, string, smtplib, json, urllib.request, urllib.error
 from datetime import datetime, timedelta
 from email.mime.text import MIMEText
 from werkzeug.security import generate_password_hash, check_password_hash
@@ -38,6 +38,71 @@ SMTP_SERVER = "smtp.gmail.com"
 SMTP_PORT = 587
 
 # ------------------ EMAIL REMINDER FUNCTIONS ------------------
+def send_email(to_email, subject, body):
+    """Send email via Brevo Web API if configured, otherwise fallback to SMTP"""
+    brevo_api_key = os.getenv("BREVO_API_KEY")
+    if brevo_api_key:
+        sender_email = os.getenv("SENDER_EMAIL") or SMTP_EMAIL
+        if not sender_email:
+            raise Exception("SENDER_EMAIL or SMTP_EMAIL environment variable must be set for Brevo.")
+            
+        url = "https://api.brevo.com/v3/smtp/email"
+        headers = {
+            "accept": "application/json",
+            "api-key": brevo_api_key,
+            "content-type": "application/json"
+        }
+        payload = {
+            "sender": {
+                "name": "IQAC Admin",
+                "email": sender_email
+            },
+            "to": [
+                {"email": to_email}
+            ],
+            "subject": subject,
+            "textContent": body
+        }
+        try:
+            req = urllib.request.Request(
+                url, 
+                data=json.dumps(payload).encode("utf-8"), 
+                headers=headers, 
+                method="POST"
+            )
+            with urllib.request.urlopen(req, timeout=10) as response:
+                res_data = response.read()
+                print(f"Brevo email sent successfully to {to_email}: {res_data}")
+                return True
+        except urllib.error.HTTPError as e:
+            err_msg = e.read().decode('utf-8')
+            print(f"HTTP Error sending Brevo email to {to_email}: {e.code} - {err_msg}")
+            raise Exception(f"Brevo API error: {e.code} - {err_msg}")
+        except Exception as e:
+            print(f"Failed to send Brevo email to {to_email}: {str(e)}")
+            raise e
+    else:
+        # Fallback to standard SMTP
+        if not SMTP_EMAIL or not SMTP_PASSWORD:
+            raise Exception("Neither BREVO_API_KEY nor SMTP credentials are set.")
+        msg = MIMEText(body, 'plain', 'utf-8')
+        msg['Subject'] = subject
+        msg['From'] = SMTP_EMAIL
+        msg['To'] = to_email
+        with smtplib.SMTP(SMTP_SERVER, SMTP_PORT, timeout=10) as server:
+            server.starttls()
+            server.login(SMTP_EMAIL, SMTP_PASSWORD)
+            server.send_message(msg)
+        return True
+
+def send_reminder_email(to_email, subject, body):
+    """Send an email reminder"""
+    try:
+        return send_email(to_email, subject, body)
+    except Exception as e:
+        print(f"Failed to send email to {to_email}: {str(e)}")
+        return False
+
 def get_nth_weekday_of_month(year, month, weekday, n):
     """Get the nth occurrence of a weekday in a month (0=Monday, 6=Sunday)"""
     first_day = datetime(year, month, 1)
@@ -103,16 +168,7 @@ def get_missing_entries(username, year, month):
 def send_reminder_email(to_email, subject, body):
     """Send an email reminder"""
     try:
-        msg = MIMEText(body, 'plain', 'utf-8')
-        msg['Subject'] = subject
-        msg['From'] = SMTP_EMAIL
-        msg['To'] = to_email
-        
-        with smtplib.SMTP(SMTP_SERVER, SMTP_PORT, timeout=10) as server:
-            server.starttls()
-            server.login(SMTP_EMAIL, SMTP_PASSWORD)
-            server.send_message(msg)
-        return True
+        return send_email(to_email, subject, body)
     except Exception as e:
         print(f"Failed to send email to {to_email}: {str(e)}")
         return False
@@ -1352,8 +1408,7 @@ def admin_add_user():
 
             # Send credentials email
             try:
-                msg = MIMEText(f"""
-Dear {username},
+                body = f"""Dear {username},
 
 Your IQAC Worklog account has been created.
 
@@ -1363,17 +1418,8 @@ Password: {password}
 Login: https://iqacworklog.christuniversity.in/login
 
 Regards,
-IQAC Admin
-""")
-                msg["Subject"] = "IQAC Worklog Account Created"
-                msg["From"] = SMTP_EMAIL
-                msg["To"] = email
-
-                with smtplib.SMTP(SMTP_SERVER, SMTP_PORT, timeout=10) as server:
-                    server.starttls()
-                    server.login(SMTP_EMAIL, SMTP_PASSWORD)
-                    server.send_message(msg)
-
+IQAC Admin"""
+                send_email(email, "IQAC Worklog Account Created", body)
                 flash("User added and credentials emailed.", "success")
 
             except Exception as e:
@@ -1411,32 +1457,21 @@ def forgot_password():
 
     # Email password
     try:
-        msg = MIMEText(f"""
-    Dear {username},
+        body = f"""Dear {username},
 
-    Your password for the IQAC Worklog account has been successfully reset. Please find your updated login credentials below:
+Your password for the IQAC Worklog account has been successfully reset. Please find your updated login credentials below:
 
-    Username: {username}
-    New Password: {new_password}
+Username: {username}
+New Password: {new_password}
 
-    You may log in using the following link:
-    https://iqacworklog.christuniversity.in
+You may log in using the following link:
+https://iqacworklog.christuniversity.in
 
-    If you did not request this reset or require any assistance, please contact the admin.
+If you did not request this reset or require any assistance, please contact the admin.
 
-    Regards,
-    IQAC Admin
-    """)
-
-        msg["Subject"] = "IQAC Worklog Password Reset"
-        msg["From"] = SMTP_EMAIL
-        msg["To"] = email
-
-        with smtplib.SMTP(SMTP_SERVER, SMTP_PORT, timeout=10) as server:
-            server.starttls()
-            server.login(SMTP_EMAIL, SMTP_PASSWORD)
-            server.send_message(msg)
-
+Regards,
+IQAC Admin"""
+        send_email(email, "IQAC Worklog Password Reset", body)
         flash("New password emailed to you.", "success")
 
     except Exception as e:
@@ -1989,31 +2024,21 @@ def admin_reset_password(id):
 
     # Send email
     try:
-        msg = MIMEText(f"""
-    Dear {user['username']},
+        body = f"""Dear {user['username']},
 
-    Your password for the IQAC Worklog account has been successfully reset. Please find your updated login credentials below:
+Your password for the IQAC Worklog account has been successfully reset. Please find your updated login credentials below:
 
-    Username: {user['username']}
-    New Password: {new_password}
+Username: {user['username']}
+New Password: {new_password}
 
-    You may log in using the following link:
-    https://iqacworklog.christuniversity.in
+You may log in using the following link:
+https://iqacworklog.christuniversity.in
 
-    If you did not request this reset or require any assistance, please contact the admin.
+If you did not request this reset or require any assistance, please contact the admin.
 
-    Regards,
-    IQAC Admin
-    """)
-        msg["Subject"] = "IQAC Worklog - Password Reset"
-        msg["From"] = SMTP_EMAIL
-        msg["To"] = user["email"]
-
-        with smtplib.SMTP(SMTP_SERVER, SMTP_PORT, timeout=10) as server:
-            server.starttls()
-            server.login(SMTP_EMAIL, SMTP_PASSWORD)
-            server.send_message(msg)
-
+Regards,
+IQAC Admin"""
+        send_email(user["email"], "IQAC Worklog - Password Reset", body)
         flash(f"Password reset for '{user['username']}' and emailed successfully!", "success")
 
     except Exception as e:
