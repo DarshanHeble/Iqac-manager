@@ -478,7 +478,7 @@ os.makedirs(os.path.join(os.path.dirname(__file__), 'static', 'signed_reports'),
 @app.template_filter("datetimeformat")
 def datetimeformat(value):
     try:
-        return datetime.strptime(value, "%Y-%m-%d").strftime("%d/%m/%Y")
+        return datetime.strptime(value, "%Y-%m-%d").strftime("%d-%m-%Y")
     except:
         return value
 
@@ -2030,7 +2030,7 @@ def trigger_29th_reminders():
     
     # Only send on 29th of the month
     if today.day != 29:
-        return f"Not the 29th. Today is {today.strftime('%d/%m/%Y')}", 400
+        return f"Not the 29th. Today is {today.strftime('%d-%m-%Y')}", 400
     
     result = send_29th_reminder()
     return result, 200
@@ -2042,7 +2042,7 @@ def trigger_1st_deadline_reminders():
     
     # Only send on 1st of the month
     if today.day != 1:
-        return f"Not the 1st. Today is {today.strftime('%d/%m/%Y')}", 400
+        return f"Not the 1st. Today is {today.strftime('%d-%m-%Y')}", 400
     
     result = send_1st_deadline_reminder()
     return result, 200

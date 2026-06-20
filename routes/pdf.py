@@ -100,6 +100,17 @@ def _generate_iqac_pdf(form_data):
 
     small = make_style('small', size=7.5)
 
+    def format_date(d_str):
+        if not d_str:
+            return ''
+        try:
+            return datetime.strptime(d_str.strip(), '%Y-%m-%d').strftime('%d-%m-%Y')
+        except Exception:
+            try:
+                return datetime.strptime(d_str.strip(), '%d/%m/%Y').strftime('%d-%m-%Y')
+            except Exception:
+                return d_str
+
     _sh_counter = [0]
     def section_header(text):
         _sh_counter[0] += 1
@@ -162,9 +173,8 @@ def _generate_iqac_pdf(form_data):
         elements.append(Spacer(1, 18))
 
     # ── Title Section ────────────────────────────────────────────────────────
-    elements.append(Paragraph('CHRIST (Deemed to be University)', make_style('h1', size=14, bold=True, align=TA_CENTER, space_after=4)))
     elements.append(Paragraph('Internal Quality Assurance Cell (IQAC)', make_style('h2', size=12, bold=True, align=TA_CENTER, space_after=4)))
-    elements.append(Paragraph('Monthly Work Done Report of IQAC Coordinators', make_style('h3', size=10, align=TA_CENTER, space_after=0)))
+    elements.append(Paragraph('IQAC Monthly Reports', make_style('h3', size=10, align=TA_CENTER, space_after=0)))
     elements.append(Spacer(1, 6))
     elements.append(HRFlowable(width=usable_width, thickness=2, color=accent, spaceAfter=10))
 
@@ -228,7 +238,7 @@ def _generate_iqac_pdf(form_data):
         if not pa_rows_filled[i]:
             continue
         pa_data.append([
-            Paragraph(meet_dates[i] if i < len(meet_dates) else '', small),
+            Paragraph(format_date(meet_dates[i]) if i < len(meet_dates) else '', small),
             Paragraph(dept_names[i] if i < len(dept_names) else '', small),
             Paragraph(participants[i] if i < len(participants) else '', small),
             Paragraph(topics[i] if i < len(topics) else '', small),
@@ -273,7 +283,7 @@ def _generate_iqac_pdf(form_data):
             if not pb_rows_filled[i]:
                 continue
             pb_data.append([
-                Paragraph(ws_dates[i] if i < len(ws_dates) else '', small),
+                Paragraph(format_date(ws_dates[i]) if i < len(ws_dates) else '', small),
                 Paragraph(ws_venues[i] if i < len(ws_venues) else '', small),
                 Paragraph(ws_titles[i] if i < len(ws_titles) else '', small),
                 Paragraph(ws_parts[i] if i < len(ws_parts) else '', small),
@@ -358,7 +368,7 @@ def _generate_iqac_pdf(form_data):
     ]))
     elements.append(sig_table)
     elements.append(Spacer(1, 6))
-    elements.append(Paragraph(f'Date: {footer_date}', make_style('datetext', size=9)))
+    elements.append(Paragraph(f'Date: {format_date(footer_date)}', make_style('datetext', size=9)))
 
     doc.build(elements)
     buffer.seek(0)
