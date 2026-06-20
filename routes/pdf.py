@@ -84,7 +84,7 @@ def _generate_iqac_pdf(form_data):
     light_blue  = colors.HexColor('#BDD7EE')   # same light blue — info label cells (unified)
     alt_row     = colors.white                  # white — all data rows
 
-    def make_style(name, size=9, bold=False, align=TA_LEFT, space_before=0, space_after=4, italic=False, text_color=None):
+    def make_style(name, size=14, bold=False, align=TA_LEFT, space_before=0, space_after=4, italic=False, text_color=None):
         fname = 'Times-Roman'
         if bold and italic:
             fname = 'Times-BoldItalic'
@@ -98,7 +98,7 @@ def _generate_iqac_pdf(form_data):
             kwargs['textColor'] = text_color
         return ParagraphStyle(name, **kwargs)
 
-    small = make_style('small', size=7.5)
+    small = make_style('small', size=12)
 
     def format_date(d_str):
         if not d_str:
@@ -114,7 +114,7 @@ def _generate_iqac_pdf(form_data):
     _sh_counter = [0]
     def section_header(text):
         _sh_counter[0] += 1
-        t = Table([[Paragraph(text, make_style(f'sh_{_sh_counter[0]}', size=10, bold=True,
+        t = Table([[Paragraph(text, make_style(f'sh_{_sh_counter[0]}', size=16, bold=True,
                                                space_after=0, align=TA_LEFT, space_before=0,
                                                text_color=accent))]],
                   colWidths=[usable_width])
@@ -129,7 +129,7 @@ def _generate_iqac_pdf(form_data):
 
     def table_style(has_header=True):
         ts = [
-            ('FONTSIZE', (0, 0), (-1, -1), 8),
+            ('FONTSIZE', (0, 0), (-1, -1), 12),
             ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
             ('VALIGN', (0, 0), (-1, -1), 'TOP'),
             ('BOX', (0, 0), (-1, -1), 0.5, colors.HexColor('#AAAAAA')),
@@ -173,8 +173,8 @@ def _generate_iqac_pdf(form_data):
         elements.append(Spacer(1, 18))
 
     # ── Title Section ────────────────────────────────────────────────────────
-    elements.append(Paragraph('Internal Quality Assurance Cell (IQAC)', make_style('h2', size=12, bold=True, align=TA_CENTER, space_after=4)))
-    elements.append(Paragraph('IQAC Monthly Reports', make_style('h3', size=10, align=TA_CENTER, space_after=0)))
+    elements.append(Paragraph('Internal Quality Assurance Cell (IQAC)', make_style('h2', size=16, bold=True, align=TA_CENTER, space_after=4)))
+    elements.append(Paragraph('IQAC Monthly Reports', make_style('h3', size=14, align=TA_CENTER, space_after=0)))
     elements.append(Spacer(1, 6))
     elements.append(HRFlowable(width=usable_width, thickness=2, color=accent, spaceAfter=10))
 
@@ -188,12 +188,12 @@ def _generate_iqac_pdf(form_data):
         rep_month_display = rep_month_raw
 
     info_data = [
-        [Paragraph('Name of the IQAC Coordinator:', make_style('lbl', bold=True, size=9, space_after=0)),
-         Paragraph(coord_name, make_style('val', size=9, space_after=0)),
-         Paragraph('Reporting Month:', make_style('lbl2', bold=True, size=9, space_after=0)),
-         Paragraph(rep_month_display, make_style('val2', size=9, space_after=0))],
-        [Paragraph('School/Campus:', make_style('lbl3', bold=True, size=9, space_after=0)),
-         Paragraph(school, make_style('val3', size=9, space_after=0)),
+        [Paragraph('Name of the IQAC Coordinator:', make_style('lbl', bold=True, size=14, space_after=0)),
+         Paragraph(coord_name, make_style('val', size=14, space_after=0)),
+         Paragraph('Reporting Month:', make_style('lbl2', bold=True, size=14, space_after=0)),
+         Paragraph(rep_month_display, make_style('val2', size=14, space_after=0))],
+        [Paragraph('School/Campus:', make_style('lbl3', bold=True, size=14, space_after=0)),
+         Paragraph(school, make_style('val3', size=14, space_after=0)),
          '', ''],
     ]
     w = usable_width
@@ -233,7 +233,7 @@ def _generate_iqac_pdf(form_data):
                       for i in range(len(meet_dates))]
     has_pa_data = any(pa_rows_filled)
 
-    pa_data = [[Paragraph(h, make_style(f'ph{i}', size=7.5, bold=True, space_after=0, text_color=accent)) for i, h in enumerate(pa_headers)]]
+    pa_data = [[Paragraph(h, make_style(f'ph{i}', size=12, bold=True, space_after=0, text_color=accent)) for i, h in enumerate(pa_headers)]]
     for i in range(len(meet_dates)):
         if not pa_rows_filled[i]:
             continue
@@ -248,7 +248,7 @@ def _generate_iqac_pdf(form_data):
     if has_pa_data:
         elements.append(section_header('Section I: Quality Assurance Initiatives'))
         elements.append(Spacer(1, 4))
-        elements.append(Paragraph(part_a_label, make_style('parta', size=8, bold=True, space_after=4)))
+        elements.append(Paragraph(part_a_label, make_style('parta', size=16, bold=True, space_after=4)))
         pa_table = Table(pa_data, colWidths=pa_cols, repeatRows=1)
         pa_table.setStyle(table_style())
         elements.append(pa_table)
@@ -276,8 +276,8 @@ def _generate_iqac_pdf(form_data):
             elements.append(Spacer(1, 4))
         elements.append(Paragraph(
             '(b) Workshops/Seminars/Training Programs organised by the IQAC coordinator (If any)',
-            make_style('partb', size=8, bold=True, space_before=6, space_after=4)))
-        pb_data = [[Paragraph(h, make_style(f'pbh{i}', size=7.5, bold=True, space_after=0, text_color=accent)) for i, h in enumerate(pb_headers)]]
+            make_style('partb', size=16, bold=True, space_before=6, space_after=4)))
+        pb_data = [[Paragraph(h, make_style(f'pbh{i}', size=12, bold=True, space_after=0, text_color=accent)) for i, h in enumerate(pb_headers)]]
         for i in range(len(ws_dates)):
             if not pb_rows_filled[i]:
                 continue
@@ -296,9 +296,9 @@ def _generate_iqac_pdf(form_data):
     report_desc = form_data.get('report_description', '').strip()
     if has_pb_data or report_desc:
         elements.append(Spacer(1, 6))
-        elements.append(Paragraph('Report:', make_style('reph', size=9, bold=True, space_after=2)))
+        elements.append(Paragraph('Report:', make_style('reph', size=16, bold=True, space_after=2)))
         if report_desc:
-            desc_data = [[Paragraph(report_desc, make_style('reptext', size=9, space_after=0))]]
+            desc_data = [[Paragraph(report_desc, make_style('reptext', size=14, space_after=0))]]
             desc_table = Table(desc_data, colWidths=[usable_width])
             desc_table.setStyle(TableStyle([
                 ('BOX', (0, 0), (-1, -1), 0.5, colors.black),
@@ -317,12 +317,12 @@ def _generate_iqac_pdf(form_data):
         elements.append(Spacer(1, 4))
         plan_rows = []
         for i, p in enumerate(plans, 1):
-            plan_rows.append([Paragraph(f'{i}.', make_style(f'pn{i}', size=9, space_after=0)),
-                              Paragraph(p, make_style(f'pt{i}', size=9, space_after=0))])
+            plan_rows.append([Paragraph(f'{i}.', make_style(f'pn{i}', size=14, space_after=0)),
+                              Paragraph(p, make_style(f'pt{i}', size=14, space_after=0))])
 
         plan_table = Table(plan_rows, colWidths=[0.6 * cm, usable_width - 0.6 * cm])
         plan_table.setStyle(TableStyle([
-            ('FONTSIZE', (0, 0), (-1, -1), 9),
+            ('FONTSIZE', (0, 0), (-1, -1), 14),
             ('VALIGN', (0, 0), (-1, -1), 'TOP'),
             ('TOPPADDING', (0, 0), (-1, -1), 5),
             ('BOTTOMPADDING', (0, 0), (-1, -1), 12),
@@ -342,10 +342,10 @@ def _generate_iqac_pdf(form_data):
 
     def sig_cell(label, value):
         return [
-            Paragraph(label, make_style('sigh', size=8, bold=True, space_after=2)),
-            Paragraph(value or ' ', make_style('sigv', size=8, space_after=2)),
-            Paragraph('_' * 30, make_style('sigl', size=8, space_after=0)),
-            Paragraph('(Signature)', make_style('sigs', size=7, italic=True, space_after=0)),
+            Paragraph(label, make_style('sigh', size=12, bold=True, space_after=2)),
+            Paragraph(value or ' ', make_style('sigv', size=12, space_after=2)),
+            Paragraph('_' * 30, make_style('sigl', size=12, space_after=0)),
+            Paragraph('(Signature)', make_style('sigs', size=11, italic=True, space_after=0)),
         ]
 
     third = usable_width / 3
@@ -366,7 +366,7 @@ def _generate_iqac_pdf(form_data):
     ]))
     elements.append(sig_table)
     elements.append(Spacer(1, 6))
-    elements.append(Paragraph(f'Date: {format_date(footer_date)}', make_style('datetext', size=9)))
+    elements.append(Paragraph(f'Date: {format_date(footer_date)}', make_style('datetext', size=14)))
 
     doc.build(elements)
     buffer.seek(0)
