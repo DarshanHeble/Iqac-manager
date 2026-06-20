@@ -108,7 +108,7 @@ def send_reminder_email(to_email, subject, body):
         msg['From'] = SMTP_EMAIL
         msg['To'] = to_email
         
-        with smtplib.SMTP(SMTP_SERVER, SMTP_PORT) as server:
+        with smtplib.SMTP(SMTP_SERVER, SMTP_PORT, timeout=10) as server:
             server.starttls()
             server.login(SMTP_EMAIL, SMTP_PASSWORD)
             server.send_message(msg)
@@ -1369,7 +1369,7 @@ IQAC Admin
                 msg["From"] = SMTP_EMAIL
                 msg["To"] = email
 
-                with smtplib.SMTP(SMTP_SERVER, SMTP_PORT) as server:
+                with smtplib.SMTP(SMTP_SERVER, SMTP_PORT, timeout=10) as server:
                     server.starttls()
                     server.login(SMTP_EMAIL, SMTP_PASSWORD)
                     server.send_message(msg)
@@ -1432,7 +1432,7 @@ def forgot_password():
         msg["From"] = SMTP_EMAIL
         msg["To"] = email
 
-        with smtplib.SMTP(SMTP_SERVER, SMTP_PORT) as server:
+        with smtplib.SMTP(SMTP_SERVER, SMTP_PORT, timeout=10) as server:
             server.starttls()
             server.login(SMTP_EMAIL, SMTP_PASSWORD)
             server.send_message(msg)
@@ -2009,7 +2009,7 @@ def admin_reset_password(id):
         msg["From"] = SMTP_EMAIL
         msg["To"] = user["email"]
 
-        with smtplib.SMTP(SMTP_SERVER, SMTP_PORT) as server:
+        with smtplib.SMTP(SMTP_SERVER, SMTP_PORT, timeout=10) as server:
             server.starttls()
             server.login(SMTP_EMAIL, SMTP_PASSWORD)
             server.send_message(msg)
