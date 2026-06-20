@@ -178,7 +178,7 @@
               {% if category_filter and category_filter != 'All' %}
               <div><strong>Category:</strong> {{ category_filter }}</div>
               {% endif %}
-              <div><strong>Generated on:</strong> {{ datetime.now().strftime('%d/%m/%Y') }}</div>
+              <div><strong>Generated on:</strong> {{ datetime.now().strftime('%d-%m-%Y') }}</div>
             </div>
             <div class="report-info">
               <div><strong>Name:</strong> {{ username.title() }} <strong>(Employee ID:</strong> {{ user['emp_id'] or '—' }})</div>

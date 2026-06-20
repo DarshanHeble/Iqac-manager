@@ -550,7 +550,7 @@
             Custom Date Range ({{ from_date | default('—') }} to {{ to_date | default('—') }})
             {% endif %}
           </div>
-          <div><strong>Generated on:</strong> {{ datetime.now().strftime('%d/%m/%Y') }}</div>
+          <div><strong>Generated on:</strong> {{ datetime.now().strftime('%d-%m-%Y') }}</div>
         </div>
         <div class="report-info">
           <div><strong>Name:</strong> {{ uname.title() }} <strong>(Employee ID:</strong> {{ entries[0]['emp_id'] or '—'
@@ -606,7 +606,7 @@
             Custom Date Range ({{ from_date | default('—') }} to {{ to_date | default('—') }})
             {% endif %}
           </div>
-          <div><strong>Generated on:</strong> {{ datetime.now().strftime('%d/%m/%Y') }}</div>
+          <div><strong>Generated on:</strong> {{ datetime.now().strftime('%d-%m-%Y') }}</div>
         </div>
         <div class="report-info">
           <div><strong>Name:</strong> {{ selected_user.title() }} <strong>(Employee ID:</strong> {{ logs[0]['emp_id'] or
