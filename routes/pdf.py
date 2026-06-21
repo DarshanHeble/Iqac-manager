@@ -29,17 +29,61 @@ def iqac_monthly_report_download():
 
     cursor.execute("SELECT * FROM users WHERE username=%s", (username,))
     user = cursor.fetchone()
-    conn.close()
 
     if not user or user["role"].lower() not in ("school iqac coordinator", "campus iqac coordinator"):
+        conn.close()
         flash("Access denied.", "danger")
         return redirect("/login")
 
     if not REPORTLAB_AVAILABLE:
+        conn.close()
         flash("PDF generation library (reportlab) is not installed on the server.", "danger")
         return redirect("/iqac_monthly_report")
 
     reporting_month = request.form.get("reporting_month", "report")
+
+    # ── Auto-save draft on download ──
+    import json
+    form_data_obj = {}
+    for key in request.form.keys():
+        if key.endswith('[]'):
+            form_data_obj[key] = request.form.getlist(key)
+        else:
+            form_data_obj[key] = request.form.get(key)
+
+    aqar_emails_env = os.getenv("AQAR_COORDINATOR_EMAILS", "")
+    aqar_emails = [e.strip().lower() for e in aqar_emails_env.split(",") if e.strip()]
+    email = (user.get("email") or "").strip().lower()
+    report_type = "aqar_coordinator" if email in aqar_emails else "standard"
+
+    try:
+        cursor.execute("""
+            INSERT INTO report_drafts (username, report_type, reporting_month, form_data, updated_at)
+            VALUES (%s, %s, %s, %s, CURRENT_TIMESTAMP)
+            ON CONFLICT (username, report_type, reporting_month)
+            DO UPDATE SET form_data = EXCLUDED.form_data, updated_at = CURRENT_TIMESTAMP
+        """, (username, report_type, reporting_month, json.dumps(form_data_obj)))
+
+        # Insert/update signed_reports status = 'pending_upload'
+        cursor.execute("""
+            SELECT status FROM signed_reports 
+            WHERE username=%s AND reporting_month=%s
+        """, (username, reporting_month))
+        existing_report = cursor.fetchone()
+        
+        if not existing_report:
+            cursor.execute("""
+                INSERT INTO signed_reports (username, reporting_month, status)
+                VALUES (%s, %s, 'pending_upload')
+            """, (username, reporting_month))
+        elif existing_report["status"] == "pending_upload":
+            pass
+            
+        conn.commit()
+    except Exception as e:
+        print("Error saving draft/signed_reports:", str(e))
+        conn.rollback()
+
     base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     ws_upload_dir = os.path.join(base_dir, "static", "signed_reports", "workshop_attachments", username, reporting_month)
 
@@ -55,6 +99,7 @@ def iqac_monthly_report_download():
                 ws_attachments.append((i, save_path, f.filename))
 
     pdf_buffer = _generate_iqac_pdf(request.form, ws_attachments)
+    conn.close()
 
     filename = f"IQAC_Monthly_Report_{reporting_month}.pdf"
 
@@ -376,22 +421,67 @@ def iqac_coordinator_report_download():
 
     cursor.execute("SELECT * FROM users WHERE username=%s", (username,))
     user = cursor.fetchone()
-    conn.close()
 
     if not user or user["role"].lower() not in ("school iqac coordinator", "campus iqac coordinator"):
+        conn.close()
         flash("Access denied.", "danger")
         return redirect("/login")
 
     if not REPORTLAB_AVAILABLE:
+        conn.close()
         flash("PDF generation library (reportlab) is not installed on the server.", "danger")
         return redirect("/iqac_monthly_report")
+
+    reporting_month = request.form.get("reporting_month", "report")
+
+    # ── Auto-save draft on download ──
+    import json
+    form_data_obj = {}
+    for key in request.form.keys():
+        if key.endswith('[]'):
+            form_data_obj[key] = request.form.getlist(key)
+        else:
+            form_data_obj[key] = request.form.get(key)
+
+    aqar_emails_env = os.getenv("AQAR_COORDINATOR_EMAILS", "")
+    aqar_emails = [e.strip().lower() for e in aqar_emails_env.split(",") if e.strip()]
+    email = (user.get("email") or "").strip().lower()
+    report_type = "aqar_coordinator" if email in aqar_emails else "standard"
+
+    try:
+        cursor.execute("""
+            INSERT INTO report_drafts (username, report_type, reporting_month, form_data, updated_at)
+            VALUES (%s, %s, %s, %s, CURRENT_TIMESTAMP)
+            ON CONFLICT (username, report_type, reporting_month)
+            DO UPDATE SET form_data = EXCLUDED.form_data, updated_at = CURRENT_TIMESTAMP
+        """, (username, report_type, reporting_month, json.dumps(form_data_obj)))
+
+        # Insert/update signed_reports status = 'pending_upload'
+        cursor.execute("""
+            SELECT status FROM signed_reports 
+            WHERE username=%s AND reporting_month=%s
+        """, (username, reporting_month))
+        existing_report = cursor.fetchone()
+        
+        if not existing_report:
+            cursor.execute("""
+                INSERT INTO signed_reports (username, reporting_month, status)
+                VALUES (%s, %s, 'pending_upload')
+            """, (username, reporting_month))
+        elif existing_report["status"] == "pending_upload":
+            pass
+            
+        conn.commit()
+    except Exception as e:
+        print("Error saving draft/signed_reports:", str(e))
+        conn.rollback()
 
     # Read AQAR coordinator names from env
     aqar_names_env = os.getenv("AQAR_COORDINATOR_NAMES", "")
     aqar_names = [n.strip() for n in aqar_names_env.split(",") if n.strip()] if aqar_names_env else []
 
-    reporting_month = request.form.get("reporting_month", "report")
     pdf_buffer = _generate_aqar_coordinator_pdf(request.form, aqar_names)
+    conn.close()
 
     filename = f"IQAC_Coordinator_Report_AQAR_{reporting_month}.pdf"
 

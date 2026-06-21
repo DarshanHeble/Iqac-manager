@@ -116,6 +116,52 @@ def send_reminder_email(to_email, subject, body):
         print(f"Failed to send email to {to_email}: {str(e)}")
         return False
 
+def notify_admins_and_secretaries(username, reporting_month):
+    """Notify all admins and secretaries about the uploaded report."""
+    emails = []
+    smtp_email = os.getenv("SMTP_EMAIL") or os.getenv("SENDER_EMAIL")
+    if smtp_email:
+        emails.append(smtp_email.strip())
+
+    conn = get_db_connection()
+    cursor = get_cursor(conn)
+    try:
+        cursor.execute("""
+            SELECT email FROM users 
+            WHERE LOWER(role) = 'admin' 
+               OR LOWER(role) LIKE '%secretary%' 
+               OR LOWER(designation) LIKE '%secretary%'
+               OR LOWER(username) LIKE '%secretary%'
+        """)
+        for row in cursor.fetchall():
+            email = (row.get("email") or "").strip()
+            if email and email not in emails:
+                emails.append(email)
+    except Exception as e:
+        print("Error fetching secretary/admin emails:", str(e))
+    finally:
+        conn.close()
+
+    if not emails:
+        print("No admin or secretary emails found to send notification.")
+        return
+
+    subject = f"Signed IQAC Monthly Report Uploaded - {username.title()} ({reporting_month})"
+    body = (
+        f"Hello,\n\n"
+        f"IQAC Coordinator '{username.title()}' has uploaded the signed monthly report for the month '{reporting_month}'.\n\n"
+        f"Please log in to the IQAC Portal to review and authorize this submission.\n\n"
+        f"Regards,\n"
+        f"IQAC System"
+    )
+
+    for email in emails:
+        try:
+            send_email(email, subject, body)
+            print(f"Sent upload notification email to {email}")
+        except Exception as ex:
+            print(f"Failed to send email to {email}: {str(ex)}")
+
 def get_nth_weekday_of_month(year, month, weekday, n):
     """Get the nth occurrence of a weekday in a month (0=Monday, 6=Sunday)"""
     first_day = datetime(year, month, 1)
@@ -2440,6 +2486,13 @@ def iqac_upload_signed_report():
         flash("Access denied.", "danger")
         return redirect("/login")
 
+    # Enforce submission window
+    is_open, _, _, _, window_msg = check_submission_window()
+    if not is_open:
+        conn.close()
+        flash("Upload window is currently closed. " + window_msg, "danger")
+        return redirect("/iqac_dashboard")
+
     reporting_month = request.form.get("reporting_month", "").strip()
     uploaded_file = request.files.get("signed_report")
 
@@ -2467,12 +2520,31 @@ def iqac_upload_signed_report():
     uploaded_file.save(save_path)
 
     db_path = f"signed_reports/{save_name}"
+    
+    # Check if a record already exists (e.g. created during PDF download)
     cursor.execute("""
-        INSERT INTO signed_reports (username, reporting_month, uploaded_file_path, status)
-        VALUES (%s, %s, %s, 'pending')
-    """, (username, reporting_month, db_path))
+        SELECT * FROM signed_reports 
+        WHERE username=%s AND reporting_month=%s
+    """, (username, reporting_month))
+    existing = cursor.fetchone()
+    
+    if existing:
+        cursor.execute("""
+            UPDATE signed_reports 
+            SET uploaded_file_path=%s, status='uploaded', uploaded_at=CURRENT_TIMESTAMP
+            WHERE id=%s
+        """, (db_path, existing["id"]))
+    else:
+        cursor.execute("""
+            INSERT INTO signed_reports (username, reporting_month, uploaded_file_path, status)
+            VALUES (%s, %s, %s, 'uploaded')
+        """, (username, reporting_month, db_path))
+        
     conn.commit()
     conn.close()
+
+    # Send email notification to all secretaries and admins
+    notify_admins_and_secretaries(username, reporting_month)
 
     flash("Signed report uploaded successfully! It will be reviewed by the admin.", "success")
     return redirect("/iqac_dashboard")
@@ -2507,7 +2579,7 @@ def admin_signed_reports():
         SELECT sr.*, u.designation, u.department
         FROM signed_reports sr
         JOIN users u ON sr.username = u.username
-        WHERE sr.reporting_month = %s
+        WHERE sr.reporting_month = %s AND sr.status != 'pending_upload'
         ORDER BY sr.uploaded_at DESC
     """, (selected_month,))
     reports = cursor.fetchall()

@@ -145,18 +145,26 @@
                   {% for r in submitted_reports %}
                     <tr>
                       <td>{{ r.reporting_month }}</td>
-                      <td>{{ r.uploaded_at.strftime('%d-%m-%Y %I:%M %p') if r.uploaded_at else '—' }}</td>
+                      <td>{{ r.uploaded_at.strftime('%d-%m-%Y %I:%M %p') if (r.uploaded_at and r.status != 'pending_upload') else '—' }}</td>
                       <td>
                         {% if r.status == 'reviewed' %}
                           <span class="badge badge-reviewed">Authorised</span>
-                        {% else %}
+                        {% elif r.status == 'uploaded' or r.status == 'pending' %}
                           <span class="badge badge-pending">Pending Authorisation</span>
+                        {% elif r.status == 'pending_upload' %}
+                          <span class="badge bg-secondary text-light">Pending Upload</span>
+                        {% else %}
+                          <span class="badge badge-pending">{{ r.status.title() }}</span>
                         {% endif %}
                       </td>
                       <td>
-                        <a href="{{ url_for('static', filename=r.uploaded_file_path) }}" target="_blank" class="btn btn-outline-primary btn-sm">
-                          <i class="bi bi-eye"></i> View
-                        </a>
+                        {% if r.uploaded_file_path %}
+                          <a href="{{ url_for('static', filename=r.uploaded_file_path) }}" target="_blank" class="btn btn-outline-primary btn-sm">
+                            <i class="bi bi-eye"></i> View
+                          </a>
+                        {% else %}
+                          <span class="text-muted small">Not uploaded yet</span>
+                        {% endif %}
                       </td>
                     </tr>
                   {% endfor %}
