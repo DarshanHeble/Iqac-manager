@@ -31,6 +31,8 @@
       .table input, .table textarea { font-size: 0.85rem; }
       .btn-add-row { font-size: 0.8rem; }
       .btn-del-row { font-size: 0.8rem; padding: 2px 8px; }
+      .table-responsive { overflow: visible !important; }
+      .resp-area-wrapper { position: relative; }
     </style>
   </head>
   <body>
@@ -121,7 +123,7 @@
                           <div class="resp-area-display border rounded px-2 py-1" style="min-height:34px; cursor:pointer; font-size:0.78rem; background:#fff; display:flex; flex-wrap:wrap; gap:3px; align-items:center;">
                             <span class="resp-area-placeholder text-muted fst-italic" style="font-size:0.78rem;">Click to select…</span>
                           </div>
-                          <div class="resp-area-checklist border rounded p-2 mt-1 bg-white shadow-sm" style="display:none; max-height:160px; overflow-y:auto; font-size:0.78rem; z-index:10; position:relative;">
+                          <div class="resp-area-checklist border rounded p-2 mt-1 bg-white shadow-sm" style="display:none; max-height:160px; overflow-y:auto; font-size:0.78rem; z-index:1000; position:absolute; left:0; min-width:280px;">
                             <label class="d-flex align-items-start gap-1 mb-1"><input type="checkbox" class="resp-cb mt-1" value="Monitoring Strategic Plan Implementation" {% if 'Monitoring Strategic Plan Implementation' in selected_areas %}checked{% endif %}> Monitoring Strategic Plan Implementation</label>
                             <label class="d-flex align-items-start gap-1 mb-1"><input type="checkbox" class="resp-cb mt-1" value="Benchmarking" {% if 'Benchmarking' in selected_areas %}checked{% endif %}> Benchmarking</label>
                             <label class="d-flex align-items-start gap-1 mb-1"><input type="checkbox" class="resp-cb mt-1" value="Gap Analysis and Guidance" {% if 'Gap Analysis and Guidance' in selected_areas %}checked{% endif %}> Gap Analysis and Guidance</label>
@@ -189,7 +191,7 @@
                           <div class="resp-area-display border rounded px-2 py-1" style="min-height:34px; cursor:pointer; font-size:0.78rem; background:#fff; display:flex; flex-wrap:wrap; gap:3px; align-items:center;">
                             <span class="resp-area-placeholder text-muted fst-italic" style="font-size:0.78rem;">Click to select…</span>
                           </div>
-                          <div class="resp-area-checklist border rounded p-2 mt-1 bg-white shadow-sm" style="display:none; max-height:160px; overflow-y:auto; font-size:0.78rem; z-index:10; position:relative;">
+                          <div class="resp-area-checklist border rounded p-2 mt-1 bg-white shadow-sm" style="display:none; max-height:160px; overflow-y:auto; font-size:0.78rem; z-index:1000; position:absolute; left:0; min-width:280px;">
                             <label class="d-flex align-items-start gap-1 mb-1"><input type="checkbox" class="resp-cb mt-1" value="Monitoring Strategic Plan Implementation" {% if 'Monitoring Strategic Plan Implementation' in selected_ws_areas %}checked{% endif %}> Monitoring Strategic Plan Implementation</label>
                             <label class="d-flex align-items-start gap-1 mb-1"><input type="checkbox" class="resp-cb mt-1" value="Benchmarking" {% if 'Benchmarking' in selected_ws_areas %}checked{% endif %}> Benchmarking</label>
                             <label class="d-flex align-items-start gap-1 mb-1"><input type="checkbox" class="resp-cb mt-1" value="Gap Analysis and Guidance" {% if 'Gap Analysis and Guidance' in selected_ws_areas %}checked{% endif %}> Gap Analysis and Guidance</label>
@@ -323,12 +325,26 @@
       }
 
       // ── On load: close all checklists and sync any browser-restored checkbox state ──
-      const TODAY_MAX = new Date().toISOString().split('T')[0];
-
       function applyDateMax(root) {
+        const reportingMonth = "{{ reporting_month_str }}"; // "YYYY-MM"
+        if (!reportingMonth) return;
+        const minDate = `${reportingMonth}-01`;
+        const [year, idx] = reportingMonth.split('-').map(Number);
+        const lastDay = new Date(year, idx, 0).getDate();
+        const maxDate = `${reportingMonth}-${String(lastDay).padStart(2, '0')}`;
+
         (root || document).querySelectorAll('input[type="date"]').forEach(el => {
-          el.max = TODAY_MAX;
-          if (el.value && el.value > TODAY_MAX) el.value = TODAY_MAX;
+          if (el.name !== 'footer_date') {
+            el.min = minDate;
+            el.max = maxDate;
+            if (el.value) {
+              if (el.value < minDate) el.value = minDate;
+              if (el.value > maxDate) el.value = maxDate;
+            }
+          } else {
+            const today = new Date().toISOString().split('T')[0];
+            el.max = today;
+          }
         });
       }
 

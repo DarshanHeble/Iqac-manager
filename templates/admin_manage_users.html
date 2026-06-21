@@ -120,8 +120,12 @@
                   <td>
                     {% if user.role.lower() == 'admin' %}
                       <span class="badge badge-admin">Admin</span>
+                    {% elif user.role.lower() == 'school iqac coordinator' %}
+                      <span class="badge bg-success">School Coordinator</span>
+                    {% elif user.role.lower() == 'campus iqac coordinator' %}
+                      <span class="badge bg-info text-dark">Campus Coordinator</span>
                     {% else %}
-                      <span class="badge badge-employee">Employee</span>
+                      <span class="badge badge-employee">{{ user.role }}</span>
                     {% endif %}
                   </td>
                   <td class="action-btns">
