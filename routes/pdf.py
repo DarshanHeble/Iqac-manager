@@ -232,7 +232,7 @@ def _generate_iqac_pdf(form_data, ws_attachments=None):
     school = form_data.get('school_campus', '')
     rep_month_raw = form_data.get('reporting_month', '')
     try:
-        rep_month_display = datetime.strptime(rep_month_raw, '%Y-%m').strftime('%B %Y')
+        rep_month_display = datetime.strptime(rep_month_raw, '%Y-%m').strftime('%m-%Y')
     except Exception:
         rep_month_display = rep_month_raw
 
@@ -611,7 +611,7 @@ def _generate_aqar_coordinator_pdf(form_data, aqar_names=None):
     school = form_data.get('school_campus', '')
     rep_month_raw = form_data.get('reporting_month', '')
     try:
-        rep_month_display = datetime.strptime(rep_month_raw, '%Y-%m').strftime('%B %Y')
+        rep_month_display = datetime.strptime(rep_month_raw, '%Y-%m').strftime('%m-%Y')
     except Exception:
         rep_month_display = rep_month_raw
 
