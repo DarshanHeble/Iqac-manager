@@ -109,7 +109,7 @@
       <div class="card">
         <div class="card-body">
           <h6 class="mb-3 text-primary">Add Worklog Entry</h6>
-          <form method="post" action="/user_add_entry">
+          <form method="post" action="/user_add_entry" enctype="multipart/form-data">
             <div class="row mb-4">
               <div class="col-md-4">
                 <label class="form-label">Date</label>
@@ -208,7 +208,14 @@
             </div>
             </div>
 
-            <button type="submit" class="btn btn-primary mt-2">Submit Entry</button>
+            <div class="row mt-3">
+              <div class="col-md-6">
+                <label class="form-label">Attach Document <span class="text-muted small">(optional — PDF, image, Word)</span></label>
+                <input type="file" name="attachment" class="form-control" accept=".pdf,.jpg,.jpeg,.png,.doc,.docx">
+              </div>
+            </div>
+
+            <button type="submit" class="btn btn-primary mt-3">Submit Entry</button>
           </form>
         </div>
       </div>

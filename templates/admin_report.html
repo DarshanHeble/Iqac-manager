@@ -188,7 +188,8 @@
             </div>
             <div class="col-md-12 d-flex gap-2 mt-3">
               <button class="btn btn-primary" type="submit">Generate</button>
-              <button type="button" class="btn btn-outline-secondary" onclick="window.print()">Print</button>
+              <button type="button" class="btn btn-outline-secondary" onclick="printAndRedirect()">Print</button>
+              <a href="/admin" class="btn btn-outline-primary"><i class="bi bi-house"></i> Back to Dashboard</a>
             </div>
           </form>
         </div>
@@ -229,7 +230,7 @@
                   <div><strong>No. of Entries:</strong> {{ entries|length }}</div>
                 </div>
                 <table class="table table-bordered table-striped">
-                  <thead><tr><th style="width:12%;">Date</th><th>Category-wise Tasks</th></tr></thead>
+                  <thead><tr><th style="width:12%;">Date</th><th>Category-wise Tasks</th><th style="width:15%;" class="no-print">Attachment</th></tr></thead>
                   <tbody>
                     {% for log in entries %}
                       <tr>
@@ -244,6 +245,25 @@
                             {% endfor %}
                           {% else %}
                             <span class="text-muted">No tasks recorded</span>
+                          {% endif %}
+                          {% if log.get('attachment') %}
+                            <div class="attachment-print mt-1"><small><strong>Attachment:</strong> {{ log['attachment'].split('/')[-1] }}</small></div>
+                          {% endif %}
+                        </td>
+                        <td class="no-print">
+                          {% if log.get('attachment') %}
+                            {% set ext = log['attachment'].split('.')[-1].lower() %}
+                            {% if ext in ['jpg', 'jpeg', 'png'] %}
+                              <a href="/static/{{ log['attachment'] }}" target="_blank">
+                                <img src="/static/{{ log['attachment'] }}" style="max-height:60px;max-width:100px;" class="img-thumbnail">
+                              </a>
+                            {% else %}
+                              <a href="/static/{{ log['attachment'] }}" target="_blank" class="btn btn-sm btn-outline-secondary">
+                                <i class="bi bi-paperclip"></i> View
+                              </a>
+                            {% endif %}
+                          {% else %}
+                            <span class="text-muted">—</span>
                           {% endif %}
                         </td>
                       </tr>
@@ -279,7 +299,7 @@
                 <div><strong>No. of Entries:</strong> {{ logs|length }}</div>
               </div>
               <table class="table table-bordered table-striped">
-                <thead><tr><th style="width:12%;">Date</th><th>Category-wise Tasks</th></tr></thead>
+                <thead><tr><th style="width:12%;">Date</th><th>Category-wise Tasks</th><th style="width:15%;" class="no-print">Attachment</th></tr></thead>
                 <tbody>
                   {% for log in logs %}
                     <tr>
@@ -294,6 +314,25 @@
                           {% endfor %}
                         {% else %}
                           <span class="text-muted">No tasks recorded</span>
+                        {% endif %}
+                        {% if log.get('attachment') %}
+                          <div class="attachment-print mt-1"><small><strong>Attachment:</strong> {{ log['attachment'].split('/')[-1] }}</small></div>
+                        {% endif %}
+                      </td>
+                      <td class="no-print">
+                        {% if log.get('attachment') %}
+                          {% set ext = log['attachment'].split('.')[-1].lower() %}
+                          {% if ext in ['jpg', 'jpeg', 'png'] %}
+                            <a href="/static/{{ log['attachment'] }}" target="_blank">
+                              <img src="/static/{{ log['attachment'] }}" style="max-height:60px;max-width:100px;" class="img-thumbnail">
+                            </a>
+                          {% else %}
+                            <a href="/static/{{ log['attachment'] }}" target="_blank" class="btn btn-sm btn-outline-secondary">
+                              <i class="bi bi-paperclip"></i> View
+                            </a>
+                          {% endif %}
+                        {% else %}
+                          <span class="text-muted">—</span>
                         {% endif %}
                       </td>
                     </tr>
@@ -322,8 +361,15 @@
         const toDateInput = document.getElementById('to_date');
         const monthInput = document.getElementById('month_input');
         
+        fromDateInput.max = todayString;
+        toDateInput.max = todayString;
         if (!fromDateInput.value) fromDateInput.value = todayString;
         if (!toDateInput.value) toDateInput.value = todayString;
+        toDateInput.min = fromDateInput.value;
+        fromDateInput.addEventListener('change', function () {
+          toDateInput.min = this.value;
+          if (toDateInput.value && toDateInput.value < this.value) toDateInput.value = this.value;
+        });
         if (!monthInput.value) monthInput.value = currentMonthString;
         
         // Set default academic year
@@ -361,6 +407,11 @@
         toggleFilterFields(modeSelect.value || "{{ filter_mode or 'date' }}");
         modeSelect.addEventListener("change", function () { toggleFilterFields(this.value); });
       });
+
+      function printAndRedirect() {
+        window.onafterprint = function() { window.location.href = '/admin'; };
+        window.print();
+      }
     </script>
 
     <!-- Footer -->
