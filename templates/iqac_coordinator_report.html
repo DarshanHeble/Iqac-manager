@@ -1,0 +1,628 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Monthly Work Done Report – IQAC Coordinators (AQAR Aligned)</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css" rel="stylesheet">
+    <style>
+      html { height: 100%; }
+      body { background-color: #f8fafc; font-size: 15px; min-height: 100%; display: flex; flex-direction: column; }
+      .main-container { flex: 1; }
+      header { background-color: #003366; color: #fff; padding: 1rem 1.5rem; border-radius: .5rem; margin-bottom: 1.5rem; position: relative; }
+      .logo-container { background-color: #fff; padding: 8px 12px; border-radius: 8px; display: inline-block; flex-shrink: 0; }
+      .logo-container img { height: 75px; width: auto; }
+      .header-title { color: #fff; margin: 0; position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); text-align: center; }
+      .header-title h5 { font-size: 1.15rem; font-weight: 700; margin: 0; }
+      .card { box-shadow: 0 0.5rem 1rem rgba(0,0,0,.1); border: none; border-radius: 0.5rem; }
+      .btn-primary { background-color: #003366; border-color: #003366; }
+      .btn-primary:hover { background-color: #004080; border-color: #004080; }
+      .btn-outline-primary { color: #003366; border-color: #003366; }
+      .btn-outline-primary:hover { background-color: #003366; color: #fff; }
+      .form-label { font-weight: 600; color: #003366; }
+      .text-primary { color: #003366 !important; }
+      .section-header { background-color: #003366; color: #fff; padding: 0.5rem 1rem; border-radius: 0.3rem; font-weight: 700; margin-bottom: 1rem; margin-top: 1rem; }
+      .table thead { background-color: #003366; color: #fff; }
+      .table-sm td, .table-sm th { vertical-align: middle; }
+      footer { background: linear-gradient(135deg, #002244 0%, #003366 50%, #004080 100%); color: #fff; padding: 0.75rem 1rem; text-align: center; margin-top: auto; border-top: 3px solid #ffc107; font-size: 0.85rem; }
+      footer .footer-content { display: flex; justify-content: center; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
+      footer .divider { color: #ffc107; font-weight: bold; }
+      .table input, .table textarea, .table select { font-size: 0.85rem; }
+      .btn-add-row { font-size: 0.8rem; }
+      .btn-del-row { font-size: 0.8rem; padding: 2px 8px; }
+      .is-invalid-custom { border: 2px solid #dc3545 !important; box-shadow: 0 0 0 0.2rem rgba(220,53,69,.25) !important; }
+    </style>
+  </head>
+  <body>
+    <div class="container py-3 main-container">
+      <!-- Header -->
+      <header class="d-flex justify-content-between align-items-center">
+        <a href="/iqac_dashboard" class="text-decoration-none d-flex align-items-center">
+          <div class="logo-container">
+            <img src="{{ url_for('static', filename='christ_logo.png') }}" alt="CHRIST Logo">
+          </div>
+        </a>
+        <div class="header-title">
+          <h5>INTERNAL QUALITY ASSURANCE CELL (IQAC)</h5>
+          <small style="font-size:0.8rem; font-weight:400;">Monthly Work Done Report – IQAC Coordinators (AQAR Aligned)</small>
+        </div>
+        <div>
+          <span class="text-light me-3">{{ username.title() }}</span>
+          <a href="/iqac_dashboard" class="btn btn-light btn-sm me-1"><i class="bi bi-arrow-left"></i> Back</a>
+          <a href="/logout" class="btn btn-outline-light btn-sm">Logout</a>
+        </div>
+      </header>
+
+      <form method="POST" action="/iqac_coordinator_report/download" id="reportForm">
+
+        <!-- ── Report Header / Particulars ── -->
+        <div class="card mb-4">
+          <div class="card-body">
+            <h6 class="text-primary mb-1">Monthly Work Done Report – IQAC Coordinators (AQAR Aligned)</h6>
+            <p class="text-muted small mb-3">(AQAR | NAAC | Rankings | Awards | Quality Assurance Activities)</p>
+            <p class="mb-3" style="font-size:0.9rem; color:#003366; font-weight:600;">
+              {{ aqar_coordinator_names | join(', ') }}
+            </p>
+            <div class="table-responsive">
+              <table class="table table-bordered mb-0" style="font-size:0.9rem;">
+                <tbody>
+                  <tr>
+                    <td style="width:30%; background:#e9ecef; font-weight:600;">Name of IQAC Coordinator</td>
+                    <td>
+                      <input type="text" name="coordinator_name" class="form-control form-control-sm border-0" value="{{ draft_data.get('coordinator_name', user.username.title()) if draft_data else user.username.title() }}" required>
+                    </td>
+                  </tr>
+                  <tr>
+                    <td style="background:#e9ecef; font-weight:600;">School/Campus</td>
+                    <td>
+                      <input type="text" name="school_campus" class="form-control form-control-sm border-0" value="{{ draft_data.get('school_campus', user.department or '') if draft_data else (user.department or '') }}" placeholder="e.g., School of Sciences, Bangalore">
+                    </td>
+                  </tr>
+                  <tr>
+                    <td style="background:#e9ecef; font-weight:600;">Reporting Month</td>
+                    <td>
+                      <input type="hidden" name="reporting_month" value="{{ reporting_month_str }}">
+                      <input type="text" class="form-control form-control-sm border-0 bg-light" value="{{ reporting_month_display }}" readonly style="cursor:not-allowed; color:#555;">
+                    </td>
+                  </tr>
+                  <tr>
+                    <td style="background:#e9ecef; font-weight:600;">Responsibility Area(s)</td>
+                    <td class="text-muted" style="font-size:0.85rem;">
+                      AQAR / NAAC / Rankings and Awards / Audits / Documentation / Others
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- ── Section 1: Activities Undertaken During the Month ── -->
+        <div class="section-header">1. Activities Undertaken During the Month</div>
+        <div class="card mb-3">
+          <div class="card-body">
+            <div class="table-responsive">
+              <table class="table table-bordered table-sm" id="tableActivities">
+                <thead>
+                  <tr>
+                    <th style="width:10%;">Date</th>
+                    <th style="width:18%;">Activity / Task Undertaken</th>
+                    <th style="width:14%;">Related Area</th>
+                    <th style="width:18%;">Department / Stakeholders Involved</th>
+                    <th style="width:18%;">Outcome / Progress Made</th>
+                    <th style="width:14%;">Status</th>
+                    <th style="width:4%;"></th>
+                  </tr>
+                </thead>
+                <tbody id="tableActivities-body">
+                  {% set act_dates = draft_data.get('act_date[]', []) if draft_data else [] %}
+                  {% set num_rows = act_dates|length if act_dates|length > 0 else 1 %}
+                  {% for i in range(num_rows) %}
+                    {% set act_date_val = act_dates[i] if i < act_dates|length else '' %}
+                    {% set act_task_val = draft_data.get('act_task[]', [])[i] if (draft_data and i < draft_data.get('act_task[]', [])|length) else '' %}
+                    {% set act_area_val = draft_data.get('act_area[]', [])[i] if (draft_data and i < draft_data.get('act_area[]', [])|length) else '' %}
+                    {% set act_area_other_val = draft_data.get('act_area_other[]', [])[i] if (draft_data and i < draft_data.get('act_area_other[]', [])|length) else '' %}
+                    {% set act_stakeholders_val = draft_data.get('act_stakeholders[]', [])[i] if (draft_data and i < draft_data.get('act_stakeholders[]', [])|length) else '' %}
+                    {% set act_outcome_val = draft_data.get('act_outcome[]', [])[i] if (draft_data and i < draft_data.get('act_outcome[]', [])|length) else '' %}
+                    {% set act_status_val = draft_data.get('act_status[]', [])[i] if (draft_data and i < draft_data.get('act_status[]', [])|length) else '' %}
+                    <tr>
+                      <td><input type="date" name="act_date[]" class="form-control form-control-sm" value="{{ act_date_val }}"></td>
+                      <td><textarea name="act_task[]" class="form-control form-control-sm" rows="2" placeholder="Activity / Task">{{ act_task_val }}</textarea></td>
+                      <td>
+                        <select name="act_area[]" class="form-select form-select-sm">
+                          <option value="">Select...</option>
+                          <option value="AQAR" {% if act_area_val == 'AQAR' %}selected{% endif %}>AQAR</option>
+                          <option value="NAAC" {% if act_area_val == 'NAAC' %}selected{% endif %}>NAAC</option>
+                          <option value="Rankings" {% if act_area_val == 'Rankings' %}selected{% endif %}>Rankings</option>
+                          <option value="Awards" {% if act_area_val == 'Awards' %}selected{% endif %}>Awards</option>
+                          <option value="Audits" {% if act_area_val == 'Audits' %}selected{% endif %}>Audits</option>
+                          <option value="Documentation" {% if act_area_val == 'Documentation' %}selected{% endif %}>Documentation</option>
+                          <option value="Others" {% if act_area_val == 'Others' %}selected{% endif %}>Others</option>
+                        </select>
+                        <input type="text" name="act_area_other[]" class="form-control form-control-sm mt-1 {% if act_area_val != 'Others' %}d-none{% endif %}" placeholder="Specify other area" value="{{ act_area_other_val }}">
+                      </td>
+                      <td><textarea name="act_stakeholders[]" class="form-control form-control-sm" rows="2" placeholder="Department / Stakeholders">{{ act_stakeholders_val }}</textarea></td>
+                      <td><textarea name="act_outcome[]" class="form-control form-control-sm" rows="2" placeholder="Outcome / Progress">{{ act_outcome_val }}</textarea></td>
+                      <td>
+                        <select name="act_status[]" class="form-select form-select-sm">
+                          <option value="">Select...</option>
+                          <option value="Completed" {% if act_status_val == 'Completed' %}selected{% endif %}>Completed</option>
+                          <option value="Ongoing" {% if act_status_val == 'Ongoing' %}selected{% endif %}>Ongoing</option>
+                        </select>
+                      </td>
+                      <td class="text-center"><button type="button" class="btn btn-danger btn-del-row" onclick="delRow(this)"><i class="bi bi-trash"></i></button></td>
+                    </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            </div>
+            <button type="button" class="btn btn-outline-primary btn-add-row" onclick="addTableRow('Activities')">
+              <i class="bi bi-plus-circle me-1"></i> Add Row
+            </button>
+          </div>
+        </div>
+
+        <!-- ── Section 2: Meetings, Workshops & Training ── -->
+        <div class="section-header">2. Meetings, Workshops & Training Programmes Attended/Organised</div>
+        <div class="card mb-3">
+          <div class="card-body">
+            <div class="table-responsive">
+              <table class="table table-bordered table-sm" id="tableMeetings">
+                <thead>
+                  <tr>
+                    <th style="width:12%;">Date</th>
+                    <th style="width:25%;">Programme / Meeting</th>
+                    <th style="width:25%;">Role (Organised / Coordinated / Attended)</th>
+                    <th style="width:30%;">Key Outcome</th>
+                    <th style="width:4%;"></th>
+                  </tr>
+                </thead>
+                <tbody id="tableMeetings-body">
+                  {% set meet_dates = draft_data.get('meet_date[]', []) if draft_data else [] %}
+                  {% set num_meet_rows = meet_dates|length if meet_dates|length > 0 else 1 %}
+                  {% for i in range(num_meet_rows) %}
+                    {% set meet_date_val = meet_dates[i] if i < meet_dates|length else '' %}
+                    {% set meet_programme_val = draft_data.get('meet_programme[]', [])[i] if (draft_data and i < draft_data.get('meet_programme[]', [])|length) else '' %}
+                    {% set meet_role_val = draft_data.get('meet_role[]', [])[i] if (draft_data and i < draft_data.get('meet_role[]', [])|length) else '' %}
+                    {% set meet_outcome_val = draft_data.get('meet_outcome[]', [])[i] if (draft_data and i < draft_data.get('meet_outcome[]', [])|length) else '' %}
+                    <tr>
+                      <td><input type="date" name="meet_date[]" class="form-control form-control-sm" value="{{ meet_date_val }}"></td>
+                      <td><textarea name="meet_programme[]" class="form-control form-control-sm" rows="2" placeholder="Programme / Meeting">{{ meet_programme_val }}</textarea></td>
+                      <td>
+                        <select name="meet_role[]" class="form-select form-select-sm">
+                          <option value="">Select...</option>
+                          <option value="Organised" {% if meet_role_val == 'Organised' %}selected{% endif %}>Organised</option>
+                          <option value="Coordinated" {% if meet_role_val == 'Coordinated' %}selected{% endif %}>Coordinated</option>
+                          <option value="Attended" {% if meet_role_val == 'Attended' %}selected{% endif %}>Attended</option>
+                        </select>
+                      </td>
+                      <td><textarea name="meet_outcome[]" class="form-control form-control-sm" rows="2" placeholder="Key Outcome">{{ meet_outcome_val }}</textarea></td>
+                      <td class="text-center"><button type="button" class="btn btn-danger btn-del-row" onclick="delRow(this)"><i class="bi bi-trash"></i></button></td>
+                    </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            </div>
+            <button type="button" class="btn btn-outline-primary btn-add-row" onclick="addTableRow('Meetings')">
+              <i class="bi bi-plus-circle me-1"></i> Add Row
+            </button>
+          </div>
+        </div>
+
+        <!-- ── Section 3: Key Achievements During the Month ── -->
+        <div class="section-header">3. Key Achievements During the Month</div>
+        <div class="card mb-3">
+          <div class="card-body">
+            <div id="achievements-container">
+              {% set achievements = draft_data.get('achievement[]', []) if draft_data else [] %}
+              {% set num_ach = achievements|length if achievements|length > 0 else 3 %}
+              {% for i in range(num_ach) %}
+                {% set ach_val = achievements[i] if i < achievements|length else '' %}
+                <div class="input-group mb-2 numbered-item">
+                  <span class="input-group-text">{{ i + 1 }}.</span>
+                  <input type="text" name="achievement[]" class="form-control" placeholder="Achievement {{ i + 1 }}" value="{{ ach_val }}">
+                  <button type="button" class="btn btn-danger btn-del-row" onclick="delNumberedItem(this, 'achievements-container')"><i class="bi bi-trash"></i></button>
+                </div>
+              {% endfor %}
+            </div>
+            <button type="button" class="btn btn-outline-primary btn-add-row mt-1" onclick="addNumberedItem('achievements-container', 'achievement[]', 'Achievement')">
+              <i class="bi bi-plus-circle me-1"></i> Add Item
+            </button>
+          </div>
+        </div>
+
+        <!-- ── Section 4: Challenges / Issues Faced ── -->
+        <div class="section-header">4. Challenges / Issues Faced</div>
+        <div class="card mb-3">
+          <div class="card-body">
+            <div id="challenges-container">
+              {% set challenges = draft_data.get('challenge[]', []) if draft_data else [] %}
+              {% set num_chal = challenges|length if challenges|length > 0 else 3 %}
+              {% for i in range(num_chal) %}
+                {% set chal_val = challenges[i] if i < challenges|length else '' %}
+                <div class="input-group mb-2 numbered-item">
+                  <span class="input-group-text">{{ i + 1 }}.</span>
+                  <input type="text" name="challenge[]" class="form-control" placeholder="Challenge {{ i + 1 }}" value="{{ chal_val }}">
+                  <button type="button" class="btn btn-danger btn-del-row" onclick="delNumberedItem(this, 'challenges-container')"><i class="bi bi-trash"></i></button>
+                </div>
+              {% endfor %}
+            </div>
+            <button type="button" class="btn btn-outline-primary btn-add-row mt-1" onclick="addNumberedItem('challenges-container', 'challenge[]', 'Challenge')">
+              <i class="bi bi-plus-circle me-1"></i> Add Item
+            </button>
+          </div>
+        </div>
+
+        <!-- ── Section 5: Action Plan for Next Month ── -->
+        <div class="section-header">5. Action Plan for Next Month</div>
+        <div class="card mb-3">
+          <div class="card-body">
+            <div class="table-responsive">
+              <table class="table table-bordered table-sm" id="tableActionPlan">
+                <thead>
+                  <tr>
+                    <th style="width:35%;">Planned Activity</th>
+                    <th style="width:25%;">Related Area</th>
+                    <th style="width:32%;">Expected Outcome</th>
+                    <th style="width:4%;"></th>
+                  </tr>
+                </thead>
+                <tbody id="tableActionPlan-body">
+                  {% set plan_activities = draft_data.get('plan_activity[]', []) if draft_data else [] %}
+                  {% set num_plan_rows = plan_activities|length if plan_activities|length > 0 else 1 %}
+                  {% for i in range(num_plan_rows) %}
+                    {% set plan_activity_val = plan_activities[i] if i < plan_activities|length else '' %}
+                    {% set plan_area_val = draft_data.get('plan_area[]', [])[i] if (draft_data and i < draft_data.get('plan_area[]', [])|length) else '' %}
+                    {% set plan_area_other_val = draft_data.get('plan_area_other[]', [])[i] if (draft_data and i < draft_data.get('plan_area_other[]', [])|length) else '' %}
+                    {% set plan_outcome_val = draft_data.get('plan_outcome[]', [])[i] if (draft_data and i < draft_data.get('plan_outcome[]', [])|length) else '' %}
+                    <tr>
+                      <td><textarea name="plan_activity[]" class="form-control form-control-sm" rows="2" placeholder="Planned Activity">{{ plan_activity_val }}</textarea></td>
+                      <td>
+                        <select name="plan_area[]" class="form-select form-select-sm">
+                          <option value="">Select...</option>
+                          <option value="AQAR" {% if plan_area_val == 'AQAR' %}selected{% endif %}>AQAR</option>
+                          <option value="NAAC" {% if plan_area_val == 'NAAC' %}selected{% endif %}>NAAC</option>
+                          <option value="Rankings" {% if plan_area_val == 'Rankings' %}selected{% endif %}>Rankings</option>
+                          <option value="Awards" {% if plan_area_val == 'Awards' %}selected{% endif %}>Awards</option>
+                          <option value="Audits" {% if plan_area_val == 'Audits' %}selected{% endif %}>Audits</option>
+                          <option value="Documentation" {% if plan_area_val == 'Documentation' %}selected{% endif %}>Documentation</option>
+                          <option value="Others" {% if plan_area_val == 'Others' %}selected{% endif %}>Others</option>
+                        </select>
+                        <input type="text" name="plan_area_other[]" class="form-control form-control-sm mt-1 {% if plan_area_val != 'Others' %}d-none{% endif %}" placeholder="Specify other area" value="{{ plan_area_other_val }}">
+                      </td>
+                      <td><textarea name="plan_outcome[]" class="form-control form-control-sm" rows="2" placeholder="Expected Outcome">{{ plan_outcome_val }}</textarea></td>
+                      <td class="text-center"><button type="button" class="btn btn-danger btn-del-row" onclick="delRow(this)"><i class="bi bi-trash"></i></button></td>
+                    </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            </div>
+            <button type="button" class="btn btn-outline-primary btn-add-row" onclick="addTableRow('ActionPlan')">
+              <i class="bi bi-plus-circle me-1"></i> Add Row
+            </button>
+          </div>
+        </div>
+
+        <!-- ── Signatures ── -->
+        <div class="card mb-4">
+          <div class="card-body">
+            <h6 class="text-primary mb-3">Signatures <span class="text-muted fw-normal small">(actual signatures will be done on the printed copy)</span></h6>
+            <div class="row g-3">
+              <div class="col-md-4">
+                <label class="form-label">Name of the IQAC Coordinator</label>
+                <input type="text" name="sig_coordinator_name" class="form-control" value="{{ draft_data.get('sig_coordinator_name', user.username.title()) if draft_data else user.username.title() }}">
+                <small class="text-muted">Signature: ________________________</small>
+              </div>
+              <div class="col-md-4">
+                <label class="form-label">Date</label>
+                <input type="date" name="footer_date" class="form-control" value="{{ draft_data.get('footer_date', datetime.now().strftime('%Y-%m-%d')) if draft_data else datetime.now().strftime('%Y-%m-%d') }}">
+              </div>
+              <div class="col-md-4">
+                <label class="form-label">Remarks of Director, IQAC</label>
+                <input type="text" name="sig_director_remarks" class="form-control" placeholder="Director IQAC's remarks (if any)" value="{{ draft_data.get('sig_director_remarks', '') if draft_data else '' }}">
+                <small class="text-muted">Signature: ________________________</small>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Download/Save Buttons -->
+        <div class="d-flex gap-2 mb-4">
+          <button type="submit" class="btn btn-primary btn-lg px-5">
+            <i class="bi bi-file-earmark-pdf me-2"></i>Download as PDF
+          </button>
+          <button type="button" id="saveDraftBtn" class="btn btn-warning btn-lg px-5 text-dark fw-bold">
+            <i class="bi bi-journal-bookmark me-2"></i>Save as Draft
+          </button>
+          <a href="/iqac_dashboard" class="btn btn-outline-secondary btn-lg">Cancel</a>
+        </div>
+
+      </form>
+    </div>
+
+    <!-- Footer -->
+    <footer>
+      <div class="footer-content">
+        <span>Concept: <strong>Dr. Cecil Donald</strong></span>
+        <span class="divider">|</span>
+        <span>Developed by: <strong>Vaishnavi VK</strong> (MCA 2024-26)</span>
+      </div>
+    </footer>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+      const TODAY_MAX = new Date().toISOString().split('T')[0];
+
+      function applyDateMax(root) {
+        (root || document).querySelectorAll('input[type="date"]').forEach(el => {
+          el.max = TODAY_MAX;
+          if (el.value && el.value > TODAY_MAX) el.value = TODAY_MAX;
+        });
+      }
+
+      document.addEventListener('DOMContentLoaded', function() {
+        applyDateMax();
+        // Show/hide "Other" text input based on select
+        document.querySelectorAll('select[name="act_area[]"], select[name="plan_area[]"]').forEach(bindOtherToggle);
+      });
+
+      // ── "Others" area toggle ──
+      function bindOtherToggle(sel) {
+        sel.addEventListener('change', function() {
+          const otherInput = this.closest('td').querySelector('input[type="text"]');
+          if (otherInput) {
+            otherInput.classList.toggle('d-none', this.value !== 'Others');
+            if (this.value !== 'Others') otherInput.value = '';
+          }
+        });
+      }
+
+      document.addEventListener('change', function(e) {
+        if (e.target.matches('select[name="act_area[]"], select[name="plan_area[]"]')) {
+          const otherInput = e.target.closest('td').querySelector('input[type="text"]');
+          if (otherInput) {
+            otherInput.classList.toggle('d-none', e.target.value !== 'Others');
+            if (e.target.value !== 'Others') otherInput.value = '';
+          }
+        }
+      });
+
+      // ── Dynamic table row management ──
+      function addTableRow(tableId) {
+        const tbody = document.getElementById('table' + tableId + '-body');
+        const firstRow = tbody.querySelector('tr');
+        const newRow = firstRow.cloneNode(true);
+        newRow.querySelectorAll('input[type="text"], input[type="date"], textarea').forEach(el => el.value = '');
+        newRow.querySelectorAll('select').forEach(el => el.selectedIndex = 0);
+        newRow.querySelectorAll('input[type="text"][class*="d-none"]').forEach(el => el.classList.add('d-none'));
+        applyDateMax(newRow);
+        tbody.appendChild(newRow);
+      }
+
+      function delRow(btn) {
+        const tbody = btn.closest('tbody');
+        const rows = tbody.querySelectorAll('tr');
+        if (rows.length <= 1) {
+          // Clear rather than delete the last row
+          btn.closest('tr').querySelectorAll('input, textarea, select').forEach(el => {
+            if (el.tagName === 'SELECT') el.selectedIndex = 0;
+            else el.value = '';
+          });
+          return;
+        }
+        btn.closest('tr').remove();
+      }
+
+      // ── Numbered list items (achievements, challenges) ──
+      function addNumberedItem(containerId, inputName, label) {
+        const container = document.getElementById(containerId);
+        const count = container.querySelectorAll('.numbered-item').length + 1;
+        const div = document.createElement('div');
+        div.className = 'input-group mb-2 numbered-item';
+        div.innerHTML = `
+          <span class="input-group-text">${count}.</span>
+          <input type="text" name="${inputName}" class="form-control" placeholder="${label} ${count}">
+          <button type="button" class="btn btn-danger btn-del-row" onclick="delNumberedItem(this, '${containerId}')"><i class="bi bi-trash"></i></button>
+        `;
+        container.appendChild(div);
+      }
+
+      function delNumberedItem(btn, containerId) {
+        const container = document.getElementById(containerId);
+        const items = container.querySelectorAll('.numbered-item');
+        if (items.length <= 1) return;
+        btn.closest('.numbered-item').remove();
+        renumberItems(containerId);
+      }
+
+      function renumberItems(containerId) {
+        const items = document.querySelectorAll('#' + containerId + ' .numbered-item');
+        items.forEach((item, i) => {
+          item.querySelector('.input-group-text').textContent = (i + 1) + '.';
+          const input = item.querySelector('input');
+          const label = input.name.replace('[]', '');
+          input.placeholder = label.charAt(0).toUpperCase() + label.slice(1) + ' ' + (i + 1);
+        });
+      }
+
+      // ── Row validation + Form submission ──
+      function markInvalid(el) {
+        el.classList.add('is-invalid-custom');
+        const clear = () => el.classList.remove('is-invalid-custom');
+        el.addEventListener('input', clear, { once: true });
+        el.addEventListener('change', clear, { once: true });
+      }
+
+      function getVal(el) {
+        if (!el) return '';
+        return el.tagName === 'SELECT' ? el.value : el.value.trim();
+      }
+
+      // Validate a table section:
+      // 1. Check if the section has any data at all (i.e. at least one field in any row is filled).
+      // 2. If it does, then EVERY row in the table must be completely filled.
+      // 3. If it doesn't, then the entire section is considered empty (and will be discarded), so no validation errors are reported for it.
+      function validateTableRows(tbodyId, fieldSelectors, sectionLabel, errors) {
+        const rows = document.querySelectorAll('#' + tbodyId + ' tr');
+        let sectionHasData = false;
+
+        // Check if there is any data filled in the entire section
+        rows.forEach(row => {
+          const fields = fieldSelectors.map(sel => row.querySelector(sel)).filter(Boolean);
+          const vals = fields.map(getVal);
+          if (vals.some(v => v)) {
+            sectionHasData = true;
+          }
+        });
+
+        // If the section has data, then every row must be completely filled
+        if (sectionHasData) {
+          rows.forEach((row, i) => {
+            const fields = fieldSelectors.map(sel => row.querySelector(sel)).filter(Boolean);
+            const vals = fields.map(getVal);
+            let rowOk = true;
+
+            fields.forEach((f, idx) => {
+              if (!vals[idx]) {
+                markInvalid(f);
+                rowOk = false;
+              }
+            });
+
+            // Check "Others" custom inputs
+            row.querySelectorAll('select').forEach(sel => {
+              if (sel.value === 'Others') {
+                const otherInput = sel.closest('td').querySelector('input[type="text"]');
+                if (otherInput && !otherInput.value.trim()) {
+                  markInvalid(otherInput);
+                  rowOk = false;
+                }
+              }
+            });
+
+            if (!rowOk) {
+              errors.push(`${sectionLabel} row ${i + 1}: please fill all fields.`);
+            }
+          });
+        }
+      }
+
+      document.getElementById('reportForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+
+        // Clear all previous highlights
+        document.querySelectorAll('.is-invalid-custom').forEach(el => el.classList.remove('is-invalid-custom'));
+
+        let errors = [];
+
+        // Section 1: Activities
+        validateTableRows('tableActivities-body', [
+          'input[name="act_date[]"]',
+          'textarea[name="act_task[]"]',
+          'select[name="act_area[]"]',
+          'textarea[name="act_stakeholders[]"]',
+          'textarea[name="act_outcome[]"]',
+          'select[name="act_status[]"]'
+        ], 'Section 1 (Activities)', errors);
+
+        // Section 2: Meetings
+        validateTableRows('tableMeetings-body', [
+          'input[name="meet_date[]"]',
+          'textarea[name="meet_programme[]"]',
+          'select[name="meet_role[]"]',
+          'textarea[name="meet_outcome[]"]'
+        ], 'Section 2 (Meetings)', errors);
+
+        // Section 5: Action Plan
+        validateTableRows('tableActionPlan-body', [
+          'textarea[name="plan_activity[]"]',
+          'select[name="plan_area[]"]',
+          'textarea[name="plan_outcome[]"]'
+        ], 'Section 5 (Action Plan)', errors);
+
+        if (errors.length) {
+          alert('Please complete all fields in partially-filled rows:\n\n' + errors.join('\n'));
+          // Scroll to the first highlighted field
+          const firstBad = document.querySelector('.is-invalid-custom');
+          if (firstBad) firstBad.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          return;
+        }
+
+        // Validation passed — download PDF via fetch then redirect
+        const form = this;
+        const btn = form.querySelector('[type="submit"]');
+        btn.disabled = true;
+        btn.innerHTML = '<i class="bi bi-hourglass-split me-2"></i>Generating PDF…';
+
+        fetch(form.action, { method: 'POST', body: new FormData(form) })
+          .then(r => {
+            if (!r.ok) throw new Error('Server error');
+            return r.blob();
+          })
+          .then(blob => {
+            const month = form.querySelector('[name="reporting_month"]').value || 'report';
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'IQAC_Coordinator_Report_AQAR_' + month + '.pdf';
+            document.body.appendChild(a);
+            a.click();
+            setTimeout(() => { URL.revokeObjectURL(url); a.remove(); }, 200);
+            setTimeout(() => { window.location.href = '/iqac_dashboard'; }, 1500);
+          })
+          .catch(() => {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="bi bi-file-earmark-pdf me-2"></i>Download as PDF';
+            alert('PDF generation failed. Please try again.');
+          });
+      });
+
+      document.getElementById('saveDraftBtn').addEventListener('click', function() {
+        const form = document.getElementById('reportForm');
+        const btn = this;
+        btn.disabled = true;
+        btn.innerHTML = '<i class="bi bi-hourglass-split me-2"></i>Saving…';
+
+        const formData = new FormData(form);
+        const formObj = {};
+        for (let [key, val] of formData.entries()) {
+          if (key.endsWith('[]')) {
+            if (!formObj[key]) formObj[key] = [];
+            formObj[key].push(val);
+          } else {
+            formObj[key] = val;
+          }
+        }
+
+        const payload = {
+          report_type: 'aqar_coordinator',
+          reporting_month: form.querySelector('[name="reporting_month"]').value,
+          form_data: formObj
+        };
+
+        fetch('/iqac_report/save_draft', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        })
+        .then(r => r.json())
+        .then(res => {
+          if (res.success) {
+            alert('Draft saved successfully!');
+          } else {
+            alert('Failed to save draft: ' + res.error);
+          }
+        })
+        .catch(err => {
+          console.error(err);
+          alert('An error occurred while saving the draft.');
+        })
+        .finally(() => {
+          btn.disabled = false;
+          btn.innerHTML = '<i class="bi bi-journal-bookmark me-2"></i>Save as Draft';
+        });
+      });
+    </script>
+  </body>
+</html>

@@ -88,7 +88,7 @@
           {% if reports %}
             <!-- Summary badges -->
             <div class="mb-3">
-              {% set pending_count = reports | selectattr('status', 'equalto', 'pending') | list | length %}
+              {% set pending_count = (reports | selectattr('status', 'equalto', 'pending') | list | length) + (reports | selectattr('status', 'equalto', 'uploaded') | list | length) %}
               {% set reviewed_count = reports | selectattr('status', 'equalto', 'reviewed') | list | length %}
               <span class="badge badge-pending me-2">{{ pending_count }} Pending Authorisation</span>
               <span class="badge badge-reviewed">{{ reviewed_count }} Authorised</span>
