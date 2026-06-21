@@ -37,6 +37,19 @@ SMTP_PASSWORD = os.getenv("SMTP_PASSWORD")
 SMTP_SERVER = "smtp.gmail.com"
 SMTP_PORT = 587
 
+# ------------------ AQAR COORDINATOR SETTINGS ------------------
+def _parse_csv_env(key):
+    val = os.getenv(key, "")
+    return [v.strip() for v in val.split(",") if v.strip()] if val else []
+
+AQAR_COORDINATOR_EMAILS = _parse_csv_env("AQAR_COORDINATOR_EMAILS")
+AQAR_COORDINATOR_NAMES = _parse_csv_env("AQAR_COORDINATOR_NAMES")
+
+def is_aqar_coordinator(user):
+    """Check if a user should see the AQAR-aligned report based on their email."""
+    email = (user.get("email") or "").strip().lower() if isinstance(user, dict) else (user["email"] or "").strip().lower()
+    return email in [e.lower() for e in AQAR_COORDINATOR_EMAILS]
+
 # ------------------ EMAIL REMINDER FUNCTIONS ------------------
 def send_email(to_email, subject, body):
     """Send email via Brevo Web API if configured, otherwise fallback to SMTP"""
@@ -2316,6 +2329,14 @@ def iqac_monthly_report():
 
     _, reporting_month_str, _, _, _ = check_submission_window()
     reporting_month_display = datetime.strptime(reporting_month_str, "%Y-%m").strftime("%B %Y")
+
+    # AQAR coordinators see the AQAR-aligned report
+    if is_aqar_coordinator(user):
+        return render_template("iqac_coordinator_report.html", username=username, user=user,
+                               reporting_month_str=reporting_month_str,
+                               reporting_month_display=reporting_month_display,
+                               aqar_coordinator_names=AQAR_COORDINATOR_NAMES)
+
     return render_template("iqac_monthly_report.html", username=username, user=user,
                            reporting_month_str=reporting_month_str,
                            reporting_month_display=reporting_month_display)
