@@ -185,15 +185,15 @@
         <div class="card-body">
           <h6 class="text-primary mb-3"><i class="bi bi-calendar-range me-2"></i>IQAC Report Submission Window</h6>
           <p class="text-muted small mb-3">
-            Coordinators can upload their signed monthly report only between these days of each month.
-            Currently: <strong>{{ submission_open_day }}<sup>st</sup> to {{ submission_close_day }}<sup>th</sup></strong> of every month.
+            Coordinators can upload their signed monthly report from the <strong>1<sup>st</sup></strong> to the
+            <strong>{{ submission_close_day }}<sup>th</sup></strong> of every month.
+            The start date is always the 1st. You can extend the deadline if needed.
           </p>
           <form method="POST" class="row g-3 align-items-end">
             <input type="hidden" name="update_window" value="1">
-            <div class="col-md-3">
-              <label class="form-label">Open Day <span class="text-muted">(1–28)</span></label>
-              <input type="number" name="submission_open_day" class="form-control"
-                min="1" max="28" value="{{ submission_open_day }}" required>
+            <div class="col-md-2">
+              <label class="form-label">Open Day</label>
+              <input type="number" class="form-control bg-light" value="1" disabled>
             </div>
             <div class="col-md-3">
               <label class="form-label">Close Day <span class="text-muted">(1–28)</span></label>
@@ -201,10 +201,10 @@
                 min="1" max="28" value="{{ submission_close_day }}" required>
             </div>
             <div class="col-md-3">
-              <button type="submit" class="btn btn-primary">Update Window</button>
+              <button type="submit" class="btn btn-primary">Extend Deadline</button>
             </div>
-            <div class="col-md-3 text-muted small d-flex align-items-center">
-              e.g. Open: 1, Close: 5 → coordinators can upload from the 1st to 5th of each month.
+            <div class="col-md-4 text-muted small d-flex align-items-center">
+              e.g. Close: 7 → coordinators can upload from the 1st to 7th of each month.
             </div>
           </form>
         </div>

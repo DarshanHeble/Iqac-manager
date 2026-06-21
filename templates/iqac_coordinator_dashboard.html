@@ -89,18 +89,27 @@
         <div class="card-body">
           <h6 class="text-primary mb-3"><i class="bi bi-upload me-2"></i>Upload Signed Report</h6>
 
+          {% set already_submitted = submitted_reports | selectattr('reporting_month', 'equalto', reporting_month_str) | list | length > 0 %}
           {% if upload_open %}
             <div class="alert alert-success py-2 mb-3" style="font-size:0.9rem;">
               <i class="bi bi-calendar-check me-1"></i> {{ window_msg }}
             </div>
+            {% if already_submitted %}
+              <div class="alert alert-info d-flex align-items-center gap-3 mb-0" style="font-size:0.95rem;">
+                <i class="bi bi-check-circle-fill fs-4 text-success"></i>
+                <div>
+                  <strong>Report already submitted for {{ datetime.strptime(reporting_month_str, '%Y-%m').strftime('%B %Y') }}.</strong><br>
+                  <span class="text-muted small">You can submit your next report when the window opens next month.</span>
+                </div>
+              </div>
+            {% else %}
             <p class="text-muted small mb-3">After downloading, signing, and scanning your report, upload the signed copy here.</p>
             <form method="post" action="/iqac_upload_signed_report" enctype="multipart/form-data">
               <div class="row g-3 align-items-end">
                 <div class="col-md-4">
                   <label class="form-label">Reporting Month</label>
-                  <input type="month" name="reporting_month" class="form-control" required
-                    value="{{ reporting_month_str }}"
-                    max="{{ (datetime.now().replace(day=1) - timedelta(days=1)).strftime('%Y-%m') }}">
+                  <input type="hidden" name="reporting_month" value="{{ reporting_month_str }}">
+                  <input type="text" class="form-control bg-light" value="{{ datetime.strptime(reporting_month_str, '%Y-%m').strftime('%B %Y') }}" readonly style="cursor:not-allowed; color:#555;">
                 </div>
                 <div class="col-md-5">
                   <label class="form-label">Signed Report File (PDF / Image)</label>
@@ -113,6 +122,7 @@
                 </div>
               </div>
             </form>
+            {% endif %}
           {% else %}
             <div class="alert alert-warning d-flex align-items-start gap-3 mb-0" style="font-size:0.95rem;">
               <i class="bi bi-lock-fill fs-4 mt-1 text-warning"></i>

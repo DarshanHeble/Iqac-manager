@@ -113,6 +113,7 @@
                 <option value="Intern" {% if user.role == 'Intern' %}selected{% endif %}>Intern</option>
                 <option value="School IQAC Coordinator" {% if user.role == 'School IQAC Coordinator' %}selected{% endif %}>School IQAC Coordinator</option>
                 <option value="Campus IQAC Coordinator" {% if user.role == 'Campus IQAC Coordinator' %}selected{% endif %}>Campus IQAC Coordinator</option>
+                <option value="Secretary" {% if user.role == 'Secretary' %}selected{% endif %}>Secretary</option>
                 <option value="Admin" {% if user.role == 'Admin' %}selected{% endif %}>Admin</option>
               </select>
               {% if user.username == 'admin' %}

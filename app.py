@@ -1,7 +1,8 @@
 from flask import Flask, render_template, request, redirect, url_for, flash, session, send_file
-import os, random, string, smtplib, json, urllib.request, urllib.error
+import os, random, string, json, urllib.request, urllib.error
+# import smtplib  # SMTP fallback — kept for reference, replaced by Brevo
 from datetime import datetime, timedelta
-from email.mime.text import MIMEText
+# from email.mime.text import MIMEText  # SMTP fallback — replaced by Brevo
 from werkzeug.security import generate_password_hash, check_password_hash
 from werkzeug.utils import secure_filename
 from io import BytesIO
@@ -32,68 +33,65 @@ def inject_now():
 from db import get_db_connection, get_cursor
 
 # ------------------ EMAIL SETTINGS (Environment Variables) ------------------
-SMTP_EMAIL = os.getenv("SMTP_EMAIL")
-SMTP_PASSWORD = os.getenv("SMTP_PASSWORD")
-SMTP_SERVER = "smtp.gmail.com"
-SMTP_PORT = 587
+# SMTP_EMAIL = os.getenv("SMTP_EMAIL")      # SMTP fallback — replaced by Brevo
+# SMTP_PASSWORD = os.getenv("SMTP_PASSWORD")
+# SMTP_SERVER = "smtp.gmail.com"
+# SMTP_PORT = 587
 
 # ------------------ EMAIL REMINDER FUNCTIONS ------------------
 def send_email(to_email, subject, body):
-    """Send email via Brevo Web API if configured, otherwise fallback to SMTP"""
+    """Send email via Brevo Web API"""
     brevo_api_key = os.getenv("BREVO_API_KEY")
-    if brevo_api_key:
-        sender_email = os.getenv("SENDER_EMAIL") or SMTP_EMAIL
-        if not sender_email:
-            raise Exception("SENDER_EMAIL or SMTP_EMAIL environment variable must be set for Brevo.")
-            
-        url = "https://api.brevo.com/v3/smtp/email"
-        headers = {
-            "accept": "application/json",
-            "api-key": brevo_api_key,
-            "content-type": "application/json"
-        }
-        payload = {
-            "sender": {
-                "name": "IQAC Admin",
-                "email": sender_email
-            },
-            "to": [
-                {"email": to_email}
-            ],
-            "subject": subject,
-            "textContent": body
-        }
-        try:
-            req = urllib.request.Request(
-                url, 
-                data=json.dumps(payload).encode("utf-8"), 
-                headers=headers, 
-                method="POST"
-            )
-            with urllib.request.urlopen(req, timeout=10) as response:
-                res_data = response.read()
-                print(f"Brevo email sent successfully to {to_email}: {res_data}")
-                return True
-        except urllib.error.HTTPError as e:
-            err_msg = e.read().decode('utf-8')
-            print(f"HTTP Error sending Brevo email to {to_email}: {e.code} - {err_msg}")
-            raise Exception(f"Brevo API error: {e.code} - {err_msg}")
-        except Exception as e:
-            print(f"Failed to send Brevo email to {to_email}: {str(e)}")
-            raise e
-    else:
-        # Fallback to standard SMTP
-        if not SMTP_EMAIL or not SMTP_PASSWORD:
-            raise Exception("Neither BREVO_API_KEY nor SMTP credentials are set.")
-        msg = MIMEText(body, 'plain', 'utf-8')
-        msg['Subject'] = subject
-        msg['From'] = SMTP_EMAIL
-        msg['To'] = to_email
-        with smtplib.SMTP(SMTP_SERVER, SMTP_PORT, timeout=10) as server:
-            server.starttls()
-            server.login(SMTP_EMAIL, SMTP_PASSWORD)
-            server.send_message(msg)
-        return True
+    sender_email = os.getenv("SENDER_EMAIL")
+    if not brevo_api_key or not sender_email:
+        raise Exception("BREVO_API_KEY and SENDER_EMAIL must be set in .env")
+
+    url = "https://api.brevo.com/v3/smtp/email"
+    headers = {
+        "accept": "application/json",
+        "api-key": brevo_api_key,
+        "content-type": "application/json"
+    }
+    payload = {
+        "sender": {"name": "IQAC Admin", "email": sender_email},
+        "to": [{"email": to_email}],
+        "subject": subject,
+        "textContent": body
+    }
+    try:
+        req = urllib.request.Request(
+            url,
+            data=json.dumps(payload).encode("utf-8"),
+            headers=headers,
+            method="POST"
+        )
+        with urllib.request.urlopen(req, timeout=10) as response:
+            res_data = response.read()
+            print(f"Brevo email sent successfully to {to_email}: {res_data}")
+            return True
+    except urllib.error.HTTPError as e:
+        err_msg = e.read().decode('utf-8')
+        print(f"HTTP Error sending Brevo email to {to_email}: {e.code} - {err_msg}")
+        raise Exception(f"Brevo API error: {e.code} - {err_msg}")
+    except Exception as e:
+        print(f"Failed to send Brevo email to {to_email}: {str(e)}")
+        raise e
+
+    # --- SMTP fallback (disabled — replaced by Brevo) ---
+    # SMTP_EMAIL = os.getenv("SMTP_EMAIL")
+    # SMTP_PASSWORD = os.getenv("SMTP_PASSWORD")
+    # if not SMTP_EMAIL or not SMTP_PASSWORD:
+    #     raise Exception("Neither BREVO_API_KEY nor SMTP credentials are set.")
+    # from email.mime.text import MIMEText
+    # import smtplib
+    # msg = MIMEText(body, 'plain', 'utf-8')
+    # msg['Subject'] = subject
+    # msg['From'] = SMTP_EMAIL
+    # msg['To'] = to_email
+    # with smtplib.SMTP("smtp.gmail.com", 587, timeout=10) as server:
+    #     server.starttls()
+    #     server.login(SMTP_EMAIL, SMTP_PASSWORD)
+    #     server.send_message(msg)
 
 def send_reminder_email(to_email, subject, body):
     """Send an email reminder"""
@@ -573,6 +571,8 @@ def login():
                 return redirect("/admin")
             elif user["role"].lower() in ("school iqac coordinator", "campus iqac coordinator"):
                 return redirect("/iqac_dashboard")
+            elif user["role"].lower() == "secretary":
+                return redirect("/secretary_dashboard")
             else:
                 return redirect("/dashboard")
         else:
@@ -1212,17 +1212,16 @@ def admin_panel():
 
     # Handle submission window settings update
     if request.method == "POST" and "update_window" in request.form:
-        new_open = request.form.get("submission_open_day", "1").strip()
         new_close = request.form.get("submission_close_day", "5").strip()
-        if new_open.isdigit() and new_close.isdigit():
-            open_i, close_i = int(new_open), int(new_close)
-            if 1 <= open_i <= 28 and 1 <= close_i <= 28 and open_i <= close_i:
-                cursor.execute("UPDATE app_settings SET value=%s WHERE key='submission_open_day'", (new_open,))
+        if new_close.isdigit():
+            close_i = int(new_close)
+            if 1 <= close_i <= 28:
+                cursor.execute("UPDATE app_settings SET value='1' WHERE key='submission_open_day'")
                 cursor.execute("UPDATE app_settings SET value=%s WHERE key='submission_close_day'", (new_close,))
                 conn.commit()
-                flash(f"Submission window updated: day {open_i} to day {close_i} of each month.", "success")
+                flash(f"Submission window updated: 1st to {close_i}th of each month.", "success")
             else:
-                flash("Invalid days. Open day must be ≤ close day, both between 1 and 28.", "danger")
+                flash("Invalid close day. Must be between 1 and 28.", "danger")
         conn.close()
         return redirect("/admin")
 
@@ -1509,11 +1508,11 @@ def admin_report():
     conn = get_db_connection()
     cursor = get_cursor(conn)
 
-    # Ensure admin
+    # Ensure admin or secretary
     cursor.execute("SELECT * FROM users WHERE username=%s", (session["username"],))
     admin = cursor.fetchone()
 
-    if not admin or admin["role"].lower() != "admin":
+    if not admin or admin["role"].lower() not in ("admin", "secretary"):
         conn.close()
         flash("Access denied.", "danger")
         return redirect("/dashboard")
@@ -2166,8 +2165,8 @@ def send_auto_iqac_reminders():
     today = datetime.now().date()
     open_day, close_day = get_submission_window()
 
-    if not (3 <= today.day <= close_day):
-        return f"Not a reminder day (today is {today.day}). Reminders fire on days 3–{close_day}."
+    if not (open_day <= today.day <= close_day):
+        return f"Not a reminder day (today is {today.day}). Reminders fire on days {open_day}–{close_day}."
 
     # Reporting month is always the previous month
     if today.month == 1:
@@ -2380,6 +2379,31 @@ def iqac_upload_signed_report():
     conn.commit()
     conn.close()
 
+    # Notify all admins and secretaries
+    try:
+        notify_conn = get_db_connection()
+        notify_cur = get_cursor(notify_conn)
+        notify_cur.execute("SELECT email FROM users WHERE role IN ('Admin', 'Secretary') AND email IS NOT NULL AND email != ''")
+        recipients = notify_cur.fetchall()
+        notify_conn.close()
+
+        reporting_month_display = datetime.strptime(reporting_month, "%Y-%m").strftime("%B %Y")
+        subject = f"IQAC Report Submitted – {username.title()} ({reporting_month_display})"
+        body = (
+            f"Dear Admin/Secretary,\n\n"
+            f"{username.title()} ({user.get('designation', '')}, {user.get('department', '')}) "
+            f"has submitted their signed IQAC report for {reporting_month_display}.\n\n"
+            f"Please log in to review and authorise the report.\n\n"
+            f"Regards,\nIQAC Worklog System"
+        )
+        for r in recipients:
+            try:
+                send_email(r['email'], subject, body)
+            except Exception as e:
+                print(f"Failed to notify {r['email']}: {e}")
+    except Exception as e:
+        print(f"Notification error: {e}")
+
     flash("Signed report uploaded successfully! It will be reviewed by the admin.", "success")
     return redirect("/iqac_dashboard")
 
@@ -2396,7 +2420,7 @@ def admin_signed_reports():
     cursor.execute("SELECT * FROM users WHERE username=%s", (session["username"],))
     admin = cursor.fetchone()
 
-    if not admin or admin["role"].lower() != "admin":
+    if not admin or admin["role"].lower() not in ("admin", "secretary"):
         conn.close()
         flash("Access denied.", "danger")
         return redirect("/dashboard")
@@ -2488,7 +2512,7 @@ def admin_review_report(id):
     cursor.execute("SELECT * FROM users WHERE username=%s", (session["username"],))
     admin = cursor.fetchone()
 
-    if not admin or admin["role"].lower() != "admin":
+    if not admin or admin["role"].lower() not in ("admin", "secretary"):
         conn.close()
         flash("Access denied.", "danger")
         return redirect("/dashboard")
@@ -2499,6 +2523,131 @@ def admin_review_report(id):
 
     flash("Report marked as reviewed.", "success")
     return redirect("/admin_signed_reports")
+
+
+# ------------------ SECRETARY DASHBOARD ------------------
+@app.route("/secretary_dashboard", methods=["GET", "POST"])
+def secretary_dashboard():
+    if "username" not in session:
+        return redirect("/login")
+
+    conn = get_db_connection()
+    cursor = get_cursor(conn)
+    cursor.execute("SELECT * FROM users WHERE username=%s", (session["username"],))
+    user = cursor.fetchone()
+
+    if not user or user["role"].lower() != "secretary":
+        conn.close()
+        flash("Access denied.", "danger")
+        return redirect("/login")
+
+    now = datetime.now()
+    current_report_month = now.strftime("%Y-%m")
+
+    cursor.execute("SELECT COUNT(*) as count FROM users WHERE role IN ('School IQAC Coordinator', 'Campus IQAC Coordinator')")
+    total_coordinators = cursor.fetchone()['count']
+
+    cursor.execute("SELECT COUNT(DISTINCT username) as count FROM signed_reports WHERE reporting_month = %s", (current_report_month,))
+    submitted_coordinators = cursor.fetchone()['count']
+
+    submission_pct = int((submitted_coordinators / total_coordinators * 100) if total_coordinators > 0 else 0)
+
+    cursor.execute("""
+        SELECT username FROM users WHERE role IN ('School IQAC Coordinator', 'Campus IQAC Coordinator')
+        AND username NOT IN (
+            SELECT DISTINCT username FROM signed_reports WHERE reporting_month = %s
+        )
+    """, (current_report_month,))
+    pending_coordinators = [r['username'] for r in cursor.fetchall()]
+
+    cursor.execute("""
+        SELECT DISTINCT u.username FROM users u
+        JOIN signed_reports sr ON sr.username = u.username
+        WHERE u.role IN ('School IQAC Coordinator', 'Campus IQAC Coordinator')
+        AND sr.reporting_month = %s
+    """, (current_report_month,))
+    submitted_coordinator_names = [r['username'] for r in cursor.fetchall()]
+
+    # Coordinators list for Quick Summary dropdown
+    cursor.execute("SELECT username, role FROM users WHERE role IN ('School IQAC Coordinator', 'Campus IQAC Coordinator') ORDER BY username")
+    coordinators = cursor.fetchall()
+
+    # Quick Summary form handling
+    coord_reports = None
+    coord_user = "All"
+    coord_report_type = "monthly"
+    coord_from_month = f"{now.year}-01"
+    coord_to_month = f"{now.year}-{now.month:02d}"
+    coord_year = str(now.year)
+
+    if request.method == "POST" and "coord_form" in request.form:
+        coord_user = request.form.get("coord_user", "All")
+        coord_report_type = request.form.get("coord_report_type", "monthly")
+        coord_from_month = request.form.get("coord_from_month", f"{now.year}-01")
+        coord_to_month = request.form.get("coord_to_month", f"{now.year}-{now.month:02d}")
+        coord_year = request.form.get("coord_year", str(now.year))
+
+        year_int = int(coord_year)
+        if coord_report_type == "yearly":
+            start_m = f"{year_int}-01"
+            end_m = f"{year_int}-12"
+        else:
+            start_m = coord_from_month or f"{year_int}-01"
+            end_m = coord_to_month or f"{year_int}-{now.month:02d}"
+
+        if coord_user == "All":
+            cursor.execute("""
+                SELECT sr.*, u.designation, u.department, u.role
+                FROM signed_reports sr
+                JOIN users u ON sr.username = u.username
+                WHERE sr.reporting_month BETWEEN %s AND %s
+                ORDER BY sr.reporting_month, sr.username
+            """, (start_m, end_m))
+        else:
+            cursor.execute("""
+                SELECT sr.*, u.designation, u.department, u.role
+                FROM signed_reports sr
+                JOIN users u ON sr.username = u.username
+                WHERE sr.username = %s AND sr.reporting_month BETWEEN %s AND %s
+                ORDER BY sr.reporting_month
+            """, (coord_user, start_m, end_m))
+        coord_reports = cursor.fetchall()
+
+    conn.close()
+
+    return render_template("secretary_dashboard.html",
+        username=session["username"],
+        current_report_month=current_report_month,
+        total_coordinators=total_coordinators,
+        submitted_coordinators=submitted_coordinators,
+        submission_pct=submission_pct,
+        pending_coordinators=pending_coordinators,
+        submitted_coordinator_names=submitted_coordinator_names,
+        coordinators=coordinators,
+        coord_reports=coord_reports,
+        coord_user=coord_user,
+        coord_report_type=coord_report_type,
+        coord_from_month=coord_from_month,
+        coord_to_month=coord_to_month,
+        coord_year=coord_year,
+    )
+
+
+# ------------------ SCHEDULER ------------------
+from apscheduler.schedulers.background import BackgroundScheduler
+
+scheduler = BackgroundScheduler()
+
+# Daily at 6 PM — sends report submission reminder to coordinators who haven't submitted (days 1–5 of month)
+scheduler.add_job(send_auto_iqac_reminders, 'cron', hour=18, minute=0, id='iqac_report_reminder')
+
+# 29th of every month at 9 AM — worklog missing entries reminder to employees
+scheduler.add_job(send_29th_reminder, 'cron', day=29, hour=9, minute=0, id='worklog_29th_reminder')
+
+# 1st of every month at 9 AM — final worklog deadline reminder to employees
+scheduler.add_job(send_1st_deadline_reminder, 'cron', day=1, hour=9, minute=0, id='worklog_1st_reminder')
+
+scheduler.start()
 
 
 # ------------------ RUN APP ------------------
