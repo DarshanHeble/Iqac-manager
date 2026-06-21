@@ -2353,15 +2353,35 @@ def iqac_dashboard():
     # Fetch this coordinator's submitted reports
     cursor.execute("SELECT * FROM signed_reports WHERE username=%s ORDER BY uploaded_at DESC", (username,))
     submitted_reports = cursor.fetchall()
-    conn.close()
 
     is_open, reporting_month_str, open_day, close_day, window_msg = check_submission_window()
+
+    # Check if a draft exists for the active window's reporting month
+    has_draft = False
+    if is_open:
+        cursor.execute("""
+            SELECT 1 FROM report_drafts 
+            WHERE username=%s AND reporting_month=%s
+        """, (username, reporting_month_str))
+        has_draft = cursor.fetchone() is not None
+
+    conn.close()
+
+    reporting_month_display = ""
+    if reporting_month_str:
+        try:
+            ry, rm = map(int, reporting_month_str.split('-'))
+            reporting_month_display = datetime(ry, rm, 1).strftime("%B %Y")
+        except Exception:
+            reporting_month_display = reporting_month_str
 
     return render_template("iqac_coordinator_dashboard.html",
         username=username,
         submitted_reports=submitted_reports,
         upload_open=is_open,
         reporting_month_str=reporting_month_str,
+        reporting_month_display=reporting_month_display,
+        has_draft=has_draft,
         window_msg=window_msg,
         open_day=open_day,
         close_day=close_day,
@@ -2499,6 +2519,16 @@ def iqac_upload_signed_report():
     if not reporting_month:
         flash("Please enter the reporting month.", "danger")
         conn.close()
+        return redirect("/iqac_dashboard")
+
+    # Verify that a draft exists before allowing upload
+    cursor.execute("""
+        SELECT 1 FROM report_drafts 
+        WHERE username = %s AND reporting_month = %s
+    """, (username, reporting_month))
+    if not cursor.fetchone():
+        conn.close()
+        flash("No report draft found for this month. You must first generate and download the report before uploading the signed copy.", "danger")
         return redirect("/iqac_dashboard")
 
     if not uploaded_file or uploaded_file.filename == "":
