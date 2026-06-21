@@ -279,7 +279,7 @@ def send_29th_reminder():
                 deadline_date = datetime(current_year + 1, 1, 2).date()
             else:
                 deadline_date = datetime(current_year, current_month + 1, 2).date()
-            deadline_str = deadline_date.strftime('%b %d, %Y')
+            deadline_str = deadline_date.strftime('%d-%m-%Y')
             
             subject = f"IQAC Worklog Reminder - Missing Entries"
             body = f"""Dear {username},
@@ -328,7 +328,7 @@ def send_1st_deadline_reminder():
             # Format missing dates grouped by month (Feb - 2, 3, 5)
             sorted_dates = sorted(missing_dates)
             dates_list = format_dates_by_month(sorted_dates)
-            deadline_str = today.strftime('%b %d, %Y')
+            deadline_str = today.strftime('%d-%m-%Y')
             
             subject = f"URGENT: IQAC Worklog Submission Deadline - TODAY"
             body = f"""Dear {username},
@@ -457,23 +457,24 @@ def check_submission_window():
         report_year, report_month = today.year, today.month - 1
 
     reporting_month_str = f"{report_year}-{report_month:02d}"
-    month_name = datetime(report_year, report_month, 1).strftime("%B %Y")
+    month_name = datetime(report_year, report_month, 1).strftime("%m-%Y")
 
     is_open = open_day <= current_day <= close_day
 
     if is_open:
-        window_msg = f"Submission window for {month_name} is open until {today.strftime('%B')} {close_day}, {today.year}."
+        close_date = today.replace(day=close_day).strftime("%d-%m-%Y")
+        window_msg = f"Submission window for {month_name} is open until {close_date}."
     elif current_day < open_day:
-        window_msg = (f"Submission window for {month_name} opens on "
-                      f"{today.strftime('%B')} {open_day}, {today.year}.")
+        open_date = today.replace(day=open_day).strftime("%d-%m-%Y")
+        window_msg = f"Submission window for {month_name} opens on {open_date}."
     else:
         # Past the close day — next window is next month
         if today.month == 12:
-            next_open = datetime(today.year + 1, 1, open_day).strftime("%B %d, %Y")
+            next_open = datetime(today.year + 1, 1, open_day).strftime("%d-%m-%Y")
         else:
-            next_open = datetime(today.year, today.month + 1, open_day).strftime("%B %d, %Y")
-        window_msg = (f"Submission window for {month_name} closed on "
-                      f"{today.strftime('%B')} {close_day}, {today.year}. "
+            next_open = datetime(today.year, today.month + 1, open_day).strftime("%d-%m-%Y")
+        close_date = today.replace(day=close_day).strftime("%d-%m-%Y")
+        window_msg = (f"Submission window for {month_name} closed on {close_date}. "
                       f"Next window opens {next_open}.")
 
     return is_open, reporting_month_str, open_day, close_day, window_msg
@@ -611,10 +612,16 @@ def _allowed_attachment(filename):
 # ------------------ TEMPLATE FILTER ------------------
 @app.template_filter("datetimeformat")
 def datetimeformat(value):
-    try:
-        return datetime.strptime(value, "%Y-%m-%d").strftime("%d-%m-%Y")
-    except:
+    if not value:
         return value
+    value_str = str(value).strip()
+    try:
+        return datetime.strptime(value_str, "%Y-%m-%d").strftime("%d-%m-%Y")
+    except ValueError:
+        try:
+            return datetime.strptime(value_str, "%Y-%m").strftime("%m-%Y")
+        except ValueError:
+            return value
 
 @app.route("/")
 def home():
@@ -1417,9 +1424,9 @@ def admin_panel():
 
     # Format month for display (e.g., "January 2026")
     try:
-        display_month = datetime.strptime(selected_month, "%Y-%m").strftime("%B %Y")
+        display_month = datetime.strptime(selected_month, "%Y-%m").strftime("%m-%Y")
     except:
-        display_month = datetime.now().strftime("%B %Y")
+        display_month = datetime.now().strftime("%m-%Y")
 
     return render_template(
         "admin.html",
@@ -1442,7 +1449,7 @@ def admin_panel():
         submission_pct=submission_pct,
         pending_coordinators=pending_coordinators,
         submitted_coordinator_names=submitted_coordinator_names,
-        current_report_month=datetime.strptime(current_report_month, "%Y-%m").strftime("%B %Y"),
+        current_report_month=datetime.strptime(current_report_month, "%Y-%m").strftime("%m-%Y"),
         **dict(zip(('submission_open_day', 'submission_close_day'), get_submission_window())),
         coordinators=coordinators,
         coord_reports=coord_reports,
@@ -2169,8 +2176,8 @@ def send_iqac_report_reminder(is_deadline=False):
     today = datetime.now().date()
     # Report is for the current month
     reporting_month = today.strftime("%Y-%m")
-    month_display = today.strftime("%B %Y")
-    deadline_str = today.replace(day=5).strftime("%d %B %Y")
+    month_display = today.strftime("%m-%Y")
+    deadline_str = today.replace(day=5).strftime("%d-%m-%Y")
 
     conn = get_db_connection()
     cursor = get_cursor(conn)
@@ -2246,10 +2253,10 @@ def send_auto_iqac_reminders():
     else:
         report_year, report_month = today.year, today.month - 1
     reporting_month = f"{report_year}-{report_month:02d}"
-    month_display = datetime(report_year, report_month, 1).strftime("%B %Y")
+    month_display = datetime(report_year, report_month, 1).strftime("%m-%Y")
 
     days_left = close_day - today.day
-    deadline_date = today.replace(day=close_day).strftime("%d %B %Y")
+    deadline_date = today.replace(day=close_day).strftime("%d-%m-%Y")
 
     if days_left == 0:
         days_left_str = "TODAY is the last day"
@@ -2370,7 +2377,7 @@ def iqac_dashboard():
     if reporting_month_str:
         try:
             ry, rm = map(int, reporting_month_str.split('-'))
-            reporting_month_display = datetime(ry, rm, 1).strftime("%B %Y")
+            reporting_month_display = datetime(ry, rm, 1).strftime("%m-%Y")
         except Exception:
             reporting_month_display = reporting_month_str
 
@@ -2406,7 +2413,7 @@ def iqac_monthly_report():
         return redirect("/login")
 
     _, reporting_month_str, _, _, _ = check_submission_window()
-    reporting_month_display = datetime.strptime(reporting_month_str, "%Y-%m").strftime("%B %Y")
+    reporting_month_display = datetime.strptime(reporting_month_str, "%Y-%m").strftime("%m-%Y")
 
     report_type = "aqar_coordinator" if is_aqar_coordinator(user) else "standard"
 
@@ -2580,7 +2587,7 @@ def iqac_upload_signed_report():
         recipients = notify_cur.fetchall()
         notify_conn.close()
 
-        reporting_month_display = datetime.strptime(reporting_month, "%Y-%m").strftime("%B %Y")
+        reporting_month_display = datetime.strptime(reporting_month, "%Y-%m").strftime("%m-%Y")
         subject = f"IQAC Report Submitted – {username.title()} ({reporting_month_display})"
         body = (
             f"Dear Admin/Secretary,\n\n"
