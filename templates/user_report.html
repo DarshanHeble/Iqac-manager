@@ -151,7 +151,8 @@
             </div>
             <div class="col-md-12 d-flex gap-2 mt-3">
               <button class="btn btn-primary" type="submit"><i class="bi bi-file-earmark-text"></i> Generate Report</button>
-              <button type="button" class="btn btn-outline-secondary" onclick="window.print()"><i class="bi bi-printer"></i> Print</button>
+              <button type="button" class="btn btn-outline-secondary" onclick="printAndRedirect()"><i class="bi bi-printer"></i> Print</button>
+              <a href="/dashboard" class="btn btn-outline-primary"><i class="bi bi-house"></i> Back to Dashboard</a>
             </div>
           </form>
         </div>
@@ -186,7 +187,7 @@
               <div><strong>No. of Entries:</strong> {{ logs|length }}</div>
             </div>
             <table class="table table-bordered table-striped">
-              <thead><tr><th style="width:12%;">Date</th><th>Category-wise Tasks</th></tr></thead>
+              <thead><tr><th style="width:12%;">Date</th><th>Category-wise Tasks</th><th style="width:15%;" class="no-print">Attachment</th></tr></thead>
               <tbody>
                 {% for log in logs %}
                   <tr>
@@ -201,6 +202,25 @@
                         {% endfor %}
                       {% else %}
                         <span class="text-muted">No tasks recorded</span>
+                      {% endif %}
+                      {% if log.get('attachment') %}
+                        <div class="attachment-print mt-1"><small><strong>Attachment:</strong> {{ log['attachment'].split('/')[-1] }}</small></div>
+                      {% endif %}
+                    </td>
+                    <td class="no-print">
+                      {% if log.get('attachment') %}
+                        {% set ext = log['attachment'].split('.')[-1].lower() %}
+                        {% if ext in ['jpg', 'jpeg', 'png'] %}
+                          <a href="/static/{{ log['attachment'] }}" target="_blank">
+                            <img src="/static/{{ log['attachment'] }}" style="max-height:60px;max-width:100px;" class="img-thumbnail">
+                          </a>
+                        {% else %}
+                          <a href="/static/{{ log['attachment'] }}" target="_blank" class="btn btn-sm btn-outline-secondary">
+                            <i class="bi bi-paperclip"></i> View
+                          </a>
+                        {% endif %}
+                      {% else %}
+                        <span class="text-muted">—</span>
                       {% endif %}
                     </td>
                   </tr>
@@ -241,9 +261,31 @@
           }
         }
         
+        const today = new Date().toISOString().split('T')[0];
+        const fromDate = document.getElementById('from_date');
+        const toDate = document.getElementById('to_date');
+        if (fromDate) {
+          fromDate.max = today;
+          fromDate.addEventListener('change', function () {
+            if (toDate) {
+              toDate.min = this.value;
+              if (toDate.value && toDate.value < this.value) toDate.value = this.value;
+            }
+          });
+        }
+        if (toDate) {
+          toDate.max = today;
+          if (fromDate && fromDate.value) toDate.min = fromDate.value;
+        }
+
         toggleFilterFields(modeSelect.value || "{{ filter_mode or 'date' }}");
         modeSelect.addEventListener("change", function () { toggleFilterFields(this.value); });
       });
+
+      function printAndRedirect() {
+        window.onafterprint = function() { window.location.href = '/dashboard'; };
+        window.print();
+      }
     </script>
 
     <!-- Footer -->

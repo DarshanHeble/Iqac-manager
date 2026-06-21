@@ -402,9 +402,11 @@ def init_postgres():
             date VARCHAR(20),
             status VARCHAR(50),
             category TEXT,
-            task TEXT
+            task TEXT,
+            attachment TEXT
         )
     """)
+    cursor.execute("ALTER TABLE worklog ADD COLUMN IF NOT EXISTS attachment TEXT")
 
     # Create signed_reports table for IQAC Coordinator uploaded reports
     cursor.execute("""
@@ -471,6 +473,12 @@ except Exception as e:
 
 # Ensure signed_reports upload directory exists
 os.makedirs(os.path.join(os.path.dirname(__file__), 'static', 'signed_reports'), exist_ok=True)
+os.makedirs(os.path.join(os.path.dirname(__file__), 'static', 'attachments'), exist_ok=True)
+
+ALLOWED_ATTACHMENT_EXTENSIONS = {'pdf', 'jpg', 'jpeg', 'png', 'doc', 'docx'}
+
+def _allowed_attachment(filename):
+    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_ATTACHMENT_EXTENSIONS
 
 # ------------------ TEMPLATE FILTER ------------------
 
@@ -715,7 +723,7 @@ def user_add_entry():
                     # Regular worklog entry
                     # Get selected categories
                     categories = request.form.getlist("categories")
-                    
+
                     # Build category-wise tasks dictionary
                     category_tasks = {}
                     task_mapping = {
@@ -726,25 +734,36 @@ def user_add_entry():
                         "Strategic Initiatives": "task_strategic",
                         "Others": "task_others"
                     }
-                    
+
                     for cat in categories:
                         field_name = task_mapping.get(cat)
                         if field_name:
                             task_text = request.form.get(field_name, "").strip()
                             if task_text:
                                 category_tasks[cat] = task_text
-                    
+
                     if not category_tasks:
                         flash("Please select at least one category and enter tasks.", "danger")
                     else:
+                        # Handle optional file attachment
+                        attachment_path = None
+                        uploaded_file = request.files.get("attachment")
+                        if uploaded_file and uploaded_file.filename and _allowed_attachment(uploaded_file.filename):
+                            ext = uploaded_file.filename.rsplit('.', 1)[1].lower()
+                            timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
+                            save_name = f"{secure_filename(username)}_{date_iso}_{timestamp}.{ext}"
+                            save_dir = os.path.join(os.path.dirname(__file__), 'static', 'attachments')
+                            uploaded_file.save(os.path.join(save_dir, save_name))
+                            attachment_path = f"attachments/{save_name}"
+
                         # Store categories as comma-separated and tasks as JSON
                         category_str = ", ".join(category_tasks.keys())
                         task_json = json.dumps(category_tasks)
-                        
+
                         cursor.execute("""
-                            INSERT INTO worklog (username, date, status, category, task)
-                            VALUES (%s, %s, %s, %s, %s)
-                        """, (username, date_iso, "Present", category_str, task_json))
+                            INSERT INTO worklog (username, date, status, category, task, attachment)
+                            VALUES (%s, %s, %s, %s, %s, %s)
+                        """, (username, date_iso, "Present", category_str, task_json, attachment_path))
                         conn.commit()
                         conn.close()
                         flash("Worklog entry added successfully!", "success")
@@ -1159,13 +1178,15 @@ def admin_panel():
     coord_reports = None
     coord_user = "All"
     coord_report_type = "monthly"
-    coord_month_range = "1-3"
+    coord_from_month = f"{now.year}-01"
+    coord_to_month = f"{now.year}-{now.month:02d}"
     coord_year = str(now.year)
 
     if request.method == "POST" and "coord_form" in request.form:
         coord_user = request.form.get("coord_user", "All")
         coord_report_type = request.form.get("coord_report_type", "monthly")
-        coord_month_range = request.form.get("coord_month_range", "1-3")
+        coord_from_month = request.form.get("coord_from_month", f"{now.year}-01")
+        coord_to_month = request.form.get("coord_to_month", f"{now.year}-{now.month:02d}")
         coord_year = request.form.get("coord_year", str(now.year))
 
         year_int = int(coord_year)
@@ -1173,10 +1194,8 @@ def admin_panel():
             start_m = f"{year_int}-01"
             end_m = f"{year_int}-12"
         else:
-            range_map = {"1-3": (1, 3), "4-6": (4, 6), "7-9": (7, 9), "10-12": (10, 12)}
-            ms, me = range_map.get(coord_month_range, (1, 3))
-            start_m = f"{year_int}-{ms:02d}"
-            end_m = f"{year_int}-{me:02d}"
+            start_m = coord_from_month or f"{year_int}-01"
+            end_m = coord_to_month or f"{year_int}-{now.month:02d}"
 
         if coord_user == "All":
             cursor.execute("""
@@ -1302,7 +1321,8 @@ def admin_panel():
         coord_reports=coord_reports,
         coord_user=coord_user,
         coord_report_type=coord_report_type,
-        coord_month_range=coord_month_range,
+        coord_from_month=coord_from_month,
+        coord_to_month=coord_to_month,
         coord_year=coord_year,
     )
 
@@ -2374,10 +2394,61 @@ def admin_signed_reports():
     reports = cursor.fetchall()
     conn.close()
 
+    # Collect workshop attachments for selected month from filesystem
+    ws_att_base = os.path.join(os.path.dirname(__file__), 'static', 'signed_reports', 'workshop_attachments')
+    workshop_attachments = {}
+    if os.path.isdir(ws_att_base):
+        for uname in os.listdir(ws_att_base):
+            month_dir = os.path.join(ws_att_base, uname, selected_month)
+            if os.path.isdir(month_dir):
+                files = [f for f in os.listdir(month_dir) if not f.startswith('.')]
+                if files:
+                    workshop_attachments[uname] = [
+                        {'name': f, 'path': f'signed_reports/workshop_attachments/{uname}/{selected_month}/{f}'}
+                        for f in sorted(files)
+                    ]
+
     return render_template("admin_signed_reports.html",
         username=session["username"],
         reports=reports,
-        selected_month=selected_month
+        selected_month=selected_month,
+        workshop_attachments=workshop_attachments
+    )
+
+
+@app.route("/workshop_attachments")
+def public_workshop_attachments():
+    """Public listing of workshop attachments for a selected month.
+    Accessible to any logged-in user so they can view or download attachments.
+    """
+    if "username" not in session:
+        return redirect("/login")
+
+    # Default to previous month as used elsewhere
+    now = datetime.now()
+    if now.month == 1:
+        default_month = f"{now.year - 1}-12"
+    else:
+        default_month = f"{now.year}-{now.month - 1:02d}"
+    selected_month = request.args.get("month", default_month)
+
+    ws_att_base = os.path.join(os.path.dirname(__file__), 'static', 'signed_reports', 'workshop_attachments')
+    workshop_attachments = {}
+    if os.path.isdir(ws_att_base):
+        for uname in os.listdir(ws_att_base):
+            month_dir = os.path.join(ws_att_base, uname, selected_month)
+            if os.path.isdir(month_dir):
+                files = [f for f in os.listdir(month_dir) if not f.startswith('.')]
+                if files:
+                    workshop_attachments[uname] = [
+                        {'name': f, 'path': f'signed_reports/workshop_attachments/{uname}/{selected_month}/{f}'}
+                        for f in sorted(files)
+                    ]
+
+    return render_template('workshop_attachments.html',
+        username=session['username'],
+        selected_month=selected_month,
+        workshop_attachments=workshop_attachments
     )
 
 

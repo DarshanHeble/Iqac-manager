@@ -199,12 +199,7 @@
               <i class="bi bi-plus-circle me-1"></i> Add Row
             </button>
 
-            <!-- Report description (optional) -->
-            <div class="mt-3 pt-3 border-top">
-              <label class="form-label mb-1">Report Description <span class="fw-normal text-muted">(optional — to be attached)</span></label>
-              <p class="text-muted small mb-2">[Brief description covering objectives, outcomes and SDG goals, if any. Attach photographs, attendance sheet and feedback.]</p>
-              <textarea name="report_description" class="form-control" rows="3" placeholder="Enter a brief description here (optional)..."></textarea>
-            </div>
+            <!-- Report description removed per request -->
           </div>
         </div>
 
@@ -310,7 +305,17 @@
       }
 
       // ── On load: close all checklists and sync any browser-restored checkbox state ──
+      const TODAY_MAX = new Date().toISOString().split('T')[0];
+
+      function applyDateMax(root) {
+        (root || document).querySelectorAll('input[type="date"]').forEach(el => {
+          el.max = TODAY_MAX;
+          if (el.value && el.value > TODAY_MAX) el.value = TODAY_MAX;
+        });
+      }
+
       document.addEventListener('DOMContentLoaded', function() {
+        applyDateMax();
         document.querySelectorAll('.resp-area-wrapper').forEach(wrapper => {
           wrapper.querySelector('.resp-area-checklist').style.display = 'none';
           syncRespArea(wrapper);
@@ -368,6 +373,7 @@
         const template = tbody.querySelector(templateClass);
         const newRow = template.cloneNode(true);
         newRow.querySelectorAll('input[type="text"], input[type="date"], input[type="hidden"], textarea').forEach(el => el.value = '');
+        applyDateMax(newRow);
         newRow.querySelectorAll('input[type="number"]').forEach(el => el.value = '');
         newRow.querySelectorAll('input[type="file"]').forEach(el => el.value = '');
         newRow.querySelectorAll('.ws-file-name').forEach(el => el.textContent = '');
@@ -424,6 +430,8 @@
 
       // ── Row validation: if any field in a row is filled, all must be filled ──
       document.getElementById('reportForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+
         function highlight(el) {
           el.style.border = '2px solid red';
           el.addEventListener('input', () => el.style.border = '', { once: true });
@@ -479,9 +487,37 @@
         });
 
         if (errors.length) {
-          e.preventDefault();
           alert('Please complete all fields in partially-filled rows:\n\n' + errors.join('\n'));
+          return;
         }
+
+        // Validation passed — download PDF via fetch then redirect to dashboard
+        const form = this;
+        const btn = form.querySelector('[type="submit"]');
+        btn.disabled = true;
+        btn.innerHTML = '<i class="bi bi-hourglass-split me-2"></i>Generating PDF…';
+
+        fetch(form.action, { method: 'POST', body: new FormData(form) })
+          .then(r => {
+            if (!r.ok) throw new Error('Server error');
+            return r.blob();
+          })
+          .then(blob => {
+            const month = form.querySelector('[name="reporting_month"]').value || 'report';
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'IQAC_Monthly_Report_' + month + '.pdf';
+            document.body.appendChild(a);
+            a.click();
+            setTimeout(() => { URL.revokeObjectURL(url); a.remove(); }, 200);
+            setTimeout(() => { window.location.href = '/iqac_dashboard'; }, 1500);
+          })
+          .catch(() => {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="bi bi-file-earmark-pdf me-2"></i>Download as PDF';
+            alert('PDF generation failed. Please try again.');
+          });
       });
     </script>
   </body>

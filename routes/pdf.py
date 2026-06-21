@@ -39,18 +39,22 @@ def iqac_monthly_report_download():
         flash("PDF generation library (reportlab) is not installed on the server.", "danger")
         return redirect("/iqac_monthly_report")
 
-    # Save any optional workshop report files
-    ws_files = request.files.getlist("ws_report_file[]")
     reporting_month = request.form.get("reporting_month", "report")
+    base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    ws_upload_dir = os.path.join(base_dir, "static", "signed_reports", "workshop_attachments", username, reporting_month)
+
+    ws_files = request.files.getlist("ws_report_file[]")
+    ws_attachments = []
     if ws_files:
-        ws_upload_dir = os.path.join("static", "signed_reports", "workshop_attachments", username, reporting_month)
         os.makedirs(ws_upload_dir, exist_ok=True)
         for i, f in enumerate(ws_files):
             if f and f.filename:
                 ext = os.path.splitext(f.filename)[1]
-                f.save(os.path.join(ws_upload_dir, f"workshop_{i+1}{ext}"))
+                save_path = os.path.join(ws_upload_dir, f"workshop_{i+1}{ext}")
+                f.save(save_path)
+                ws_attachments.append((i, save_path, f.filename))
 
-    pdf_buffer = _generate_iqac_pdf(request.form)
+    pdf_buffer = _generate_iqac_pdf(request.form, ws_attachments)
 
     filename = f"IQAC_Monthly_Report_{reporting_month}.pdf"
 
@@ -62,7 +66,7 @@ def iqac_monthly_report_download():
     )
 
 
-def _generate_iqac_pdf(form_data):
+def _generate_iqac_pdf(form_data, ws_attachments=None):
     """Generate the IQAC Monthly Report PDF and return a BytesIO buffer."""
     buffer = BytesIO()
 
@@ -214,8 +218,8 @@ def _generate_iqac_pdf(form_data):
     resp_areas = form_data.getlist('responsibility_area[]')
 
     pa_headers = ['Date of\nMeeting', 'Department\nName', "Participants'\nDetails",
-                  'Topics\nDiscussed', 'Action Points\n/ Plan', 'Related\nResponsibility Area']
-    pa_cols = [w * 0.11, w * 0.16, w * 0.17, w * 0.20, w * 0.20, w * 0.16]
+                  'Topics\nDiscussed', 'Action Points\n/ Plan']
+    pa_cols = [w * 0.12, w * 0.18, w * 0.20, w * 0.25, w * 0.25]
 
     pa_rows_filled = [(meet_dates[i] if i < len(meet_dates) else '').strip() or
                       (dept_names[i] if i < len(dept_names) else '').strip() or
@@ -233,7 +237,6 @@ def _generate_iqac_pdf(form_data):
             Paragraph(participants[i] if i < len(participants) else '', small),
             Paragraph(topics[i] if i < len(topics) else '', small),
             Paragraph(action_pts[i] if i < len(action_pts) else '', small),
-            Paragraph(resp_areas[i] if i < len(resp_areas) else '', small),
         ])
 
     if has_pa_data:
@@ -253,8 +256,8 @@ def _generate_iqac_pdf(form_data):
     ws_resp = form_data.getlist('ws_responsibility[]')
 
     pb_headers = ['Date', 'Venue', 'Title of the\nProgram',
-                  'No. of\nParticipants', 'Name of Resource\nPerson/s', 'Related\nResponsibility Area']
-    pb_cols = [w * 0.10, w * 0.14, w * 0.20, w * 0.10, w * 0.25, w * 0.21]
+                  'No. of\nParticipants', 'Name of Resource\nPerson/s']
+    pb_cols = [w * 0.11, w * 0.17, w * 0.25, w * 0.12, w * 0.35]
 
     pb_rows_filled = [(ws_dates[i] if i < len(ws_dates) else '').strip() or
                       (ws_titles[i] if i < len(ws_titles) else '').strip()
@@ -278,28 +281,12 @@ def _generate_iqac_pdf(form_data):
                 Paragraph(ws_titles[i] if i < len(ws_titles) else '', small),
                 Paragraph(ws_parts[i] if i < len(ws_parts) else '', small),
                 Paragraph(ws_res[i] if i < len(ws_res) else '', small),
-                Paragraph(ws_resp[i] if i < len(ws_resp) else '', small),
             ])
         pb_table = Table(pb_data, colWidths=pb_cols, repeatRows=1)
         pb_table.setStyle(table_style())
         elements.append(pb_table)
 
-    # Report description — only include if Part (b) had data or description is filled
-    report_desc = form_data.get('report_description', '').strip()
-    if has_pb_data or report_desc:
-        elements.append(Spacer(1, 6))
-        elements.append(Paragraph('Report:', make_style('reph', size=9, bold=True, space_after=2)))
-        if report_desc:
-            desc_data = [[Paragraph(report_desc, make_style('reptext', size=9, space_after=0))]]
-            desc_table = Table(desc_data, colWidths=[usable_width])
-            desc_table.setStyle(TableStyle([
-                ('BOX', (0, 0), (-1, -1), 0.5, colors.black),
-                ('TOPPADDING', (0, 0), (-1, -1), 6),
-                ('BOTTOMPADDING', (0, 0), (-1, -1), 10),
-                ('LEFTPADDING', (0, 0), (-1, -1), 4),
-                ('RIGHTPADDING', (0, 0), (-1, -1), 4),
-            ]))
-            elements.append(desc_table)
+    # Report description field removed — no additional report text will be included here
 
     # ── Section II ──────────────────────────────────────────────────────────
     plans = [p.strip() for p in form_data.getlist('plan[]') if p.strip()]
@@ -334,9 +321,8 @@ def _generate_iqac_pdf(form_data):
 
     def sig_cell(label, value):
         return [
-            Paragraph(label, make_style('sigh', size=8, bold=True, space_after=2)),
-            Paragraph(value or ' ', make_style('sigv', size=8, space_after=2)),
-            Paragraph('_' * 30, make_style('sigl', size=8, space_after=0)),
+            Paragraph(label, make_style('sigh', size=8, bold=True, space_after=4)),
+            Paragraph(f'{value or ""}   {"_" * 28}', make_style('sigv', size=8, space_after=2)),
             Paragraph('(Signature)', make_style('sigs', size=7, italic=True, space_after=0)),
         ]
 

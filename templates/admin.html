@@ -234,14 +234,15 @@
                 <option value="yearly" {% if coord_report_type == 'yearly' %}selected{% endif %}>Yearly-wise</option>
               </select>
             </div>
-            <div id="coord_range_field" class="col-md-3" {% if coord_report_type == 'yearly' %}style="display:none"{% endif %}>
-              <label class="form-label">Month Range</label>
-              <select name="coord_month_range" class="form-select">
-                <option value="1-3" {% if coord_month_range == '1-3' %}selected{% endif %}>Jan – Mar (Months 1–3)</option>
-                <option value="4-6" {% if coord_month_range == '4-6' %}selected{% endif %}>Apr – Jun (Months 4–6)</option>
-                <option value="7-9" {% if coord_month_range == '7-9' %}selected{% endif %}>Jul – Sep (Months 7–9)</option>
-                <option value="10-12" {% if coord_month_range == '10-12' %}selected{% endif %}>Oct – Dec (Months 10–12)</option>
-              </select>
+            <div id="coord_range_field" class="col-md-4 d-flex gap-2 align-items-end" {% if coord_report_type == 'yearly' %}style="display:none!important"{% endif %}>
+              <div class="flex-fill">
+                <label class="form-label">From Month</label>
+                <input type="month" name="coord_from_month" class="form-control" value="{{ coord_from_month or '' }}">
+              </div>
+              <div class="flex-fill">
+                <label class="form-label">To Month</label>
+                <input type="month" name="coord_to_month" class="form-control" value="{{ coord_to_month or '' }}">
+              </div>
             </div>
             <div class="col-md-2">
               <label class="form-label">Year</label>
