@@ -70,13 +70,13 @@
                   <tr>
                     <td style="width:30%; background:#e9ecef; font-weight:600;">Name of IQAC Coordinator</td>
                     <td>
-                      <input type="text" name="coordinator_name" class="form-control form-control-sm border-0" value="{{ user.username.title() }}" required>
+                      <input type="text" name="coordinator_name" class="form-control form-control-sm border-0" value="{{ draft_data.get('coordinator_name', user.username.title()) if draft_data else user.username.title() }}" required>
                     </td>
                   </tr>
                   <tr>
                     <td style="background:#e9ecef; font-weight:600;">School/Campus</td>
                     <td>
-                      <input type="text" name="school_campus" class="form-control form-control-sm border-0" value="{{ user.department or '' }}" placeholder="e.g., School of Sciences, Bangalore">
+                      <input type="text" name="school_campus" class="form-control form-control-sm border-0" value="{{ draft_data.get('school_campus', user.department or '') if draft_data else (user.department or '') }}" placeholder="e.g., School of Sciences, Bangalore">
                     </td>
                   </tr>
                   <tr>
@@ -116,33 +116,44 @@
                   </tr>
                 </thead>
                 <tbody id="tableActivities-body">
-                  <tr>
-                    <td><input type="date" name="act_date[]" class="form-control form-control-sm"></td>
-                    <td><textarea name="act_task[]" class="form-control form-control-sm" rows="2" placeholder="Activity / Task"></textarea></td>
-                    <td>
-                      <select name="act_area[]" class="form-select form-select-sm">
-                        <option value="">Select...</option>
-                        <option value="AQAR">AQAR</option>
-                        <option value="NAAC">NAAC</option>
-                        <option value="Rankings">Rankings</option>
-                        <option value="Awards">Awards</option>
-                        <option value="Audits">Audits</option>
-                        <option value="Documentation">Documentation</option>
-                        <option value="Others">Others</option>
-                      </select>
-                      <input type="text" name="act_area_other[]" class="form-control form-control-sm mt-1 d-none" placeholder="Specify other area">
-                    </td>
-                    <td><textarea name="act_stakeholders[]" class="form-control form-control-sm" rows="2" placeholder="Department / Stakeholders"></textarea></td>
-                    <td><textarea name="act_outcome[]" class="form-control form-control-sm" rows="2" placeholder="Outcome / Progress"></textarea></td>
-                    <td>
-                      <select name="act_status[]" class="form-select form-select-sm">
-                        <option value="">Select...</option>
-                        <option value="Completed">Completed</option>
-                        <option value="Ongoing">Ongoing</option>
-                      </select>
-                    </td>
-                    <td class="text-center"><button type="button" class="btn btn-danger btn-del-row" onclick="delRow(this)"><i class="bi bi-trash"></i></button></td>
-                  </tr>
+                  {% set act_dates = draft_data.get('act_date[]', []) if draft_data else [] %}
+                  {% set num_rows = act_dates|length if act_dates|length > 0 else 1 %}
+                  {% for i in range(num_rows) %}
+                    {% set act_date_val = act_dates[i] if i < act_dates|length else '' %}
+                    {% set act_task_val = draft_data.get('act_task[]', [])[i] if (draft_data and i < draft_data.get('act_task[]', [])|length) else '' %}
+                    {% set act_area_val = draft_data.get('act_area[]', [])[i] if (draft_data and i < draft_data.get('act_area[]', [])|length) else '' %}
+                    {% set act_area_other_val = draft_data.get('act_area_other[]', [])[i] if (draft_data and i < draft_data.get('act_area_other[]', [])|length) else '' %}
+                    {% set act_stakeholders_val = draft_data.get('act_stakeholders[]', [])[i] if (draft_data and i < draft_data.get('act_stakeholders[]', [])|length) else '' %}
+                    {% set act_outcome_val = draft_data.get('act_outcome[]', [])[i] if (draft_data and i < draft_data.get('act_outcome[]', [])|length) else '' %}
+                    {% set act_status_val = draft_data.get('act_status[]', [])[i] if (draft_data and i < draft_data.get('act_status[]', [])|length) else '' %}
+                    <tr>
+                      <td><input type="date" name="act_date[]" class="form-control form-control-sm" value="{{ act_date_val }}"></td>
+                      <td><textarea name="act_task[]" class="form-control form-control-sm" rows="2" placeholder="Activity / Task">{{ act_task_val }}</textarea></td>
+                      <td>
+                        <select name="act_area[]" class="form-select form-select-sm">
+                          <option value="">Select...</option>
+                          <option value="AQAR" {% if act_area_val == 'AQAR' %}selected{% endif %}>AQAR</option>
+                          <option value="NAAC" {% if act_area_val == 'NAAC' %}selected{% endif %}>NAAC</option>
+                          <option value="Rankings" {% if act_area_val == 'Rankings' %}selected{% endif %}>Rankings</option>
+                          <option value="Awards" {% if act_area_val == 'Awards' %}selected{% endif %}>Awards</option>
+                          <option value="Audits" {% if act_area_val == 'Audits' %}selected{% endif %}>Audits</option>
+                          <option value="Documentation" {% if act_area_val == 'Documentation' %}selected{% endif %}>Documentation</option>
+                          <option value="Others" {% if act_area_val == 'Others' %}selected{% endif %}>Others</option>
+                        </select>
+                        <input type="text" name="act_area_other[]" class="form-control form-control-sm mt-1 {% if act_area_val != 'Others' %}d-none{% endif %}" placeholder="Specify other area" value="{{ act_area_other_val }}">
+                      </td>
+                      <td><textarea name="act_stakeholders[]" class="form-control form-control-sm" rows="2" placeholder="Department / Stakeholders">{{ act_stakeholders_val }}</textarea></td>
+                      <td><textarea name="act_outcome[]" class="form-control form-control-sm" rows="2" placeholder="Outcome / Progress">{{ act_outcome_val }}</textarea></td>
+                      <td>
+                        <select name="act_status[]" class="form-select form-select-sm">
+                          <option value="">Select...</option>
+                          <option value="Completed" {% if act_status_val == 'Completed' %}selected{% endif %}>Completed</option>
+                          <option value="Ongoing" {% if act_status_val == 'Ongoing' %}selected{% endif %}>Ongoing</option>
+                        </select>
+                      </td>
+                      <td class="text-center"><button type="button" class="btn btn-danger btn-del-row" onclick="delRow(this)"><i class="bi bi-trash"></i></button></td>
+                    </tr>
+                  {% endfor %}
                 </tbody>
               </table>
             </div>
@@ -168,20 +179,28 @@
                   </tr>
                 </thead>
                 <tbody id="tableMeetings-body">
-                  <tr>
-                    <td><input type="date" name="meet_date[]" class="form-control form-control-sm"></td>
-                    <td><textarea name="meet_programme[]" class="form-control form-control-sm" rows="2" placeholder="Programme / Meeting"></textarea></td>
-                    <td>
-                      <select name="meet_role[]" class="form-select form-select-sm">
-                        <option value="">Select...</option>
-                        <option value="Organised">Organised</option>
-                        <option value="Coordinated">Coordinated</option>
-                        <option value="Attended">Attended</option>
-                      </select>
-                    </td>
-                    <td><textarea name="meet_outcome[]" class="form-control form-control-sm" rows="2" placeholder="Key Outcome"></textarea></td>
-                    <td class="text-center"><button type="button" class="btn btn-danger btn-del-row" onclick="delRow(this)"><i class="bi bi-trash"></i></button></td>
-                  </tr>
+                  {% set meet_dates = draft_data.get('meet_date[]', []) if draft_data else [] %}
+                  {% set num_meet_rows = meet_dates|length if meet_dates|length > 0 else 1 %}
+                  {% for i in range(num_meet_rows) %}
+                    {% set meet_date_val = meet_dates[i] if i < meet_dates|length else '' %}
+                    {% set meet_programme_val = draft_data.get('meet_programme[]', [])[i] if (draft_data and i < draft_data.get('meet_programme[]', [])|length) else '' %}
+                    {% set meet_role_val = draft_data.get('meet_role[]', [])[i] if (draft_data and i < draft_data.get('meet_role[]', [])|length) else '' %}
+                    {% set meet_outcome_val = draft_data.get('meet_outcome[]', [])[i] if (draft_data and i < draft_data.get('meet_outcome[]', [])|length) else '' %}
+                    <tr>
+                      <td><input type="date" name="meet_date[]" class="form-control form-control-sm" value="{{ meet_date_val }}"></td>
+                      <td><textarea name="meet_programme[]" class="form-control form-control-sm" rows="2" placeholder="Programme / Meeting">{{ meet_programme_val }}</textarea></td>
+                      <td>
+                        <select name="meet_role[]" class="form-select form-select-sm">
+                          <option value="">Select...</option>
+                          <option value="Organised" {% if meet_role_val == 'Organised' %}selected{% endif %}>Organised</option>
+                          <option value="Coordinated" {% if meet_role_val == 'Coordinated' %}selected{% endif %}>Coordinated</option>
+                          <option value="Attended" {% if meet_role_val == 'Attended' %}selected{% endif %}>Attended</option>
+                        </select>
+                      </td>
+                      <td><textarea name="meet_outcome[]" class="form-control form-control-sm" rows="2" placeholder="Key Outcome">{{ meet_outcome_val }}</textarea></td>
+                      <td class="text-center"><button type="button" class="btn btn-danger btn-del-row" onclick="delRow(this)"><i class="bi bi-trash"></i></button></td>
+                    </tr>
+                  {% endfor %}
                 </tbody>
               </table>
             </div>
@@ -196,21 +215,16 @@
         <div class="card mb-3">
           <div class="card-body">
             <div id="achievements-container">
-              <div class="input-group mb-2 numbered-item">
-                <span class="input-group-text">1.</span>
-                <input type="text" name="achievement[]" class="form-control" placeholder="Achievement 1">
-                <button type="button" class="btn btn-danger btn-del-row" onclick="delNumberedItem(this, 'achievements-container')"><i class="bi bi-trash"></i></button>
-              </div>
-              <div class="input-group mb-2 numbered-item">
-                <span class="input-group-text">2.</span>
-                <input type="text" name="achievement[]" class="form-control" placeholder="Achievement 2">
-                <button type="button" class="btn btn-danger btn-del-row" onclick="delNumberedItem(this, 'achievements-container')"><i class="bi bi-trash"></i></button>
-              </div>
-              <div class="input-group mb-2 numbered-item">
-                <span class="input-group-text">3.</span>
-                <input type="text" name="achievement[]" class="form-control" placeholder="Achievement 3">
-                <button type="button" class="btn btn-danger btn-del-row" onclick="delNumberedItem(this, 'achievements-container')"><i class="bi bi-trash"></i></button>
-              </div>
+              {% set achievements = draft_data.get('achievement[]', []) if draft_data else [] %}
+              {% set num_ach = achievements|length if achievements|length > 0 else 3 %}
+              {% for i in range(num_ach) %}
+                {% set ach_val = achievements[i] if i < achievements|length else '' %}
+                <div class="input-group mb-2 numbered-item">
+                  <span class="input-group-text">{{ i + 1 }}.</span>
+                  <input type="text" name="achievement[]" class="form-control" placeholder="Achievement {{ i + 1 }}" value="{{ ach_val }}">
+                  <button type="button" class="btn btn-danger btn-del-row" onclick="delNumberedItem(this, 'achievements-container')"><i class="bi bi-trash"></i></button>
+                </div>
+              {% endfor %}
             </div>
             <button type="button" class="btn btn-outline-primary btn-add-row mt-1" onclick="addNumberedItem('achievements-container', 'achievement[]', 'Achievement')">
               <i class="bi bi-plus-circle me-1"></i> Add Item
@@ -223,21 +237,16 @@
         <div class="card mb-3">
           <div class="card-body">
             <div id="challenges-container">
-              <div class="input-group mb-2 numbered-item">
-                <span class="input-group-text">1.</span>
-                <input type="text" name="challenge[]" class="form-control" placeholder="Challenge 1">
-                <button type="button" class="btn btn-danger btn-del-row" onclick="delNumberedItem(this, 'challenges-container')"><i class="bi bi-trash"></i></button>
-              </div>
-              <div class="input-group mb-2 numbered-item">
-                <span class="input-group-text">2.</span>
-                <input type="text" name="challenge[]" class="form-control" placeholder="Challenge 2">
-                <button type="button" class="btn btn-danger btn-del-row" onclick="delNumberedItem(this, 'challenges-container')"><i class="bi bi-trash"></i></button>
-              </div>
-              <div class="input-group mb-2 numbered-item">
-                <span class="input-group-text">3.</span>
-                <input type="text" name="challenge[]" class="form-control" placeholder="Challenge 3">
-                <button type="button" class="btn btn-danger btn-del-row" onclick="delNumberedItem(this, 'challenges-container')"><i class="bi bi-trash"></i></button>
-              </div>
+              {% set challenges = draft_data.get('challenge[]', []) if draft_data else [] %}
+              {% set num_chal = challenges|length if challenges|length > 0 else 3 %}
+              {% for i in range(num_chal) %}
+                {% set chal_val = challenges[i] if i < challenges|length else '' %}
+                <div class="input-group mb-2 numbered-item">
+                  <span class="input-group-text">{{ i + 1 }}.</span>
+                  <input type="text" name="challenge[]" class="form-control" placeholder="Challenge {{ i + 1 }}" value="{{ chal_val }}">
+                  <button type="button" class="btn btn-danger btn-del-row" onclick="delNumberedItem(this, 'challenges-container')"><i class="bi bi-trash"></i></button>
+                </div>
+              {% endfor %}
             </div>
             <button type="button" class="btn btn-outline-primary btn-add-row mt-1" onclick="addNumberedItem('challenges-container', 'challenge[]', 'Challenge')">
               <i class="bi bi-plus-circle me-1"></i> Add Item
@@ -260,24 +269,32 @@
                   </tr>
                 </thead>
                 <tbody id="tableActionPlan-body">
-                  <tr>
-                    <td><textarea name="plan_activity[]" class="form-control form-control-sm" rows="2" placeholder="Planned Activity"></textarea></td>
-                    <td>
-                      <select name="plan_area[]" class="form-select form-select-sm">
-                        <option value="">Select...</option>
-                        <option value="AQAR">AQAR</option>
-                        <option value="NAAC">NAAC</option>
-                        <option value="Rankings">Rankings</option>
-                        <option value="Awards">Awards</option>
-                        <option value="Audits">Audits</option>
-                        <option value="Documentation">Documentation</option>
-                        <option value="Others">Others</option>
-                      </select>
-                      <input type="text" name="plan_area_other[]" class="form-control form-control-sm mt-1 d-none" placeholder="Specify other area">
-                    </td>
-                    <td><textarea name="plan_outcome[]" class="form-control form-control-sm" rows="2" placeholder="Expected Outcome"></textarea></td>
-                    <td class="text-center"><button type="button" class="btn btn-danger btn-del-row" onclick="delRow(this)"><i class="bi bi-trash"></i></button></td>
-                  </tr>
+                  {% set plan_activities = draft_data.get('plan_activity[]', []) if draft_data else [] %}
+                  {% set num_plan_rows = plan_activities|length if plan_activities|length > 0 else 1 %}
+                  {% for i in range(num_plan_rows) %}
+                    {% set plan_activity_val = plan_activities[i] if i < plan_activities|length else '' %}
+                    {% set plan_area_val = draft_data.get('plan_area[]', [])[i] if (draft_data and i < draft_data.get('plan_area[]', [])|length) else '' %}
+                    {% set plan_area_other_val = draft_data.get('plan_area_other[]', [])[i] if (draft_data and i < draft_data.get('plan_area_other[]', [])|length) else '' %}
+                    {% set plan_outcome_val = draft_data.get('plan_outcome[]', [])[i] if (draft_data and i < draft_data.get('plan_outcome[]', [])|length) else '' %}
+                    <tr>
+                      <td><textarea name="plan_activity[]" class="form-control form-control-sm" rows="2" placeholder="Planned Activity">{{ plan_activity_val }}</textarea></td>
+                      <td>
+                        <select name="plan_area[]" class="form-select form-select-sm">
+                          <option value="">Select...</option>
+                          <option value="AQAR" {% if plan_area_val == 'AQAR' %}selected{% endif %}>AQAR</option>
+                          <option value="NAAC" {% if plan_area_val == 'NAAC' %}selected{% endif %}>NAAC</option>
+                          <option value="Rankings" {% if plan_area_val == 'Rankings' %}selected{% endif %}>Rankings</option>
+                          <option value="Awards" {% if plan_area_val == 'Awards' %}selected{% endif %}>Awards</option>
+                          <option value="Audits" {% if plan_area_val == 'Audits' %}selected{% endif %}>Audits</option>
+                          <option value="Documentation" {% if plan_area_val == 'Documentation' %}selected{% endif %}>Documentation</option>
+                          <option value="Others" {% if plan_area_val == 'Others' %}selected{% endif %}>Others</option>
+                        </select>
+                        <input type="text" name="plan_area_other[]" class="form-control form-control-sm mt-1 {% if plan_area_val != 'Others' %}d-none{% endif %}" placeholder="Specify other area" value="{{ plan_area_other_val }}">
+                      </td>
+                      <td><textarea name="plan_outcome[]" class="form-control form-control-sm" rows="2" placeholder="Expected Outcome">{{ plan_outcome_val }}</textarea></td>
+                      <td class="text-center"><button type="button" class="btn btn-danger btn-del-row" onclick="delRow(this)"><i class="bi bi-trash"></i></button></td>
+                    </tr>
+                  {% endfor %}
                 </tbody>
               </table>
             </div>
@@ -294,26 +311,29 @@
             <div class="row g-3">
               <div class="col-md-4">
                 <label class="form-label">Name of the IQAC Coordinator</label>
-                <input type="text" name="sig_coordinator_name" class="form-control" value="{{ user.username.title() }}">
+                <input type="text" name="sig_coordinator_name" class="form-control" value="{{ draft_data.get('sig_coordinator_name', user.username.title()) if draft_data else user.username.title() }}">
                 <small class="text-muted">Signature: ________________________</small>
               </div>
               <div class="col-md-4">
                 <label class="form-label">Date</label>
-                <input type="date" name="footer_date" class="form-control" value="{{ datetime.now().strftime('%Y-%m-%d') }}">
+                <input type="date" name="footer_date" class="form-control" value="{{ draft_data.get('footer_date', datetime.now().strftime('%Y-%m-%d')) if draft_data else datetime.now().strftime('%Y-%m-%d') }}">
               </div>
               <div class="col-md-4">
                 <label class="form-label">Remarks of Director, IQAC</label>
-                <input type="text" name="sig_director_remarks" class="form-control" placeholder="Director IQAC's remarks (if any)">
+                <input type="text" name="sig_director_remarks" class="form-control" placeholder="Director IQAC's remarks (if any)" value="{{ draft_data.get('sig_director_remarks', '') if draft_data else '' }}">
                 <small class="text-muted">Signature: ________________________</small>
               </div>
             </div>
           </div>
         </div>
 
-        <!-- Download Button -->
+        <!-- Download/Save Buttons -->
         <div class="d-flex gap-2 mb-4">
           <button type="submit" class="btn btn-primary btn-lg px-5">
             <i class="bi bi-file-earmark-pdf me-2"></i>Download as PDF
+          </button>
+          <button type="button" id="saveDraftBtn" class="btn btn-warning btn-lg px-5 text-dark fw-bold">
+            <i class="bi bi-journal-bookmark me-2"></i>Save as Draft
           </button>
           <a href="/iqac_dashboard" class="btn btn-outline-secondary btn-lg">Cancel</a>
         </div>
@@ -556,6 +576,52 @@
             btn.innerHTML = '<i class="bi bi-file-earmark-pdf me-2"></i>Download as PDF';
             alert('PDF generation failed. Please try again.');
           });
+      });
+
+      document.getElementById('saveDraftBtn').addEventListener('click', function() {
+        const form = document.getElementById('reportForm');
+        const btn = this;
+        btn.disabled = true;
+        btn.innerHTML = '<i class="bi bi-hourglass-split me-2"></i>Saving…';
+
+        const formData = new FormData(form);
+        const formObj = {};
+        for (let [key, val] of formData.entries()) {
+          if (key.endsWith('[]')) {
+            if (!formObj[key]) formObj[key] = [];
+            formObj[key].push(val);
+          } else {
+            formObj[key] = val;
+          }
+        }
+
+        const payload = {
+          report_type: 'aqar_coordinator',
+          reporting_month: form.querySelector('[name="reporting_month"]').value,
+          form_data: formObj
+        };
+
+        fetch('/iqac_report/save_draft', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        })
+        .then(r => r.json())
+        .then(res => {
+          if (res.success) {
+            alert('Draft saved successfully!');
+          } else {
+            alert('Failed to save draft: ' + res.error);
+          }
+        })
+        .catch(err => {
+          console.error(err);
+          alert('An error occurred while saving the draft.');
+        })
+        .finally(() => {
+          btn.disabled = false;
+          btn.innerHTML = '<i class="bi bi-journal-bookmark me-2"></i>Save as Draft';
+        });
       });
     </script>
   </body>

@@ -62,11 +62,11 @@
             <div class="row g-3">
               <div class="col-md-5">
                 <label class="form-label">Name of the IQAC Coordinator</label>
-                <input type="text" name="coordinator_name" class="form-control" value="{{ user.username.title() }}" required>
+                <input type="text" name="coordinator_name" class="form-control" value="{{ draft_data.get('coordinator_name', user.username.title()) if draft_data else user.username.title() }}" required>
               </div>
               <div class="col-md-4">
                 <label class="form-label">School / Campus</label>
-                <input type="text" name="school_campus" class="form-control" value="{{ user.department or '' }}" placeholder="e.g., School of Sciences, Bangalore">
+                <input type="text" name="school_campus" class="form-control" value="{{ draft_data.get('school_campus', user.department or '') if draft_data else (user.department or '') }}" placeholder="e.g., School of Sciences, Bangalore">
               </div>
               <div class="col-md-3">
                 <label class="form-label">Reporting Month</label>
@@ -99,35 +99,44 @@
                   </tr>
                 </thead>
                 <tbody id="tableA-body">
-                  <tr class="row-template-a">
-                    <td><input type="date" name="meeting_date[]" class="form-control form-control-sm"></td>
-                    <td><input type="text" name="dept_name[]" class="form-control form-control-sm" placeholder="Department / School"></td>
-                    <td><input type="text" name="participants[]" class="form-control form-control-sm" placeholder="Names / Designations"></td>
-                    <td><textarea name="topics[]" class="form-control form-control-sm topics-field" rows="2" placeholder="Auto-filled or type here"></textarea></td>
-                    <td><textarea name="action_points[]" class="form-control form-control-sm" rows="2" placeholder="Action points"></textarea></td>
-                    <td style="min-width:180px;">
-                      <div class="resp-area-wrapper">
-                        <input type="hidden" name="responsibility_area[]" class="resp-area-hidden">
-                        <!-- Collapsed view: shows selected tags or placeholder -->
-                        <div class="resp-area-display border rounded px-2 py-1" style="min-height:34px; cursor:pointer; font-size:0.78rem; background:#fff; display:flex; flex-wrap:wrap; gap:3px; align-items:center;">
-                          <span class="resp-area-placeholder text-muted fst-italic" style="font-size:0.78rem;">Click to select…</span>
+                  {% set meeting_dates = draft_data.get('meeting_date[]', []) if draft_data else [] %}
+                  {% set num_meeting_rows = meeting_dates|length if meeting_dates|length > 0 else 1 %}
+                  {% for i in range(num_meeting_rows) %}
+                    {% set meeting_date_val = meeting_dates[i] if i < meeting_dates|length else '' %}
+                    {% set dept_name_val = draft_data.get('dept_name[]', [])[i] if (draft_data and i < draft_data.get('dept_name[]', [])|length) else '' %}
+                    {% set participants_val = draft_data.get('participants[]', [])[i] if (draft_data and i < draft_data.get('participants[]', [])|length) else '' %}
+                    {% set topics_val = draft_data.get('topics[]', [])[i] if (draft_data and i < draft_data.get('topics[]', [])|length) else '' %}
+                    {% set action_points_val = draft_data.get('action_points[]', [])[i] if (draft_data and i < draft_data.get('action_points[]', [])|length) else '' %}
+                    {% set responsibility_area_val = draft_data.get('responsibility_area[]', [])[i] if (draft_data and i < draft_data.get('responsibility_area[]', [])|length) else '' %}
+                    {% set selected_areas = responsibility_area_val.split(', ') if responsibility_area_val else [] %}
+                    <tr class="row-template-a">
+                      <td><input type="date" name="meeting_date[]" class="form-control form-control-sm" value="{{ meeting_date_val }}"></td>
+                      <td><input type="text" name="dept_name[]" class="form-control form-control-sm" placeholder="Department / School" value="{{ dept_name_val }}"></td>
+                      <td><input type="text" name="participants[]" class="form-control form-control-sm" placeholder="Names / Designations" value="{{ participants_val }}"></td>
+                      <td><textarea name="topics[]" class="form-control form-control-sm topics-field" rows="2" placeholder="Auto-filled or type here">{{ topics_val }}</textarea></td>
+                      <td><textarea name="action_points[]" class="form-control form-control-sm" rows="2" placeholder="Action points">{{ action_points_val }}</textarea></td>
+                      <td style="min-width:180px;">
+                        <div class="resp-area-wrapper">
+                          <input type="hidden" name="responsibility_area[]" class="resp-area-hidden" value="{{ responsibility_area_val }}">
+                          <div class="resp-area-display border rounded px-2 py-1" style="min-height:34px; cursor:pointer; font-size:0.78rem; background:#fff; display:flex; flex-wrap:wrap; gap:3px; align-items:center;">
+                            <span class="resp-area-placeholder text-muted fst-italic" style="font-size:0.78rem;">Click to select…</span>
+                          </div>
+                          <div class="resp-area-checklist border rounded p-2 mt-1 bg-white shadow-sm" style="display:none; max-height:160px; overflow-y:auto; font-size:0.78rem; z-index:10; position:relative;">
+                            <label class="d-flex align-items-start gap-1 mb-1"><input type="checkbox" class="resp-cb mt-1" value="Monitoring Strategic Plan Implementation" {% if 'Monitoring Strategic Plan Implementation' in selected_areas %}checked{% endif %}> Monitoring Strategic Plan Implementation</label>
+                            <label class="d-flex align-items-start gap-1 mb-1"><input type="checkbox" class="resp-cb mt-1" value="Benchmarking" {% if 'Benchmarking' in selected_areas %}checked{% endif %}> Benchmarking</label>
+                            <label class="d-flex align-items-start gap-1 mb-1"><input type="checkbox" class="resp-cb mt-1" value="Gap Analysis and Guidance" {% if 'Gap Analysis and Guidance' in selected_areas %}checked{% endif %}> Gap Analysis and Guidance</label>
+                            <label class="d-flex align-items-start gap-1 mb-1"><input type="checkbox" class="resp-cb mt-1" value="Data and Document Management" {% if 'Data and Document Management' in selected_areas %}checked{% endif %}> Data and Document Management</label>
+                            <label class="d-flex align-items-start gap-1 mb-1"><input type="checkbox" class="resp-cb mt-1" value="Audit Coordination" {% if 'Audit Coordination' in selected_areas %}checked{% endif %}> Audit Coordination</label>
+                            <label class="d-flex align-items-start gap-1 mb-1"><input type="checkbox" class="resp-cb mt-1" value="Engagement with University Offices/Centres" {% if 'Engagement with University Offices/Centres' in selected_areas %}checked{% endif %}> Engagement with University Offices/Centres</label>
+                            <label class="d-flex align-items-start gap-1 mb-1"><input type="checkbox" class="resp-cb mt-1" value="Participation in Rankings and Accreditations" {% if 'Participation in Rankings and Accreditations' in selected_areas %}checked{% endif %}> Participation in Rankings and Accreditations</label>
+                            <label class="d-flex align-items-start gap-1 mb-1"><input type="checkbox" class="resp-cb mt-1" value="Monitoring website updates of department activities" {% if 'Monitoring website updates of department activities' in selected_areas %}checked{% endif %}> Monitoring website updates of department activities</label>
+                            <label class="d-flex align-items-start gap-1 mb-0"><input type="checkbox" class="resp-cb mt-1" value="Report Preparation and Submission" {% if 'Report Preparation and Submission' in selected_areas %}checked{% endif %}> Report Preparation and Submission</label>
+                          </div>
                         </div>
-                        <!-- Expanded checklist -->
-                        <div class="resp-area-checklist border rounded p-2 mt-1 bg-white shadow-sm" style="display:none; max-height:160px; overflow-y:auto; font-size:0.78rem; z-index:10; position:relative;">
-                          <label class="d-flex align-items-start gap-1 mb-1"><input type="checkbox" class="resp-cb mt-1" value="Monitoring Strategic Plan Implementation"> Monitoring Strategic Plan Implementation</label>
-                          <label class="d-flex align-items-start gap-1 mb-1"><input type="checkbox" class="resp-cb mt-1" value="Benchmarking"> Benchmarking</label>
-                          <label class="d-flex align-items-start gap-1 mb-1"><input type="checkbox" class="resp-cb mt-1" value="Gap Analysis and Guidance"> Gap Analysis and Guidance</label>
-                          <label class="d-flex align-items-start gap-1 mb-1"><input type="checkbox" class="resp-cb mt-1" value="Data and Document Management"> Data and Document Management</label>
-                          <label class="d-flex align-items-start gap-1 mb-1"><input type="checkbox" class="resp-cb mt-1" value="Audit Coordination"> Audit Coordination</label>
-                          <label class="d-flex align-items-start gap-1 mb-1"><input type="checkbox" class="resp-cb mt-1" value="Engagement with University Offices/Centres"> Engagement with University Offices/Centres</label>
-                          <label class="d-flex align-items-start gap-1 mb-1"><input type="checkbox" class="resp-cb mt-1" value="Participation in Rankings and Accreditations"> Participation in Rankings and Accreditations</label>
-                          <label class="d-flex align-items-start gap-1 mb-1"><input type="checkbox" class="resp-cb mt-1" value="Monitoring website updates of department activities"> Monitoring website updates of department activities</label>
-                          <label class="d-flex align-items-start gap-1 mb-0"><input type="checkbox" class="resp-cb mt-1" value="Report Preparation and Submission"> Report Preparation and Submission</label>
-                        </div>
-                      </div>
-                    </td>
-                    <td class="text-center"><button type="button" class="btn btn-danger btn-del-row" onclick="delRow(this)"><i class="bi bi-trash"></i></button></td>
-                  </tr>
+                      </td>
+                      <td class="text-center"><button type="button" class="btn btn-danger btn-del-row" onclick="delRow(this)"><i class="bi bi-trash"></i></button></td>
+                    </tr>
+                  {% endfor %}
                 </tbody>
               </table>
             </div>
@@ -158,40 +167,51 @@
                   </tr>
                 </thead>
                 <tbody id="tableB-body">
-                  <tr class="row-template-b">
-                    <td><input type="date" name="ws_date[]" class="form-control form-control-sm"></td>
-                    <td><input type="text" name="ws_venue[]" class="form-control form-control-sm" placeholder="Venue"></td>
-                    <td><input type="text" name="ws_title[]" class="form-control form-control-sm" placeholder="Program title"></td>
-                    <td><input type="number" name="ws_participants[]" class="form-control form-control-sm" placeholder="0" min="0"></td>
-                    <td><input type="text" name="ws_resource[]" class="form-control form-control-sm" placeholder="Resource person(s)"></td>
-                    <td style="min-width:180px;">
-                      <div class="resp-area-wrapper">
-                        <input type="hidden" name="ws_responsibility[]" class="resp-area-hidden">
-                        <div class="resp-area-display border rounded px-2 py-1" style="min-height:34px; cursor:pointer; font-size:0.78rem; background:#fff; display:flex; flex-wrap:wrap; gap:3px; align-items:center;">
-                          <span class="resp-area-placeholder text-muted fst-italic" style="font-size:0.78rem;">Click to select…</span>
+                  {% set ws_dates = draft_data.get('ws_date[]', []) if draft_data else [] %}
+                  {% set num_ws_rows = ws_dates|length if ws_dates|length > 0 else 1 %}
+                  {% for i in range(num_ws_rows) %}
+                    {% set ws_date_val = ws_dates[i] if i < ws_dates|length else '' %}
+                    {% set ws_venue_val = draft_data.get('ws_venue[]', [])[i] if (draft_data and i < draft_data.get('ws_venue[]', [])|length) else '' %}
+                    {% set ws_title_val = draft_data.get('ws_title[]', [])[i] if (draft_data and i < draft_data.get('ws_title[]', [])|length) else '' %}
+                    {% set ws_participants_val = draft_data.get('ws_participants[]', [])[i] if (draft_data and i < draft_data.get('ws_participants[]', [])|length) else '' %}
+                    {% set ws_resource_val = draft_data.get('ws_resource[]', [])[i] if (draft_data and i < draft_data.get('ws_resource[]', [])|length) else '' %}
+                    {% set ws_responsibility_val = draft_data.get('ws_responsibility[]', [])[i] if (draft_data and i < draft_data.get('ws_responsibility[]', [])|length) else '' %}
+                    {% set selected_ws_areas = ws_responsibility_val.split(', ') if ws_responsibility_val else [] %}
+                    <tr class="row-template-b">
+                      <td><input type="date" name="ws_date[]" class="form-control form-control-sm" value="{{ ws_date_val }}"></td>
+                      <td><input type="text" name="ws_venue[]" class="form-control form-control-sm" placeholder="Venue" value="{{ ws_venue_val }}"></td>
+                      <td><input type="text" name="ws_title[]" class="form-control form-control-sm" placeholder="Program title" value="{{ ws_title_val }}"></td>
+                      <td><input type="number" name="ws_participants[]" class="form-control form-control-sm" placeholder="0" min="0" value="{{ ws_participants_val }}"></td>
+                      <td><input type="text" name="ws_resource[]" class="form-control form-control-sm" placeholder="Resource person(s)" value="{{ ws_resource_val }}"></td>
+                      <td style="min-width:180px;">
+                        <div class="resp-area-wrapper">
+                          <input type="hidden" name="ws_responsibility[]" class="resp-area-hidden" value="{{ ws_responsibility_val }}">
+                          <div class="resp-area-display border rounded px-2 py-1" style="min-height:34px; cursor:pointer; font-size:0.78rem; background:#fff; display:flex; flex-wrap:wrap; gap:3px; align-items:center;">
+                            <span class="resp-area-placeholder text-muted fst-italic" style="font-size:0.78rem;">Click to select…</span>
+                          </div>
+                          <div class="resp-area-checklist border rounded p-2 mt-1 bg-white shadow-sm" style="display:none; max-height:160px; overflow-y:auto; font-size:0.78rem; z-index:10; position:relative;">
+                            <label class="d-flex align-items-start gap-1 mb-1"><input type="checkbox" class="resp-cb mt-1" value="Monitoring Strategic Plan Implementation" {% if 'Monitoring Strategic Plan Implementation' in selected_ws_areas %}checked{% endif %}> Monitoring Strategic Plan Implementation</label>
+                            <label class="d-flex align-items-start gap-1 mb-1"><input type="checkbox" class="resp-cb mt-1" value="Benchmarking" {% if 'Benchmarking' in selected_ws_areas %}checked{% endif %}> Benchmarking</label>
+                            <label class="d-flex align-items-start gap-1 mb-1"><input type="checkbox" class="resp-cb mt-1" value="Gap Analysis and Guidance" {% if 'Gap Analysis and Guidance' in selected_ws_areas %}checked{% endif %}> Gap Analysis and Guidance</label>
+                            <label class="d-flex align-items-start gap-1 mb-1"><input type="checkbox" class="resp-cb mt-1" value="Data and Document Management" {% if 'Data and Document Management' in selected_ws_areas %}checked{% endif %}> Data and Document Management</label>
+                            <label class="d-flex align-items-start gap-1 mb-1"><input type="checkbox" class="resp-cb mt-1" value="Audit Coordination" {% if 'Audit Coordination' in selected_ws_areas %}checked{% endif %}> Audit Coordination</label>
+                            <label class="d-flex align-items-start gap-1 mb-1"><input type="checkbox" class="resp-cb mt-1" value="Engagement with University Offices/Centres" {% if 'Engagement with University Offices/Centres' in selected_ws_areas %}checked{% endif %}> Engagement with University Offices/Centres</label>
+                            <label class="d-flex align-items-start gap-1 mb-1"><input type="checkbox" class="resp-cb mt-1" value="Participation in Rankings and Accreditations" {% if 'Participation in Rankings and Accreditations' in selected_ws_areas %}checked{% endif %}> Participation in Rankings and Accreditations</label>
+                            <label class="d-flex align-items-start gap-1 mb-1"><input type="checkbox" class="resp-cb mt-1" value="Monitoring website updates of department activities" {% if 'Monitoring website updates of department activities' in selected_ws_areas %}checked{% endif %}> Monitoring website updates of department activities</label>
+                            <label class="d-flex align-items-start gap-1 mb-0"><input type="checkbox" class="resp-cb mt-1" value="Report Preparation and Submission" {% if 'Report Preparation and Submission' in selected_ws_areas %}checked{% endif %}> Report Preparation and Submission</label>
+                          </div>
                         </div>
-                        <div class="resp-area-checklist border rounded p-2 mt-1 bg-white shadow-sm" style="display:none; max-height:160px; overflow-y:auto; font-size:0.78rem; z-index:10; position:relative;">
-                          <label class="d-flex align-items-start gap-1 mb-1"><input type="checkbox" class="resp-cb mt-1" value="Monitoring Strategic Plan Implementation"> Monitoring Strategic Plan Implementation</label>
-                          <label class="d-flex align-items-start gap-1 mb-1"><input type="checkbox" class="resp-cb mt-1" value="Benchmarking"> Benchmarking</label>
-                          <label class="d-flex align-items-start gap-1 mb-1"><input type="checkbox" class="resp-cb mt-1" value="Gap Analysis and Guidance"> Gap Analysis and Guidance</label>
-                          <label class="d-flex align-items-start gap-1 mb-1"><input type="checkbox" class="resp-cb mt-1" value="Data and Document Management"> Data and Document Management</label>
-                          <label class="d-flex align-items-start gap-1 mb-1"><input type="checkbox" class="resp-cb mt-1" value="Audit Coordination"> Audit Coordination</label>
-                          <label class="d-flex align-items-start gap-1 mb-1"><input type="checkbox" class="resp-cb mt-1" value="Engagement with University Offices/Centres"> Engagement with University Offices/Centres</label>
-                          <label class="d-flex align-items-start gap-1 mb-1"><input type="checkbox" class="resp-cb mt-1" value="Participation in Rankings and Accreditations"> Participation in Rankings and Accreditations</label>
-                          <label class="d-flex align-items-start gap-1 mb-1"><input type="checkbox" class="resp-cb mt-1" value="Monitoring website updates of department activities"> Monitoring website updates of department activities</label>
-                          <label class="d-flex align-items-start gap-1 mb-0"><input type="checkbox" class="resp-cb mt-1" value="Report Preparation and Submission"> Report Preparation and Submission</label>
-                        </div>
-                      </div>
-                    </td>
-                    <td class="text-center align-middle">
-                      <input type="file" name="ws_report_file[]" class="d-none ws-file-input" accept=".pdf,.jpg,.jpeg,.png">
-                      <button type="button" class="btn btn-outline-secondary btn-sm ws-upload-btn" onclick="this.previousElementSibling.click()" title="Attach report file">
-                        <i class="bi bi-paperclip"></i>
-                      </button>
-                      <div class="ws-file-name text-muted mt-1" style="font-size:0.7rem; word-break:break-all;"></div>
-                    </td>
-                    <td class="text-center align-middle"><button type="button" class="btn btn-danger btn-sm btn-del-row" onclick="delRow(this)"><i class="bi bi-trash"></i></button></td>
-                  </tr>
+                      </td>
+                      <td class="text-center align-middle">
+                        <input type="file" name="ws_report_file[]" class="d-none ws-file-input" accept=".pdf,.jpg,.jpeg,.png">
+                        <button type="button" class="btn btn-outline-secondary btn-sm ws-upload-btn" onclick="this.previousElementSibling.click()" title="Attach report file">
+                          <i class="bi bi-paperclip"></i>
+                        </button>
+                        <div class="ws-file-name text-muted mt-1" style="font-size:0.7rem; word-break:break-all;"></div>
+                      </td>
+                      <td class="text-center align-middle"><button type="button" class="btn btn-danger btn-sm btn-del-row" onclick="delRow(this)"><i class="bi bi-trash"></i></button></td>
+                    </tr>
+                  {% endfor %}
                 </tbody>
               </table>
             </div>
@@ -209,21 +229,16 @@
         <div class="card mb-4">
           <div class="card-body">
             <div id="plans-container">
-              <div class="input-group mb-2 plan-item">
-                <span class="input-group-text">1.</span>
-                <input type="text" name="plan[]" class="form-control" placeholder="Plan item 1">
-                <button type="button" class="btn btn-danger btn-del-row" onclick="delPlan(this)"><i class="bi bi-trash"></i></button>
-              </div>
-              <div class="input-group mb-2 plan-item">
-                <span class="input-group-text">2.</span>
-                <input type="text" name="plan[]" class="form-control" placeholder="Plan item 2">
-                <button type="button" class="btn btn-danger btn-del-row" onclick="delPlan(this)"><i class="bi bi-trash"></i></button>
-              </div>
-              <div class="input-group mb-2 plan-item">
-                <span class="input-group-text">3.</span>
-                <input type="text" name="plan[]" class="form-control" placeholder="Plan item 3">
-                <button type="button" class="btn btn-danger btn-del-row" onclick="delPlan(this)"><i class="bi bi-trash"></i></button>
-              </div>
+              {% set plans = draft_data.get('plan[]', []) if draft_data else [] %}
+              {% set num_plans = plans|length if plans|length > 0 else 3 %}
+              {% for i in range(num_plans) %}
+                {% set plan_val = plans[i] if i < plans|length else '' %}
+                <div class="input-group mb-2 plan-item">
+                  <span class="input-group-text">{{ i + 1 }}.</span>
+                  <input type="text" name="plan[]" class="form-control" placeholder="Plan item {{ i + 1 }}" value="{{ plan_val }}">
+                  <button type="button" class="btn btn-danger btn-del-row" onclick="delPlan(this)"><i class="bi bi-trash"></i></button>
+                </div>
+              {% endfor %}
             </div>
             <button type="button" class="btn btn-outline-primary btn-add-row mt-1" onclick="addPlan()">
               <i class="bi bi-plus-circle me-1"></i> Add Plan Item
@@ -238,33 +253,36 @@
             <div class="row g-3">
               <div class="col-md-4">
                 <label class="form-label">Name of the IQAC Coordinator</label>
-                <input type="text" name="sig_coordinator_name" class="form-control" value="{{ user.username.title() }}">
+                <input type="text" name="sig_coordinator_name" class="form-control" value="{{ draft_data.get('sig_coordinator_name', user.username.title()) if draft_data else user.username.title() }}">
                 <small class="text-muted">Signature: ________________________</small>
               </div>
               <div class="col-md-4">
                 <label class="form-label">Remarks of the Dean</label>
-                <input type="text" name="sig_dean_remarks" class="form-control" placeholder="Dean's remarks (if any)">
+                <input type="text" name="sig_dean_remarks" class="form-control" placeholder="Dean's remarks (if any)" value="{{ draft_data.get('sig_dean_remarks', '') if draft_data else '' }}">
                 <small class="text-muted">Signature: ________________________</small>
               </div>
               <div class="col-md-4">
                 <label class="form-label">Remarks of Director IQAC</label>
-                <input type="text" name="sig_director_remarks" class="form-control" placeholder="Director IQAC's remarks (if any)">
+                <input type="text" name="sig_director_remarks" class="form-control" placeholder="Director IQAC's remarks (if any)" value="{{ draft_data.get('sig_director_remarks', '') if draft_data else '' }}">
                 <small class="text-muted">Signature: ________________________</small>
               </div>
             </div>
             <div class="row mt-3">
               <div class="col-md-3">
                 <label class="form-label">Date</label>
-                <input type="date" name="footer_date" class="form-control" value="{{ datetime.now().strftime('%Y-%m-%d') }}">
+                <input type="date" name="footer_date" class="form-control" value="{{ draft_data.get('footer_date', datetime.now().strftime('%Y-%m-%d')) if draft_data else datetime.now().strftime('%Y-%m-%d') }}">
               </div>
             </div>
           </div>
         </div>
 
-        <!-- Download Button -->
+        <!-- Download/Save Buttons -->
         <div class="d-flex gap-2 mb-4">
           <button type="submit" class="btn btn-primary btn-lg px-5">
             <i class="bi bi-file-earmark-pdf me-2"></i>Download as PDF
+          </button>
+          <button type="button" id="saveDraftBtn" class="btn btn-warning btn-lg px-5 text-dark fw-bold">
+            <i class="bi bi-journal-bookmark me-2"></i>Save as Draft
           </button>
           <a href="/iqac_dashboard" class="btn btn-outline-secondary btn-lg">Cancel</a>
         </div>
@@ -518,6 +536,56 @@
             btn.innerHTML = '<i class="bi bi-file-earmark-pdf me-2"></i>Download as PDF';
             alert('PDF generation failed. Please try again.');
           });
+      });
+
+      document.getElementById('saveDraftBtn').addEventListener('click', function() {
+        const form = document.getElementById('reportForm');
+        const btn = this;
+        btn.disabled = true;
+        btn.innerHTML = '<i class="bi bi-hourglass-split me-2"></i>Saving…';
+
+        const formData = new FormData(form);
+        const formObj = {};
+        for (let [key, val] of formData.entries()) {
+          // Bypassing file uploads in drafts
+          if (val instanceof File) {
+            continue;
+          }
+          if (key.endsWith('[]')) {
+            if (!formObj[key]) formObj[key] = [];
+            formObj[key].push(val);
+          } else {
+            formObj[key] = val;
+          }
+        }
+
+        const payload = {
+          report_type: 'standard',
+          reporting_month: form.querySelector('[name="reporting_month"]').value,
+          form_data: formObj
+        };
+
+        fetch('/iqac_report/save_draft', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        })
+        .then(r => r.json())
+        .then(res => {
+          if (res.success) {
+            alert('Draft saved successfully!');
+          } else {
+            alert('Failed to save draft: ' + res.error);
+          }
+        })
+        .catch(err => {
+          console.error(err);
+          alert('An error occurred while saving the draft.');
+        })
+        .finally(() => {
+          btn.disabled = false;
+          btn.innerHTML = '<i class="bi bi-journal-bookmark me-2"></i>Save as Draft';
+        });
       });
     </script>
   </body>

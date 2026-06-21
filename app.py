@@ -500,6 +500,19 @@ def init_postgres():
     cursor.execute("INSERT INTO app_settings (key, value) VALUES ('submission_open_day', '1') ON CONFLICT (key) DO NOTHING")
     cursor.execute("INSERT INTO app_settings (key, value) VALUES ('submission_close_day', '5') ON CONFLICT (key) DO NOTHING")
 
+    # Create report_drafts table
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS report_drafts (
+            id SERIAL PRIMARY KEY,
+            username VARCHAR(255) NOT NULL,
+            report_type VARCHAR(50) NOT NULL,
+            reporting_month VARCHAR(20) NOT NULL,
+            form_data TEXT NOT NULL,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE (username, report_type, reporting_month)
+        )
+    """)
+
     # Create indexes for better performance
     cursor.execute("""
         CREATE INDEX IF NOT EXISTS idx_worklog_username ON worklog(username)
@@ -2321,25 +2334,85 @@ def iqac_monthly_report():
 
     cursor.execute("SELECT * FROM users WHERE username=%s", (username,))
     user = cursor.fetchone()
-    conn.close()
 
     if not user or user["role"].lower() not in ("school iqac coordinator", "campus iqac coordinator"):
+        conn.close()
         flash("Access denied.", "danger")
         return redirect("/login")
 
     _, reporting_month_str, _, _, _ = check_submission_window()
     reporting_month_display = datetime.strptime(reporting_month_str, "%Y-%m").strftime("%B %Y")
 
+    report_type = "aqar_coordinator" if is_aqar_coordinator(user) else "standard"
+
+    # Fetch draft if exists
+    cursor.execute("""
+        SELECT form_data FROM report_drafts 
+        WHERE username=%s AND report_type=%s AND reporting_month=%s
+    """, (username, report_type, reporting_month_str))
+    draft_row = cursor.fetchone()
+    conn.close()
+
+    import json
+    draft_data = None
+    if draft_row:
+        try:
+            draft_data = json.loads(draft_row["form_data"])
+        except Exception:
+            pass
+
     # AQAR coordinators see the AQAR-aligned report
     if is_aqar_coordinator(user):
         return render_template("iqac_coordinator_report.html", username=username, user=user,
                                reporting_month_str=reporting_month_str,
                                reporting_month_display=reporting_month_display,
-                               aqar_coordinator_names=AQAR_COORDINATOR_NAMES)
+                               aqar_coordinator_names=AQAR_COORDINATOR_NAMES,
+                               draft_data=draft_data)
 
     return render_template("iqac_monthly_report.html", username=username, user=user,
                            reporting_month_str=reporting_month_str,
-                           reporting_month_display=reporting_month_display)
+                           reporting_month_display=reporting_month_display,
+                           draft_data=draft_data)
+
+
+@app.route("/iqac_report/save_draft", methods=["POST"])
+def iqac_report_save_draft():
+    if "username" not in session:
+        return {"success": False, "error": "Not logged in"}, 401
+
+    username = session["username"]
+    conn = get_db_connection()
+    cursor = get_cursor(conn)
+    try:
+        cursor.execute("SELECT * FROM users WHERE username=%s", (username,))
+        user = cursor.fetchone()
+        if not user or user["role"].lower() not in ("school iqac coordinator", "campus iqac coordinator"):
+            return {"success": False, "error": "Access denied"}, 403
+
+        data = request.json or {}
+        report_type = data.get("report_type")
+        reporting_month = data.get("reporting_month")
+        form_data = data.get("form_data")
+
+        if not report_type or not reporting_month or not form_data:
+            return {"success": False, "error": "Missing required fields"}, 400
+
+        import json
+        form_data_str = json.dumps(form_data)
+
+        cursor.execute("""
+            INSERT INTO report_drafts (username, report_type, reporting_month, form_data, updated_at)
+            VALUES (%s, %s, %s, %s, CURRENT_TIMESTAMP)
+            ON CONFLICT (username, report_type, reporting_month)
+            DO UPDATE SET form_data = EXCLUDED.form_data, updated_at = CURRENT_TIMESTAMP
+        """, (username, report_type, reporting_month, form_data_str))
+        conn.commit()
+        return {"success": True, "message": "Draft saved successfully!"}
+    except Exception as e:
+        conn.rollback()
+        return {"success": False, "error": str(e)}, 500
+    finally:
+        conn.close()
 
 
 
