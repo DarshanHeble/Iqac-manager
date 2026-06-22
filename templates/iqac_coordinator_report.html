@@ -534,7 +534,7 @@
         const reportingMonth = "{{ reporting_month_str }}";
         let prevDate = reportingMonth ? `${reportingMonth}-01` : '';
         rows.forEach((row, idx) => {
-          const dateInput = row.querySelector(`input[type="date"][name="${dateName}"]`);
+          const dateInput = row.querySelector(`input[name="${dateName}"]`);
           if (!dateInput) return;
           const minD = (idx > 0 && prevDate) ? nextDay(prevDate) : `${reportingMonth}-01`;
           dateInput.min = minD;
@@ -551,7 +551,7 @@
         const firstRow = tbody.querySelector('tr');
 
         // Temporarily destroy Flatpickr on template row to clone clean inputs
-        firstRow.querySelectorAll('input[type="date"]').forEach(el => {
+        firstRow.querySelectorAll('input').forEach(el => {
           if (el._flatpickr) el._flatpickr.destroy();
         });
 
@@ -592,7 +592,7 @@
           return;
         }
         const row = btn.closest('tr');
-        row.querySelectorAll('input[type="date"]').forEach(el => {
+        row.querySelectorAll('input').forEach(el => {
           if (el._flatpickr) el._flatpickr.destroy();
         });
         row.remove();
