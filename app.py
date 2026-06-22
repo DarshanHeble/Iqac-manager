@@ -1264,8 +1264,9 @@ def admin_panel():
     cursor.execute("SELECT COUNT(*) as count FROM worklog WHERE date BETWEEN %s AND %s", (month_start, month_end))
     month_entries = cursor.fetchone()['count']
 
-    # IQAC Coordinator report submission progress for current month
-    current_report_month = now.strftime("%Y-%m")
+    # IQAC Coordinator report submission progress — reports are for the previous month
+    prev = now.replace(day=1) - timedelta(days=1)
+    current_report_month = prev.strftime("%Y-%m")
     cursor.execute("SELECT COUNT(*) as count FROM users WHERE role IN ('School IQAC Coordinator', 'Campus IQAC Coordinator')")
     total_coordinators = cursor.fetchone()['count']
     cursor.execute("SELECT COUNT(DISTINCT username) as count FROM signed_reports WHERE reporting_month = %s", (current_report_month,))
@@ -2745,7 +2746,8 @@ def secretary_dashboard():
         return redirect("/login")
 
     now = datetime.now()
-    current_report_month = now.strftime("%Y-%m")
+    prev = now.replace(day=1) - timedelta(days=1)
+    current_report_month = prev.strftime("%Y-%m")
 
     cursor.execute("SELECT COUNT(*) as count FROM users WHERE role IN ('School IQAC Coordinator', 'Campus IQAC Coordinator')")
     total_coordinators = cursor.fetchone()['count']

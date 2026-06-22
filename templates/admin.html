@@ -234,17 +234,19 @@
                 <option value="yearly" {% if coord_report_type == 'yearly' %}selected{% endif %}>Yearly-wise</option>
               </select>
             </div>
-            <div id="coord_range_field" class="col-md-4 d-flex gap-2 align-items-end" {% if coord_report_type == 'yearly' %}style="display:none!important"{% endif %}>
-              <div class="flex-fill">
-                <label class="form-label">From Month</label>
-                <input type="month" name="coord_from_month" class="form-control" value="{{ coord_from_month or '' }}">
-              </div>
-              <div class="flex-fill">
-                <label class="form-label">To Month</label>
-                <input type="month" name="coord_to_month" class="form-control" value="{{ coord_to_month or '' }}">
+            <div id="coord_range_field" class="col-md-4" style="display:{{ 'none' if coord_report_type == 'yearly' else 'block' }}">
+              <div class="d-flex gap-2 align-items-end">
+                <div class="flex-fill">
+                  <label class="form-label">From Month</label>
+                  <input type="month" name="coord_from_month" class="form-control" value="{{ coord_from_month or '' }}">
+                </div>
+                <div class="flex-fill">
+                  <label class="form-label">To Month</label>
+                  <input type="month" name="coord_to_month" class="form-control" value="{{ coord_to_month or '' }}">
+                </div>
               </div>
             </div>
-            <div class="col-md-2">
+            <div id="coord_year_field" class="col-md-2" style="display:{{ 'block' if coord_report_type == 'yearly' else 'none' }}">
               <label class="form-label">Year</label>
               <select name="coord_year" class="form-select">
                 {% for y in range(datetime.now().year, datetime.now().year - 4, -1) %}
@@ -530,12 +532,25 @@
         // Coordinator report type toggle
         const coordType = document.getElementById("coord_report_type");
         const coordRangeField = document.getElementById("coord_range_field");
+        const coordYearField = document.getElementById("coord_year_field");
         function toggleCoordFields(val) {
-          coordRangeField.style.display = (val === "yearly") ? "none" : "";
+          coordRangeField.style.display = (val === "yearly") ? "none" : "block";
+          if (coordYearField) coordYearField.style.display = (val === "yearly") ? "block" : "none";
         }
         if (coordType) {
           toggleCoordFields(coordType.value);
           coordType.addEventListener("change", function () { toggleCoordFields(this.value); });
+        }
+
+        // From Month → To Month min constraint
+        const fromMonth = document.querySelector("input[name='coord_from_month']");
+        const toMonth = document.querySelector("input[name='coord_to_month']");
+        if (fromMonth && toMonth) {
+          fromMonth.addEventListener("change", function() {
+            toMonth.min = this.value;
+            if (toMonth.value && toMonth.value < this.value) toMonth.value = this.value;
+          });
+          if (fromMonth.value) toMonth.min = fromMonth.value;
         }
       });
     </script>
