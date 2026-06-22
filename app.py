@@ -504,7 +504,8 @@ def init_postgres():
             gender VARCHAR(20),
             designation VARCHAR(255),
             department VARCHAR(255),
-            role VARCHAR(50)
+            role VARCHAR(50),
+            full_name VARCHAR(255)
         )
     """)
 
@@ -1481,6 +1482,7 @@ def admin_add_user():
 
     if request.method == "POST":
         username = request.form["username"]
+        full_name = request.form.get("full_name", "").strip()
         emp_id = request.form["emp_id"]
         email = request.form["email"]
         gender = request.form["gender"]
@@ -1499,9 +1501,9 @@ def admin_add_user():
             flash("Username or email already exists.", "danger")
         else:
             cursor.execute("""
-                INSERT INTO users (username, password, emp_id, email, gender, designation, department, role)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
-            """, (username, hashed, emp_id, email, gender, designation, department, role))
+                INSERT INTO users (username, password, emp_id, email, gender, designation, department, role, full_name)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+            """, (username, hashed, emp_id, email, gender, designation, department, role, full_name or None))
             conn.commit()
 
             # Send credentials email
@@ -2005,6 +2007,7 @@ def admin_edit_user(id):
 
     if request.method == "POST":
         new_username = request.form["username"]
+        full_name = request.form.get("full_name", "").strip()
         emp_id = request.form["emp_id"]
         email = request.form["email"]
         gender = request.form["gender"]
@@ -2023,9 +2026,9 @@ def admin_edit_user(id):
         else:
             # Update user
             cursor.execute("""
-                UPDATE users SET username=%s, emp_id=%s, email=%s, gender=%s, 
-                designation=%s, department=%s, role=%s WHERE id=%s
-            """, (new_username, emp_id, email, gender, designation, department, role, id))
+                UPDATE users SET username=%s, emp_id=%s, email=%s, gender=%s,
+                designation=%s, department=%s, role=%s, full_name=%s WHERE id=%s
+            """, (new_username, emp_id, email, gender, designation, department, role, full_name or None, id))
 
             # Update worklog entries if username changed
             if old_username != new_username:
@@ -2634,7 +2637,7 @@ def admin_signed_reports():
     selected_month = request.args.get("month", default_month)
 
     cursor.execute("""
-        SELECT sr.*, u.designation, u.department
+        SELECT sr.*, u.designation, u.department, u.full_name
         FROM signed_reports sr
         JOIN users u ON sr.username = u.username
         WHERE sr.reporting_month = %s AND sr.status != 'pending_upload'

@@ -67,24 +67,31 @@
           <form method="post">
             <div class="row mb-3">
               <div class="col-md-6">
+                <label class="form-label">Full Name</label>
+                <input type="text" name="full_name" class="form-control" value="{{ user.full_name or '' }}" placeholder="e.g., Dr. Rajesh Kumar">
+              </div>
+              <div class="col-md-6">
                 <label class="form-label">Username</label>
-                <input type="text" name="username" class="form-control" value="{{ user.username }}" 
+                <input type="text" name="username" class="form-control" value="{{ user.username }}"
                        {% if user.username == 'admin' %}readonly{% endif %} required>
                 {% if user.username == 'admin' %}
                 <small class="text-muted">Admin username cannot be changed</small>
                 {% endif %}
               </div>
-              <div class="col-md-6">
-                <label class="form-label">Employee ID</label>
-                <input type="text" name="emp_id" class="form-control" value="{{ user.emp_id }}" required>
-              </div>
             </div>
 
             <div class="row mb-3">
               <div class="col-md-6">
+                <label class="form-label">Employee ID</label>
+                <input type="text" name="emp_id" class="form-control" value="{{ user.emp_id }}" required>
+              </div>
+              <div class="col-md-6">
                 <label class="form-label">Email ID</label>
                 <input type="email" name="email" class="form-control" value="{{ user.email }}" required>
               </div>
+            </div>
+
+            <div class="row mb-3">
               <div class="col-md-6">
                 <label class="form-label">Gender</label>
                 <select name="gender" class="form-select" required>

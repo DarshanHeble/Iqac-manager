@@ -70,13 +70,15 @@
                   <tr>
                     <td style="width:30%; background:#e9ecef; font-weight:600;">Name of IQAC Coordinator</td>
                     <td>
-                      <input type="text" name="coordinator_name" class="form-control form-control-sm border-0" value="{{ draft_data.get('coordinator_name', user.username.title()) if draft_data else user.username.title() }}" required>
+                      <input type="hidden" name="coordinator_name" value="{{ user.full_name or user.username.title() }}">
+                      <input type="text" class="form-control form-control-sm border-0 bg-light" value="{{ user.full_name or user.username.title() }}" readonly style="cursor:not-allowed; color:#555;">
                     </td>
                   </tr>
                   <tr>
                     <td style="background:#e9ecef; font-weight:600;">School/Campus</td>
                     <td>
-                      <input type="text" name="school_campus" class="form-control form-control-sm border-0" value="{{ draft_data.get('school_campus', user.department or '') if draft_data else (user.department or '') }}" placeholder="e.g., School of Sciences, Bangalore">
+                      <input type="hidden" name="school_campus" value="{{ user.department or '' }}">
+                      <input type="text" class="form-control form-control-sm border-0 bg-light" value="{{ user.department or '' }}" readonly style="cursor:not-allowed; color:#555;" placeholder="e.g., School of Sciences, Bangalore">
                     </td>
                   </tr>
                   <tr>
@@ -311,7 +313,8 @@
             <div class="row g-3">
               <div class="col-md-4">
                 <label class="form-label">Name of the IQAC Coordinator</label>
-                <input type="text" name="sig_coordinator_name" class="form-control" value="{{ draft_data.get('sig_coordinator_name', user.username.title()) if draft_data else user.username.title() }}">
+                <input type="hidden" name="sig_coordinator_name" value="{{ user.full_name or user.username.title() }}">
+                <input type="text" class="form-control bg-light" value="{{ user.full_name or user.username.title() }}" readonly style="cursor:not-allowed; color:#555;">
                 <small class="text-muted">Signature: ________________________</small>
               </div>
               <div class="col-md-4">
@@ -377,6 +380,19 @@
 
       document.addEventListener('DOMContentLoaded', function() {
         applyDateMax();
+        // Enforce chronological order on date tables
+        ['Activities', 'ActionPlan'].forEach(tableId => {
+          const tbody = document.getElementById('table' + tableId + '-body');
+          if (!tbody) return;
+          const firstDate = tbody.querySelector('input[type="date"]:not([name="footer_date"])');
+          if (!firstDate) return;
+          enforceChronologicalDates(tbody, firstDate.name);
+          tbody.addEventListener('change', function(e) {
+            if (e.target.type === 'date' && e.target.name !== 'footer_date') {
+              enforceChronologicalDates(tbody, e.target.name);
+            }
+          });
+        });
         // Show/hide "Other" text input based on select
         document.querySelectorAll('select[name="act_area[]"], select[name="plan_area[]"]').forEach(bindOtherToggle);
       });
@@ -402,6 +418,24 @@
         }
       });
 
+      function nextDay(dateStr) {
+        const d = new Date(dateStr);
+        d.setDate(d.getDate() + 1);
+        return d.toISOString().split('T')[0];
+      }
+
+      function enforceChronologicalDates(tbody, dateName) {
+        const rows = tbody.querySelectorAll('tr');
+        const reportingMonth = "{{ reporting_month_str }}";
+        let prevDate = reportingMonth ? `${reportingMonth}-01` : '';
+        rows.forEach((row, idx) => {
+          const dateInput = row.querySelector(`input[type="date"][name="${dateName}"]`);
+          if (!dateInput) return;
+          if (idx > 0 && prevDate) dateInput.min = nextDay(prevDate);
+          if (dateInput.value) prevDate = dateInput.value;
+        });
+      }
+
       // ── Dynamic table row management ──
       function addTableRow(tableId) {
         const tbody = document.getElementById('table' + tableId + '-body');
@@ -410,8 +444,16 @@
         newRow.querySelectorAll('input[type="text"], input[type="date"], textarea').forEach(el => el.value = '');
         newRow.querySelectorAll('select').forEach(el => el.selectedIndex = 0);
         newRow.querySelectorAll('input[type="text"][class*="d-none"]').forEach(el => el.classList.add('d-none'));
+        // Set min date for new row based on last row's date
+        const dateInput = newRow.querySelector('input[type="date"]:not([name="footer_date"])');
+        if (dateInput) {
+          const lastDateInput = Array.from(tbody.querySelectorAll(`input[type="date"][name="${dateInput.name}"]`)).pop();
+          if (lastDateInput && lastDateInput.value) dateInput.min = nextDay(lastDateInput.value);
+        }
         applyDateMax(newRow);
         tbody.appendChild(newRow);
+        // Re-enforce order after adding
+        if (dateInput) enforceChronologicalDates(tbody, dateInput.name);
       }
 
       function delRow(btn) {

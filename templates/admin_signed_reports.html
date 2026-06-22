@@ -112,7 +112,7 @@
                   {% for r in reports %}
                     <tr>
                       <td>{{ loop.index }}</td>
-                      <td>{{ r.username.title() }}</td>
+                      <td>{{ r.full_name or r.username.title() }}</td>
                       <td>{{ r.designation or '—' }}</td>
                       <td>{{ r.department or '—' }}</td>
                       <td>{{ r.reporting_month | datetimeformat }}</td>
@@ -142,7 +142,7 @@
                               <div class="modal-content">
                                 <div class="modal-header" style="background-color:#003366; color:#fff;">
                                   <h6 class="modal-title" id="wsModalLabel{{ loop.index }}">
-                                    <i class="bi bi-paperclip me-2"></i>Workshop Attachments — {{ r.username.title() }}
+                                    <i class="bi bi-paperclip me-2"></i>Workshop Attachments — {{ r.full_name or r.username.title() }}
                                   </h6>
                                   <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
                                 </div>
