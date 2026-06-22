@@ -247,7 +247,7 @@
                 <th>Reporting Month</th>
                 <th>Uploaded At</th>
                 <th>Status</th>
-                <th>View</th>
+                <th>Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -268,13 +268,17 @@
                   {% endif %}
                 </td>
                 <td>
+                  <a href="/iqac_report/view_raw/{{ r.username }}/{{ r.reporting_month }}" target="_blank"
+                    class="btn btn-outline-info btn-sm me-1" title="View Raw Data">
+                    <i class="bi bi-file-earmark-text"></i> View Raw
+                  </a>
                   {% if r.uploaded_file_path %}
                   <a href="{{ url_for('static', filename=r.uploaded_file_path) }}" target="_blank"
                     class="btn btn-outline-primary btn-sm">
-                    <i class="bi bi-eye"></i> View
+                    <i class="bi bi-eye"></i> View PDF
                   </a>
                   {% else %}
-                  <span class="text-muted small">Not uploaded yet</span>
+                  <span class="text-muted small">No PDF yet</span>
                   {% endif %}
                 </td>
               </tr>

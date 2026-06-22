@@ -42,6 +42,17 @@ def iqac_monthly_report_download():
 
     reporting_month = request.form.get("reporting_month", "report")
 
+    # Check if report is locked
+    cursor.execute("""
+        SELECT status FROM signed_reports 
+        WHERE username=%s AND reporting_month=%s
+    """, (username, reporting_month))
+    signed_row = cursor.fetchone()
+    if signed_row and signed_row["status"] in ('pending_upload', 'uploaded', 'reviewed'):
+        conn.close()
+        flash("This report is locked because the PDF has been generated/submitted. No modifications are allowed.", "danger")
+        return redirect("/iqac_dashboard")
+
     # ── Auto-save draft on download ──
     import json
     form_data_obj = {}
@@ -433,6 +444,17 @@ def iqac_coordinator_report_download():
         return redirect("/iqac_monthly_report")
 
     reporting_month = request.form.get("reporting_month", "report")
+
+    # Check if report is locked
+    cursor.execute("""
+        SELECT status FROM signed_reports 
+        WHERE username=%s AND reporting_month=%s
+    """, (username, reporting_month))
+    signed_row = cursor.fetchone()
+    if signed_row and signed_row["status"] in ('pending_upload', 'uploaded', 'reviewed'):
+        conn.close()
+        flash("This report is locked because the PDF has been generated/submitted. No modifications are allowed.", "danger")
+        return redirect("/iqac_dashboard")
 
     # ── Auto-save draft on download ──
     import json

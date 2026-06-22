@@ -2427,6 +2427,15 @@ def iqac_monthly_report():
         WHERE username=%s AND report_type=%s AND reporting_month=%s
     """, (username, report_type, reporting_month_str))
     draft_row = cursor.fetchone()
+
+    # Check if report is locked
+    cursor.execute("""
+        SELECT status FROM signed_reports 
+        WHERE username=%s AND reporting_month=%s
+    """, (username, reporting_month_str))
+    signed_row = cursor.fetchone()
+    locked = signed_row is not None and signed_row["status"] in ('pending_upload', 'uploaded', 'reviewed')
+
     conn.close()
 
     import json
@@ -2443,12 +2452,14 @@ def iqac_monthly_report():
                                reporting_month_str=reporting_month_str,
                                reporting_month_display=reporting_month_display,
                                aqar_coordinator_names=AQAR_COORDINATOR_NAMES,
-                               draft_data=draft_data)
+                               draft_data=draft_data,
+                               locked=locked)
 
     return render_template("iqac_monthly_report.html", username=username, user=user,
                            reporting_month_str=reporting_month_str,
                            reporting_month_display=reporting_month_display,
-                           draft_data=draft_data)
+                           draft_data=draft_data,
+                           locked=locked)
 
 
 @app.route("/iqac_report/save_draft", methods=["POST"])
@@ -2473,6 +2484,15 @@ def iqac_report_save_draft():
         if not report_type or not reporting_month or not form_data:
             return {"success": False, "error": "Missing required fields"}, 400
 
+        # Check if report is locked
+        cursor.execute("""
+            SELECT status FROM signed_reports 
+            WHERE username=%s AND reporting_month=%s
+        """, (username, reporting_month))
+        signed_row = cursor.fetchone()
+        if signed_row and signed_row["status"] in ('pending_upload', 'uploaded', 'reviewed'):
+            return {"success": False, "error": "This report is locked because the PDF has been generated/submitted. No modifications are allowed."}, 400
+
         import json
         form_data_str = json.dumps(form_data)
 
@@ -2489,6 +2509,81 @@ def iqac_report_save_draft():
         return {"success": False, "error": str(e)}, 500
     finally:
         conn.close()
+
+
+# ------------------ IQAC REPORT: VIEW RAW DRAFT DATA ------------------
+@app.route("/iqac_report/view_raw/<target_username>/<reporting_month>")
+def iqac_report_view_raw(target_username, reporting_month):
+    if "username" not in session:
+        return redirect("/login")
+
+    logged_user = session["username"]
+    conn = get_db_connection()
+    cursor = get_cursor(conn)
+
+    # Fetch role of logged-in user to check permissions
+    cursor.execute("SELECT * FROM users WHERE username=%s", (logged_user,))
+    user_record = cursor.fetchone()
+
+    if not user_record:
+        conn.close()
+        flash("User not found.", "danger")
+        return redirect("/login")
+
+    # Authorize: must be Admin, Secretary, or the target coordinator themselves
+    role = user_record["role"].lower()
+    if role not in ("admin", "secretary") and logged_user.lower() != target_username.lower():
+        conn.close()
+        flash("Access denied. You do not have permissions to view this raw data.", "danger")
+        return redirect("/dashboard")
+
+    # Fetch target user record (for rendering correct name and campus)
+    cursor.execute("SELECT * FROM users WHERE username=%s", (target_username,))
+    target_user = cursor.fetchone()
+    if not target_user:
+        conn.close()
+        flash("Target coordinator user not found.", "danger")
+        return redirect("/iqac_dashboard" if role not in ("admin", "secretary") else "/admin")
+
+    # Fetch draft raw data
+    report_type = "aqar_coordinator" if is_aqar_coordinator(target_user) else "standard"
+
+    cursor.execute("""
+        SELECT form_data FROM report_drafts 
+        WHERE username=%s AND report_type=%s AND reporting_month=%s
+    """, (target_username, report_type, reporting_month))
+    draft_row = cursor.fetchone()
+    conn.close()
+
+    if not draft_row:
+        flash(f"No raw data found for {target_username.title()} for the month {reporting_month}.", "warning")
+        return redirect("/iqac_dashboard" if role not in ("admin", "secretary") else "/admin_signed_reports")
+
+    import json
+    draft_data = None
+    try:
+        draft_data = json.loads(draft_row["form_data"])
+    except Exception:
+        pass
+
+    try:
+        reporting_month_display = datetime.strptime(reporting_month, "%Y-%m").strftime("%m-%Y")
+    except Exception:
+        reporting_month_display = reporting_month
+
+    if report_type == "aqar_coordinator":
+        return render_template("iqac_coordinator_report.html", username=target_username, user=target_user,
+                               reporting_month_str=reporting_month,
+                               reporting_month_display=reporting_month_display,
+                               aqar_coordinator_names=AQAR_COORDINATOR_NAMES,
+                               draft_data=draft_data,
+                               locked=True)
+
+    return render_template("iqac_monthly_report.html", username=target_username, user=target_user,
+                           reporting_month_str=reporting_month,
+                           reporting_month_display=reporting_month_display,
+                           draft_data=draft_data,
+                           locked=True)
 
 
 

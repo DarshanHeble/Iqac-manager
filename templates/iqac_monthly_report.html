@@ -58,6 +58,16 @@
 
       <form method="POST" action="/iqac_monthly_report/download" id="reportForm" enctype="multipart/form-data">
 
+        {% if locked %}
+        <div class="alert alert-warning d-flex align-items-center gap-3 mb-4" style="border-left: 5px solid #ffc107;">
+          <i class="bi bi-lock-fill fs-3 text-warning text-warning-custom"></i>
+          <div>
+            <strong style="font-size: 1.05rem; color:#856404;">Report Locked</strong><br>
+            <span style="font-size: 0.92rem; color:#856404;">This report's raw data has been locked because a PDF has been generated. No further modifications can be made.</span>
+          </div>
+        </div>
+        {% endif %}
+
         <!-- ── Report Header ── -->
         <div class="card mb-4">
           <div class="card-body">
@@ -290,7 +300,7 @@
           <button type="button" id="saveDraftBtn" class="btn btn-warning btn-lg px-5 text-dark fw-bold">
             <i class="bi bi-journal-bookmark me-2"></i>Save as Draft
           </button>
-          <a href="/iqac_dashboard" class="btn btn-outline-secondary btn-lg">Cancel</a>
+          <a href="/iqac_dashboard" id="cancelBtn" class="btn btn-outline-secondary btn-lg">Cancel</a>
         </div>
 
       </form>
@@ -686,6 +696,29 @@
           btn.innerHTML = '<i class="bi bi-journal-bookmark me-2"></i>Save as Draft';
         });
       });
+
+      {% if locked %}
+      document.addEventListener("DOMContentLoaded", function() {
+        // Disable all inputs, textareas, selects, and buttons inside the form
+        document.querySelectorAll("#reportForm input, #reportForm textarea, #reportForm select, #reportForm button").forEach(el => {
+          el.disabled = true;
+          if (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA') {
+            el.readOnly = true;
+          }
+        });
+        // Hide row management and submission action buttons
+        document.querySelectorAll("#reportForm .btn-add-row, #reportForm .btn-del-row, #reportForm .btn-danger, #reportForm .ws-upload-btn, #reportForm .btn-outline-primary, #reportForm #saveDraftBtn, #reportForm #downloadBtn").forEach(el => {
+          el.style.display = "none";
+        });
+        // Ensure Cancel / Back buttons remain active
+        const cancelBtn = document.getElementById('cancelBtn');
+        if (cancelBtn) {
+          cancelBtn.classList.remove('btn-outline-secondary');
+          cancelBtn.classList.add('btn-secondary');
+          cancelBtn.innerHTML = '<i class="bi bi-arrow-left me-1"></i>Back to Dashboard';
+        }
+      });
+      {% endif %}
     </script>
   </body>
 </html>
