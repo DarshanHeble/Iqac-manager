@@ -6,6 +6,7 @@
     <title>Monthly Work Done Report – IQAC Coordinators (AQAR Aligned)</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
     <style>
       html { height: 100%; }
       body { background-color: #f8fafc; font-size: 15px; min-height: 100%; display: flex; flex-direction: column; }
@@ -60,7 +61,7 @@
         <div class="card mb-4">
           <div class="card-body">
             <h6 class="text-primary mb-1">Monthly Work Done Report – IQAC Coordinators (AQAR Aligned)</h6>
-            <p class="text-muted small mb-3">(AQAR | NAAC | Rankings | Awards | Quality Assurance Activities)</p>
+            <p class="text-muted small mb-3">(AQAR | NAAC | Rankings/Awards | Quality Assurance Activities)</p>
             <p class="mb-3" style="font-size:0.9rem; color:#003366; font-weight:600;">
               {{ aqar_coordinator_names | join(', ') }}
             </p>
@@ -71,14 +72,14 @@
                     <td style="width:30%; background:#e9ecef; font-weight:600;">Name of IQAC Coordinator</td>
                     <td>
                       <input type="hidden" name="coordinator_name" value="{{ user.full_name or user.username.title() }}">
-                      <input type="text" class="form-control form-control-sm border-0 bg-light" value="{{ user.full_name or user.username.title() }}" readonly style="cursor:not-allowed; color:#555;">
+                      <input type="text" class="form-control form-control-sm border-0 bg-light" value="{{ user.full_name or user.username.title() }}" disabled>
                     </td>
                   </tr>
                   <tr>
                     <td style="background:#e9ecef; font-weight:600;">School/Campus</td>
                     <td>
                       <input type="hidden" name="school_campus" value="{{ user.department or '' }}">
-                      <input type="text" class="form-control form-control-sm border-0 bg-light" value="{{ user.department or '' }}" readonly style="cursor:not-allowed; color:#555;" placeholder="e.g., School of Sciences, Bangalore">
+                      <input type="text" class="form-control form-control-sm border-0 bg-light" value="{{ user.department or '' }}" disabled placeholder="e.g., School of Sciences, Bangalore">
                     </td>
                   </tr>
                   <tr>
@@ -91,7 +92,7 @@
                   <tr>
                     <td style="background:#e9ecef; font-weight:600;">Responsibility Area(s)</td>
                     <td class="text-muted" style="font-size:0.85rem;">
-                      AQAR / NAAC / Rankings and Awards / Audits / Documentation / Others
+                      AQAR / NAAC / Rankings/Awards / Audits / Documentation / Others
                     </td>
                   </tr>
                 </tbody>
@@ -136,8 +137,7 @@
                           <option value="">Select...</option>
                           <option value="AQAR" {% if act_area_val == 'AQAR' %}selected{% endif %}>AQAR</option>
                           <option value="NAAC" {% if act_area_val == 'NAAC' %}selected{% endif %}>NAAC</option>
-                          <option value="Rankings" {% if act_area_val == 'Rankings' %}selected{% endif %}>Rankings</option>
-                          <option value="Awards" {% if act_area_val == 'Awards' %}selected{% endif %}>Awards</option>
+                          <option value="Rankings/Awards" {% if act_area_val in ('Rankings/Awards', 'Rankings', 'Awards') %}selected{% endif %}>Rankings/Awards</option>
                           <option value="Audits" {% if act_area_val == 'Audits' %}selected{% endif %}>Audits</option>
                           <option value="Documentation" {% if act_area_val == 'Documentation' %}selected{% endif %}>Documentation</option>
                           <option value="Others" {% if act_area_val == 'Others' %}selected{% endif %}>Others</option>
@@ -175,7 +175,7 @@
                   <tr>
                     <th style="width:12%;">Date</th>
                     <th style="width:25%;">Programme / Meeting</th>
-                    <th style="width:25%;">Role (Organised / Coordinated / Attended)</th>
+                    <th style="width:25%;">Role (Organised / Coordinated / Attended / Resource Person)</th>
                     <th style="width:30%;">Key Outcome</th>
                     <th style="width:4%;"></th>
                   </tr>
@@ -197,6 +197,7 @@
                           <option value="Organised" {% if meet_role_val == 'Organised' %}selected{% endif %}>Organised</option>
                           <option value="Coordinated" {% if meet_role_val == 'Coordinated' %}selected{% endif %}>Coordinated</option>
                           <option value="Attended" {% if meet_role_val == 'Attended' %}selected{% endif %}>Attended</option>
+                          <option value="Resource Person" {% if meet_role_val == 'Resource Person' %}selected{% endif %}>Resource Person</option>
                         </select>
                       </td>
                       <td><textarea name="meet_outcome[]" class="form-control form-control-sm" rows="2" placeholder="Key Outcome">{{ meet_outcome_val }}</textarea></td>
@@ -285,8 +286,7 @@
                           <option value="">Select...</option>
                           <option value="AQAR" {% if plan_area_val == 'AQAR' %}selected{% endif %}>AQAR</option>
                           <option value="NAAC" {% if plan_area_val == 'NAAC' %}selected{% endif %}>NAAC</option>
-                          <option value="Rankings" {% if plan_area_val == 'Rankings' %}selected{% endif %}>Rankings</option>
-                          <option value="Awards" {% if plan_area_val == 'Awards' %}selected{% endif %}>Awards</option>
+                          <option value="Rankings/Awards" {% if plan_area_val in ('Rankings/Awards', 'Rankings', 'Awards') %}selected{% endif %}>Rankings/Awards</option>
                           <option value="Audits" {% if plan_area_val == 'Audits' %}selected{% endif %}>Audits</option>
                           <option value="Documentation" {% if plan_area_val == 'Documentation' %}selected{% endif %}>Documentation</option>
                           <option value="Others" {% if plan_area_val == 'Others' %}selected{% endif %}>Others</option>
@@ -354,6 +354,7 @@
     </footer>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
     <script>
       function applyDateMax(root) {
         const reportingMonth = "{{ reporting_month_str }}"; // "YYYY-MM"
@@ -365,15 +366,27 @@
 
         (root || document).querySelectorAll('input[type="date"]').forEach(el => {
           if (el.name !== 'footer_date') {
-            el.min = minDate;
-            el.max = maxDate;
-            if (el.value) {
-              if (el.value < minDate) el.value = minDate;
-              if (el.value > maxDate) el.value = maxDate;
-            }
+            flatpickr(el, {
+              dateFormat: "Y-m-d",
+              altInput: true,
+              altFormat: "d-m-Y",
+              minDate: minDate,
+              maxDate: maxDate,
+              defaultDate: el.value || null,
+              onChange: function(selectedDates, dateStr, instance) {
+                el.value = dateStr;
+                el.dispatchEvent(new Event('change', { bubbles: true }));
+              }
+            });
           } else {
             const today = new Date().toISOString().split('T')[0];
-            el.max = today;
+            flatpickr(el, {
+              dateFormat: "Y-m-d",
+              altInput: true,
+              altFormat: "d-m-Y",
+              maxDate: today,
+              defaultDate: el.value || today
+            });
           }
         });
       }
@@ -431,7 +444,11 @@
         rows.forEach((row, idx) => {
           const dateInput = row.querySelector(`input[type="date"][name="${dateName}"]`);
           if (!dateInput) return;
-          if (idx > 0 && prevDate) dateInput.min = nextDay(prevDate);
+          const minD = (idx > 0 && prevDate) ? nextDay(prevDate) : `${reportingMonth}-01`;
+          dateInput.min = minD;
+          if (dateInput._flatpickr) {
+            dateInput._flatpickr.set('minDate', minD);
+          }
           if (dateInput.value) prevDate = dateInput.value;
         });
       }
@@ -440,10 +457,21 @@
       function addTableRow(tableId) {
         const tbody = document.getElementById('table' + tableId + '-body');
         const firstRow = tbody.querySelector('tr');
+
+        // Temporarily destroy Flatpickr on template row to clone clean inputs
+        firstRow.querySelectorAll('input[type="date"]').forEach(el => {
+          if (el._flatpickr) el._flatpickr.destroy();
+        });
+
         const newRow = firstRow.cloneNode(true);
+
+        // Re-initialize Flatpickr on the template row
+        applyDateMax(firstRow);
+
         newRow.querySelectorAll('input[type="text"], input[type="date"], textarea').forEach(el => el.value = '');
         newRow.querySelectorAll('select').forEach(el => el.selectedIndex = 0);
         newRow.querySelectorAll('input[type="text"][class*="d-none"]').forEach(el => el.classList.add('d-none'));
+        
         // Set min date for new row based on last row's date
         const dateInput = newRow.querySelector('input[type="date"]:not([name="footer_date"])');
         if (dateInput) {
@@ -452,6 +480,7 @@
         }
         applyDateMax(newRow);
         tbody.appendChild(newRow);
+        
         // Re-enforce order after adding
         if (dateInput) enforceChronologicalDates(tbody, dateInput.name);
       }
@@ -463,11 +492,22 @@
           // Clear rather than delete the last row
           btn.closest('tr').querySelectorAll('input, textarea, select').forEach(el => {
             if (el.tagName === 'SELECT') el.selectedIndex = 0;
-            else el.value = '';
+            else {
+              if (el._flatpickr) el._flatpickr.clear();
+              else el.value = '';
+            }
           });
           return;
         }
-        btn.closest('tr').remove();
+        const row = btn.closest('tr');
+        row.querySelectorAll('input[type="date"]').forEach(el => {
+          if (el._flatpickr) el._flatpickr.destroy();
+        });
+        row.remove();
+        
+        // Find the date input to trigger re-enforcing order after delete
+        const firstDate = tbody.querySelector('input[type="date"]:not([name="footer_date"])');
+        if (firstDate) enforceChronologicalDates(tbody, firstDate.name);
       }
 
       // ── Numbered list items (achievements, challenges) ──

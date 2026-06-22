@@ -626,7 +626,7 @@ def _generate_aqar_coordinator_pdf(form_data, aqar_names=None):
         [Paragraph('Reporting Month', make_style('aqar_p3', size=9, space_after=0)),
          Paragraph(rep_month_display, make_style('aqar_pv3', size=9, space_after=0))],
         [Paragraph('Responsibility Area(s)', make_style('aqar_p4', size=9, space_after=0)),
-         Paragraph('AQAR / NAAC / Rankings and Awards / Audits / Documentation / Others', make_style('aqar_pv4', size=9, space_after=0))],
+         Paragraph('AQAR / NAAC / Rankings/Awards / Audits / Documentation / Others', make_style('aqar_pv4', size=9, space_after=0))],
     ]
     particulars_table = Table(particulars_data, colWidths=[w * 0.35, w * 0.65])
     particulars_table.setStyle(TableStyle([
@@ -694,7 +694,7 @@ def _generate_aqar_coordinator_pdf(form_data, aqar_names=None):
     meet_roles = form_data.getlist('meet_role[]')
     meet_outcomes = form_data.getlist('meet_outcome[]')
 
-    s2_headers = ['Date', 'Programme / Meeting', 'Role\n(Organised/Coordinated/Attended)', 'Key Outcome']
+    s2_headers = ['Date', 'Programme / Meeting', 'Role\n(Organised/Coordinated/Attended/Resource Person)', 'Key Outcome']
     s2_cols = [w*0.12, w*0.28, w*0.28, w*0.32]
 
     s2_rows_filled = [(meet_dates[i] if i < len(meet_dates) else '').strip() or
