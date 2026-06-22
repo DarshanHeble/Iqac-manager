@@ -2403,6 +2403,21 @@ def iqac_dashboard():
     cursor.execute("SELECT * FROM signed_reports WHERE username=%s ORDER BY uploaded_at DESC", (username,))
     submitted_reports = cursor.fetchall()
 
+    # Collect workshop attachments for coordinator's submitted reports
+    import os
+    ws_att_base = os.path.join(app.root_path, 'static', 'signed_reports', 'workshop_attachments')
+    workshop_attachments = {}
+    if os.path.isdir(ws_att_base):
+        for r in submitted_reports:
+            month_dir = os.path.join(ws_att_base, username, r['reporting_month'])
+            if os.path.isdir(month_dir):
+                files = [f for f in os.listdir(month_dir) if not f.startswith('.')]
+                if files:
+                    workshop_attachments[r['reporting_month']] = [
+                        {'name': f, 'path': f'signed_reports/workshop_attachments/{username}/{r["reporting_month"]}/{f}'}
+                        for f in sorted(files)
+                    ]
+
     is_open, reporting_month_str, open_day, close_day, window_msg = check_submission_window()
 
     # Check if a draft exists for the active window's reporting month
@@ -2434,6 +2449,7 @@ def iqac_dashboard():
         window_msg=window_msg,
         open_day=open_day,
         close_day=close_day,
+        workshop_attachments=workshop_attachments,
     )
 
 

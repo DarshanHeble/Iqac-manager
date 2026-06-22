@@ -378,10 +378,26 @@ def _generate_iqac_pdf(form_data, ws_attachments=None):
         for i in range(len(ws_dates)):
             if not pb_rows_filled[i]:
                 continue
+            
+            ws_title = ws_titles[i] if i < len(ws_titles) else ''
+            attachment_name = None
+            if ws_attachments:
+                for att_idx, _, att_filename in ws_attachments:
+                    if att_idx == i:
+                        attachment_name = att_filename
+                        break
+            
+            title_para_text = ws_title
+            if attachment_name:
+                username = session.get('username', '')
+                rep_month_raw = form_data.get('reporting_month', '')
+                file_url = f"{request.host_url}static/signed_reports/workshop_attachments/{username}/{rep_month_raw}/{attachment_name}"
+                title_para_text += f"<br/><a href='{file_url}' color='blue'><b>View Attachment:</b> {attachment_name}</a>"
+
             pb_data.append([
                 Paragraph(format_date(ws_dates[i]) if i < len(ws_dates) else '', small),
                 Paragraph(ws_venues[i] if i < len(ws_venues) else '', small),
-                Paragraph(ws_titles[i] if i < len(ws_titles) else '', small),
+                Paragraph(title_para_text, small),
                 Paragraph(ws_parts[i] if i < len(ws_parts) else '', small),
                 Paragraph(ws_res[i] if i < len(ws_res) else '', small),
             ])
