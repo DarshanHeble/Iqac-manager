@@ -572,6 +572,7 @@ def init_postgres():
         )
     """)
     cursor.execute("ALTER TABLE signed_reports ADD COLUMN IF NOT EXISTS remarks TEXT")
+    cursor.execute("ALTER TABLE signed_reports ALTER COLUMN status TYPE VARCHAR(50)")
 
     # Create app_settings table for configurable options
     cursor.execute("""
