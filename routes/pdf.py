@@ -87,8 +87,12 @@ def iqac_monthly_report_download():
                 INSERT INTO signed_reports (username, reporting_month, status)
                 VALUES (%s, %s, 'pending_upload')
             """, (username, reporting_month))
-        elif existing_report["status"] == "pending_upload":
-            pass
+        else:
+            cursor.execute("""
+                UPDATE signed_reports 
+                SET status = 'pending_upload', remarks = NULL, uploaded_file_path = NULL
+                WHERE username = %s AND reporting_month = %s
+            """, (username, reporting_month))
             
         conn.commit()
     except Exception as e:
@@ -490,8 +494,12 @@ def iqac_coordinator_report_download():
                 INSERT INTO signed_reports (username, reporting_month, status)
                 VALUES (%s, %s, 'pending_upload')
             """, (username, reporting_month))
-        elif existing_report["status"] == "pending_upload":
-            pass
+        else:
+            cursor.execute("""
+                UPDATE signed_reports 
+                SET status = 'pending_upload', remarks = NULL, uploaded_file_path = NULL
+                WHERE username = %s AND reporting_month = %s
+            """, (username, reporting_month))
             
         conn.commit()
     except Exception as e:

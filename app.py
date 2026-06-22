@@ -160,6 +160,43 @@ def notify_admins_and_secretaries(username, reporting_month):
         except Exception as ex:
             print(f"Failed to send email to {email}: {str(ex)}")
 
+def notify_coordinator_of_rejection(username, reporting_month, remarks=""):
+    """Notify the coordinator that corrections are requested on their report."""
+    conn = get_db_connection()
+    cursor = get_cursor(conn)
+    email = None
+    try:
+        cursor.execute("SELECT email FROM users WHERE username = %s", (username,))
+        row = cursor.fetchone()
+        if row:
+            email = row.get("email")
+    except Exception as e:
+        print("Error fetching coordinator email:", str(e))
+    finally:
+        conn.close()
+
+    if not email:
+        print(f"No email found for coordinator {username}")
+        return
+
+    subject = f"IQAC Monthly Report Correction Required - ({reporting_month})"
+    body = (
+        f"Hello {username.title()},\n\n"
+        f"Your signed monthly report for the month '{reporting_month}' has been reviewed and correction has been requested.\n"
+    )
+    if remarks:
+        body += f"\nRemarks / Reason for correction:\n\"{remarks}\"\n\n"
+    body += (
+        f"Your report draft has been unlocked. Please log in to the IQAC Portal, edit the report details, download the corrected PDF, sign it, and upload the signed PDF again.\n\n"
+        f"Regards,\n"
+        f"IQAC System"
+    )
+    try:
+        send_email(email, subject, body)
+        print(f"Sent rejection email to coordinator {email}")
+    except Exception as ex:
+        print(f"Failed to send email to {email}: {str(ex)}")
+
 def get_nth_weekday_of_month(year, month, weekday, n):
     """Get the nth occurrence of a weekday in a month (0=Monday, 6=Sunday)"""
     first_day = datetime(year, month, 1)
@@ -534,6 +571,7 @@ def init_postgres():
             status VARCHAR(20) DEFAULT 'pending'
         )
     """)
+    cursor.execute("ALTER TABLE signed_reports ADD COLUMN IF NOT EXISTS remarks TEXT")
 
     # Create app_settings table for configurable options
     cursor.execute("""
@@ -2430,11 +2468,13 @@ def iqac_monthly_report():
 
     # Check if report is locked
     cursor.execute("""
-        SELECT status FROM signed_reports 
+        SELECT status, remarks FROM signed_reports 
         WHERE username=%s AND reporting_month=%s
     """, (username, reporting_month_str))
     signed_row = cursor.fetchone()
     locked = signed_row is not None and signed_row["status"] in ('pending_upload', 'uploaded', 'reviewed')
+    can_unlock = signed_row is not None and signed_row["status"] == 'pending_upload'
+    rejection_remarks = signed_row["remarks"] if (signed_row and signed_row["status"] == 'corrections_requested') else None
 
     conn.close()
 
@@ -2453,13 +2493,17 @@ def iqac_monthly_report():
                                reporting_month_display=reporting_month_display,
                                aqar_coordinator_names=AQAR_COORDINATOR_NAMES,
                                draft_data=draft_data,
-                               locked=locked)
+                               locked=locked,
+                               can_unlock=can_unlock,
+                               rejection_remarks=rejection_remarks)
 
     return render_template("iqac_monthly_report.html", username=username, user=user,
                            reporting_month_str=reporting_month_str,
                            reporting_month_display=reporting_month_display,
                            draft_data=draft_data,
-                           locked=locked)
+                           locked=locked,
+                           can_unlock=can_unlock,
+                           rejection_remarks=rejection_remarks)
 
 
 @app.route("/iqac_report/save_draft", methods=["POST"])
@@ -2553,11 +2597,23 @@ def iqac_report_view_raw(target_username, reporting_month):
         WHERE username=%s AND report_type=%s AND reporting_month=%s
     """, (target_username, report_type, reporting_month))
     draft_row = cursor.fetchone()
+
+    cursor.execute("""
+        SELECT status, remarks FROM signed_reports 
+        WHERE username=%s AND reporting_month=%s
+    """, (target_username, reporting_month))
+    signed_row = cursor.fetchone()
     conn.close()
 
     if not draft_row:
         flash(f"No raw data found for {target_username.title()} for the month {reporting_month}.", "warning")
         return redirect("/iqac_dashboard" if role not in ("admin", "secretary") else "/admin_signed_reports")
+
+    locked = signed_row is not None and signed_row["status"] in ('pending_upload', 'uploaded', 'reviewed')
+    can_unlock = (logged_user.lower() == target_username.lower() and 
+                  signed_row is not None and 
+                  signed_row["status"] == 'pending_upload')
+    rejection_remarks = signed_row["remarks"] if (signed_row and signed_row["status"] == 'corrections_requested') else None
 
     import json
     draft_data = None
@@ -2577,15 +2633,128 @@ def iqac_report_view_raw(target_username, reporting_month):
                                reporting_month_display=reporting_month_display,
                                aqar_coordinator_names=AQAR_COORDINATOR_NAMES,
                                draft_data=draft_data,
-                               locked=True)
+                               locked=locked,
+                               can_unlock=can_unlock,
+                               rejection_remarks=rejection_remarks)
 
     return render_template("iqac_monthly_report.html", username=target_username, user=target_user,
                            reporting_month_str=reporting_month,
                            reporting_month_display=reporting_month_display,
                            draft_data=draft_data,
-                           locked=True)
+                           locked=locked,
+                           can_unlock=can_unlock,
+                           rejection_remarks=rejection_remarks)
 
 
+
+
+# ------------------ IQAC REPORT: UNLOCK DRAFT ------------------
+@app.route("/iqac_report/unlock/<reporting_month>", methods=["POST"])
+def iqac_report_unlock(reporting_month):
+    if "username" not in session:
+        return redirect("/login")
+
+    username = session["username"]
+    conn = get_db_connection()
+    cursor = get_cursor(conn)
+
+    # Check current status
+    cursor.execute("""
+        SELECT status FROM signed_reports
+        WHERE username=%s AND reporting_month=%s
+    """, (username, reporting_month))
+    row = cursor.fetchone()
+
+    if not row:
+        conn.close()
+        flash("No report found to unlock.", "warning")
+        return redirect("/iqac_dashboard")
+
+    status = row["status"]
+    if status != 'pending_upload':
+        conn.close()
+        flash("You cannot unlock this report because it has already been uploaded or reviewed.", "danger")
+        return redirect("/iqac_dashboard")
+
+    # Delete from signed_reports to unlock the draft
+    try:
+        cursor.execute("""
+            DELETE FROM signed_reports
+            WHERE username=%s AND reporting_month=%s
+        """, (username, reporting_month))
+        conn.commit()
+        flash(f"Report draft for {reporting_month} has been unlocked for editing.", "success")
+    except Exception as e:
+        conn.rollback()
+        flash(f"Error unlocking report: {str(e)}", "danger")
+    finally:
+        conn.close()
+
+    return redirect("/iqac_dashboard")
+
+
+# ------------------ IQAC REPORT: REJECT/REQUEST CORRECTIONS ------------------
+@app.route("/admin_reject_report/<int:id>", methods=["POST"])
+def admin_reject_report(id):
+    if "username" not in session:
+        return redirect("/login")
+
+    conn = get_db_connection()
+    cursor = get_cursor(conn)
+
+    # Check permission
+    cursor.execute("SELECT * FROM users WHERE username=%s", (session["username"],))
+    admin = cursor.fetchone()
+
+    if not admin or admin["role"].lower() not in ("admin", "secretary"):
+        conn.close()
+        flash("Access denied.", "danger")
+        return redirect("/dashboard")
+
+    # Fetch report to be rejected
+    cursor.execute("SELECT * FROM signed_reports WHERE id=%s", (id,))
+    report = cursor.fetchone()
+    if not report:
+        conn.close()
+        flash("Report not found.", "danger")
+        return redirect("/admin_signed_reports")
+
+    reporting_month = report["reporting_month"]
+    target_username = report["username"]
+    uploaded_file_path = report["uploaded_file_path"]
+
+    # Delete physical file if exists
+    if uploaded_file_path:
+        static_dir = os.path.join(app.root_path, 'static')
+        full_path = os.path.join(static_dir, uploaded_file_path)
+        if os.path.exists(full_path):
+            try:
+                os.remove(full_path)
+            except Exception as e:
+                print(f"Error deleting rejected file {full_path}: {str(e)}")
+
+    remarks = request.form.get("remarks", "").strip()
+
+    # Update status to 'corrections_requested' and save remarks, clearing the uploaded file path
+    try:
+        cursor.execute("""
+            UPDATE signed_reports 
+            SET status = 'corrections_requested', remarks = %s, uploaded_file_path = NULL, uploaded_at = CURRENT_TIMESTAMP
+            WHERE id = %s
+        """, (remarks, id))
+        conn.commit()
+
+        # Send email notification to the coordinator
+        notify_coordinator_of_rejection(target_username, reporting_month, remarks)
+
+        flash(f"Correction requested for {target_username.title()}'s report ({reporting_month}). It has been unlocked.", "success")
+    except Exception as e:
+        conn.rollback()
+        flash(f"Error requesting corrections: {str(e)}", "danger")
+    finally:
+        conn.close()
+
+    return redirect("/admin_signed_reports")
 
 
 # ------------------ IQAC UPLOAD SIGNED REPORT ------------------
