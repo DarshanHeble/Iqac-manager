@@ -2477,6 +2477,20 @@ def iqac_monthly_report():
     can_unlock = signed_row is not None and signed_row["status"] == 'pending_upload'
     rejection_remarks = signed_row["remarks"] if (signed_row and signed_row["status"] == 'corrections_requested') else None
 
+    # Scan for existing workshop files
+    ws_files_map = {}
+    ws_upload_dir = os.path.join(app.root_path, 'static', 'signed_reports', 'workshop_attachments', username, reporting_month_str)
+    if os.path.exists(ws_upload_dir):
+        for f in os.listdir(ws_upload_dir):
+            if f.startswith("workshop_"):
+                try:
+                    parts = os.path.splitext(f)[0].split("_")
+                    if len(parts) > 1:
+                        idx = int(parts[1]) - 1
+                        ws_files_map[idx] = f
+                except Exception:
+                    pass
+
     conn.close()
 
     import json
@@ -2496,7 +2510,8 @@ def iqac_monthly_report():
                                draft_data=draft_data,
                                locked=locked,
                                can_unlock=can_unlock,
-                               rejection_remarks=rejection_remarks)
+                               rejection_remarks=rejection_remarks,
+                               ws_files_map=ws_files_map)
 
     return render_template("iqac_monthly_report.html", username=username, user=user,
                            reporting_month_str=reporting_month_str,
@@ -2504,7 +2519,8 @@ def iqac_monthly_report():
                            draft_data=draft_data,
                            locked=locked,
                            can_unlock=can_unlock,
-                           rejection_remarks=rejection_remarks)
+                           rejection_remarks=rejection_remarks,
+                           ws_files_map=ws_files_map)
 
 
 @app.route("/iqac_report/save_draft", methods=["POST"])
@@ -2521,10 +2537,24 @@ def iqac_report_save_draft():
         if not user or user["role"].lower() not in ("school iqac coordinator", "campus iqac coordinator"):
             return {"success": False, "error": "Access denied"}, 403
 
-        data = request.json or {}
-        report_type = data.get("report_type")
-        reporting_month = data.get("reporting_month")
-        form_data = data.get("form_data")
+        if request.is_json:
+            data = request.json or {}
+            report_type = data.get("report_type")
+            reporting_month = data.get("reporting_month")
+            form_data = data.get("form_data")
+        else:
+            report_type = request.form.get("report_type")
+            reporting_month = request.form.get("reporting_month")
+            
+            # Construct form_data dictionary from form values
+            form_data = {}
+            for key in request.form:
+                if key in ('report_type', 'reporting_month'):
+                    continue
+                if key.endswith('[]'):
+                    form_data[key] = request.form.getlist(key)
+                else:
+                    form_data[key] = request.form.get(key)
 
         if not report_type or not reporting_month or not form_data:
             return {"success": False, "error": "Missing required fields"}, 400
@@ -2548,6 +2578,44 @@ def iqac_report_save_draft():
             DO UPDATE SET form_data = EXCLUDED.form_data, updated_at = CURRENT_TIMESTAMP
         """, (username, report_type, reporting_month, form_data_str))
         conn.commit()
+
+        # If not JSON, save the uploaded workshop files and clean up orphaned ones
+        if not request.is_json:
+            import os
+            import glob
+            ws_upload_dir = os.path.join(app.root_path, "static", "signed_reports", "workshop_attachments", username, reporting_month)
+            ws_files = request.files.getlist("ws_report_file[]")
+            ws_titles = request.form.getlist("ws_title[]")
+            num_rows = len(ws_titles)
+            
+            if num_rows > 0:
+                os.makedirs(ws_upload_dir, exist_ok=True)
+                for i in range(num_rows):
+                    uploaded_file = ws_files[i] if i < len(ws_files) else None
+                    if uploaded_file and uploaded_file.filename:
+                        # Delete any existing workshop_{i+1}.* files to prevent duplicates
+                        for existing in glob.glob(os.path.join(ws_upload_dir, f"workshop_{i+1}.*")):
+                            try:
+                                os.remove(existing)
+                            except Exception:
+                                pass
+                        ext = os.path.splitext(uploaded_file.filename)[1]
+                        save_path = os.path.join(ws_upload_dir, f"workshop_{i+1}{ext}")
+                        uploaded_file.save(save_path)
+            
+            # Clean up orphaned files
+            if os.path.exists(ws_upload_dir):
+                for f in os.listdir(ws_upload_dir):
+                    if f.startswith("workshop_"):
+                        try:
+                            parts = os.path.splitext(f)[0].split("_")
+                            if len(parts) > 1:
+                                idx = int(parts[1])
+                                if idx > num_rows:
+                                    os.remove(os.path.join(ws_upload_dir, f))
+                        except Exception:
+                            pass
+
         return {"success": True, "message": "Draft saved successfully!"}
     except Exception as e:
         conn.rollback()
@@ -2604,6 +2672,21 @@ def iqac_report_view_raw(target_username, reporting_month):
         WHERE username=%s AND reporting_month=%s
     """, (target_username, reporting_month))
     signed_row = cursor.fetchone()
+
+    # Scan for existing workshop files
+    ws_files_map = {}
+    ws_upload_dir = os.path.join(app.root_path, 'static', 'signed_reports', 'workshop_attachments', target_username, reporting_month)
+    if os.path.exists(ws_upload_dir):
+        for f in os.listdir(ws_upload_dir):
+            if f.startswith("workshop_"):
+                try:
+                    parts = os.path.splitext(f)[0].split("_")
+                    if len(parts) > 1:
+                        idx = int(parts[1]) - 1
+                        ws_files_map[idx] = f
+                except Exception:
+                    pass
+
     conn.close()
 
     if not draft_row:
@@ -2636,7 +2719,8 @@ def iqac_report_view_raw(target_username, reporting_month):
                                draft_data=draft_data,
                                locked=locked,
                                can_unlock=can_unlock,
-                               rejection_remarks=rejection_remarks)
+                               rejection_remarks=rejection_remarks,
+                               ws_files_map=ws_files_map)
 
     return render_template("iqac_monthly_report.html", username=target_username, user=target_user,
                            reporting_month_str=reporting_month,
@@ -2644,7 +2728,8 @@ def iqac_report_view_raw(target_username, reporting_month):
                            draft_data=draft_data,
                            locked=locked,
                            can_unlock=can_unlock,
-                           rejection_remarks=rejection_remarks)
+                           rejection_remarks=rejection_remarks,
+                           ws_files_map=ws_files_map)
 
 
 

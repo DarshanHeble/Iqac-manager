@@ -102,16 +102,49 @@ def iqac_monthly_report_download():
     base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     ws_upload_dir = os.path.join(base_dir, "static", "signed_reports", "workshop_attachments", username, reporting_month)
 
+    import glob
     ws_files = request.files.getlist("ws_report_file[]")
     ws_attachments = []
-    if ws_files:
-        os.makedirs(ws_upload_dir, exist_ok=True)
-        for i, f in enumerate(ws_files):
-            if f and f.filename:
-                ext = os.path.splitext(f.filename)[1]
-                save_path = os.path.join(ws_upload_dir, f"workshop_{i+1}{ext}")
-                f.save(save_path)
-                ws_attachments.append((i, save_path, f.filename))
+    
+    # Let's count how many rows are in the form for workshops
+    ws_titles = request.form.getlist("ws_title[]")
+    num_rows = len(ws_titles)
+    
+    os.makedirs(ws_upload_dir, exist_ok=True)
+    
+    for i in range(num_rows):
+        uploaded_file = ws_files[i] if i < len(ws_files) else None
+        if uploaded_file and uploaded_file.filename:
+            # Delete any existing workshop_{i+1}.* files to prevent duplicates with different extensions
+            for existing in glob.glob(os.path.join(ws_upload_dir, f"workshop_{i+1}.*")):
+                try:
+                    os.remove(existing)
+                except Exception:
+                    pass
+            ext = os.path.splitext(uploaded_file.filename)[1]
+            save_path = os.path.join(ws_upload_dir, f"workshop_{i+1}{ext}")
+            uploaded_file.save(save_path)
+            ws_attachments.append((i, save_path, uploaded_file.filename))
+        else:
+            # No new file uploaded, check if an existing file exists on disk
+            existing_files = glob.glob(os.path.join(ws_upload_dir, f"workshop_{i+1}.*"))
+            if existing_files:
+                save_path = existing_files[0]
+                filename = os.path.basename(save_path)
+                ws_attachments.append((i, save_path, filename))
+
+    # Clean up orphaned files from deleted rows
+    if os.path.exists(ws_upload_dir):
+        for f in os.listdir(ws_upload_dir):
+            if f.startswith("workshop_"):
+                try:
+                    parts = os.path.splitext(f)[0].split("_")
+                    if len(parts) > 1:
+                        idx = int(parts[1])
+                        if idx > num_rows:
+                            os.remove(os.path.join(ws_upload_dir, f))
+                except Exception:
+                    pass
 
     pdf_buffer = _generate_iqac_pdf(request.form, ws_attachments)
     conn.close()

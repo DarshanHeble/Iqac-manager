@@ -240,11 +240,24 @@
                         </div>
                       </td>
                       <td class="text-center align-middle">
+                        {% set existing_file = ws_files_map.get(loop.index0) if ws_files_map else None %}
                         <input type="file" name="ws_report_file[]" class="d-none ws-file-input" accept=".pdf,.jpg,.jpeg,.png">
-                        <button type="button" class="btn btn-outline-secondary btn-sm ws-upload-btn" onclick="this.previousElementSibling.click()" title="Attach report file">
-                          <i class="bi bi-paperclip"></i>
-                        </button>
-                        <div class="ws-file-name text-muted mt-1" style="font-size:0.7rem; word-break:break-all;"></div>
+                        {% if existing_file %}
+                          <button type="button" class="btn btn-success btn-sm ws-upload-btn" onclick="this.previousElementSibling.click()" title="Change attached file">
+                            <i class="bi bi-check-circle"></i>
+                          </button>
+                          <div class="ws-file-name text-muted mt-1" style="font-size:0.7rem; word-break:break-all;">{{ existing_file }}</div>
+                          <div class="ws-existing-file-link mt-1">
+                            <a href="/static/signed_reports/workshop_attachments/{{ username }}/{{ reporting_month_str }}/{{ existing_file }}" target="_blank" class="text-success small fw-bold text-decoration-none" style="font-size: 0.72rem;">
+                              <i class="bi bi-eye"></i> View Attached
+                            </a>
+                          </div>
+                        {% else %}
+                          <button type="button" class="btn btn-outline-secondary btn-sm ws-upload-btn" onclick="this.previousElementSibling.click()" title="Attach report file">
+                            <i class="bi bi-paperclip"></i>
+                          </button>
+                          <div class="ws-file-name text-muted mt-1" style="font-size:0.7rem; word-break:break-all;"></div>
+                        {% endif %}
                       </td>
                       <td class="text-center align-middle"><button type="button" class="btn btn-danger btn-sm btn-del-row" onclick="delRow(this)"><i class="bi bi-trash"></i></button></td>
                     </tr>
@@ -308,7 +321,10 @@
             <div class="row mt-3">
               <div class="col-md-3">
                 <label class="form-label">Date</label>
-                <input type="date" name="footer_date" class="form-control" value="{{ draft_data.get('footer_date', datetime.now().strftime('%Y-%m-%d')) if draft_data else datetime.now().strftime('%Y-%m-%d') }}">
+                {% set fd_val = draft_data.get('footer_date', datetime.now().strftime('%Y-%m-%d')) if (draft_data and locked) else datetime.now().strftime('%Y-%m-%d') %}
+                {% set fd_disp = datetime.strptime(fd_val, '%Y-%m-%d').strftime('%d-%m-%Y') %}
+                <input type="hidden" name="footer_date" value="{{ fd_val }}">
+                <input type="text" id="footerDateDisplay" class="form-control bg-light" disabled readonly value="{{ fd_disp }}" style="cursor:not-allowed;">
               </div>
             </div>
           </div>
@@ -371,29 +387,18 @@
         const maxDate = `${reportingMonth}-${String(lastDay).padStart(2, '0')}`;
 
         (root || document).querySelectorAll('input[type="date"]').forEach(el => {
-          if (el.name !== 'footer_date') {
-            flatpickr(el, {
-              dateFormat: "Y-m-d",
-              altInput: true,
-              altFormat: "d-m-Y",
-              minDate: minDate,
-              maxDate: maxDate,
-              defaultDate: el.value || null,
-              onChange: function(selectedDates, dateStr, instance) {
-                el.value = dateStr;
-                el.dispatchEvent(new Event('change', { bubbles: true }));
-              }
-            });
-          } else {
-            const today = new Date().toISOString().split('T')[0];
-            flatpickr(el, {
-              dateFormat: "Y-m-d",
-              altInput: true,
-              altFormat: "d-m-Y",
-              maxDate: today,
-              defaultDate: el.value || today
-            });
-          }
+          flatpickr(el, {
+            dateFormat: "Y-m-d",
+            altInput: true,
+            altFormat: "d-m-Y",
+            minDate: minDate,
+            maxDate: maxDate,
+            defaultDate: el.value || null,
+            onChange: function(selectedDates, dateStr, instance) {
+              el.value = dateStr;
+              el.dispatchEvent(new Event('change', { bubbles: true }));
+            }
+          });
         });
       }
 
@@ -517,6 +522,7 @@
         newRow.querySelectorAll('input[type="number"]').forEach(el => el.value = '');
         newRow.querySelectorAll('input[type="file"]').forEach(el => el.value = '');
         newRow.querySelectorAll('.ws-file-name').forEach(el => el.textContent = '');
+        newRow.querySelectorAll('.ws-existing-file-link').forEach(el => el.remove());
         newRow.querySelectorAll('.ws-upload-btn').forEach(btn => { btn.classList.remove('btn-success'); btn.classList.add('btn-outline-secondary'); btn.innerHTML = '<i class="bi bi-paperclip"></i>'; });
         newRow.querySelectorAll('.resp-cb').forEach(cb => cb.checked = false);
         newRow.querySelectorAll('.resp-area-checklist').forEach(cl => cl.style.display = 'none');
@@ -676,35 +682,17 @@
         btn.innerHTML = '<i class="bi bi-hourglass-split me-2"></i>Saving…';
 
         const formData = new FormData(form);
-        const formObj = {};
-        for (let [key, val] of formData.entries()) {
-          // Bypassing file uploads in drafts
-          if (val instanceof File) {
-            continue;
-          }
-          if (key.endsWith('[]')) {
-            if (!formObj[key]) formObj[key] = [];
-            formObj[key].push(val);
-          } else {
-            formObj[key] = val;
-          }
-        }
-
-        const payload = {
-          report_type: 'standard',
-          reporting_month: form.querySelector('[name="reporting_month"]').value,
-          form_data: formObj
-        };
+        formData.append('report_type', 'standard');
 
         fetch('/iqac_report/save_draft', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload)
+          body: formData
         })
         .then(r => r.json())
         .then(res => {
           if (res.success) {
             alert('Draft saved successfully!');
+            window.location.reload();
           } else {
             alert('Failed to save draft: ' + res.error);
           }

@@ -365,7 +365,10 @@
               </div>
               <div class="col-md-4">
                 <label class="form-label">Date</label>
-                <input type="date" name="footer_date" class="form-control" value="{{ draft_data.get('footer_date', datetime.now().strftime('%Y-%m-%d')) if draft_data else datetime.now().strftime('%Y-%m-%d') }}">
+                {% set fd_val = draft_data.get('footer_date', datetime.now().strftime('%Y-%m-%d')) if (draft_data and locked) else datetime.now().strftime('%Y-%m-%d') %}
+                {% set fd_disp = datetime.strptime(fd_val, '%Y-%m-%d').strftime('%d-%m-%Y') %}
+                <input type="hidden" name="footer_date" value="{{ fd_val }}">
+                <input type="text" id="footerDateDisplay" class="form-control bg-light" disabled readonly value="{{ fd_disp }}" style="cursor:not-allowed;">
               </div>
               <div class="col-md-4">
                 <label class="form-label">Remarks of Director, IQAC</label>
@@ -432,29 +435,18 @@
         const maxDate = `${reportingMonth}-${String(lastDay).padStart(2, '0')}`;
 
         (root || document).querySelectorAll('input[type="date"]').forEach(el => {
-          if (el.name !== 'footer_date') {
-            flatpickr(el, {
-              dateFormat: "Y-m-d",
-              altInput: true,
-              altFormat: "d-m-Y",
-              minDate: minDate,
-              maxDate: maxDate,
-              defaultDate: el.value || null,
-              onChange: function(selectedDates, dateStr, instance) {
-                el.value = dateStr;
-                el.dispatchEvent(new Event('change', { bubbles: true }));
-              }
-            });
-          } else {
-            const today = new Date().toISOString().split('T')[0];
-            flatpickr(el, {
-              dateFormat: "Y-m-d",
-              altInput: true,
-              altFormat: "d-m-Y",
-              maxDate: today,
-              defaultDate: el.value || today
-            });
-          }
+          flatpickr(el, {
+            dateFormat: "Y-m-d",
+            altInput: true,
+            altFormat: "d-m-Y",
+            minDate: minDate,
+            maxDate: maxDate,
+            defaultDate: el.value || null,
+            onChange: function(selectedDates, dateStr, instance) {
+              el.value = dateStr;
+              el.dispatchEvent(new Event('change', { bubbles: true }));
+            }
+          });
         });
       }
 
@@ -773,31 +765,17 @@
         btn.innerHTML = '<i class="bi bi-hourglass-split me-2"></i>Saving…';
 
         const formData = new FormData(form);
-        const formObj = {};
-        for (let [key, val] of formData.entries()) {
-          if (key.endsWith('[]')) {
-            if (!formObj[key]) formObj[key] = [];
-            formObj[key].push(val);
-          } else {
-            formObj[key] = val;
-          }
-        }
-
-        const payload = {
-          report_type: 'aqar_coordinator',
-          reporting_month: form.querySelector('[name="reporting_month"]').value,
-          form_data: formObj
-        };
+        formData.append('report_type', 'aqar_coordinator');
 
         fetch('/iqac_report/save_draft', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload)
+          body: formData
         })
         .then(r => r.json())
         .then(res => {
           if (res.success) {
             alert('Draft saved successfully!');
+            window.location.reload();
           } else {
             alert('Failed to save draft: ' + res.error);
           }
