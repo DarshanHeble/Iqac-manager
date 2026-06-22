@@ -33,6 +33,8 @@
       .btn-add-row { font-size: 0.8rem; }
       .btn-del-row { font-size: 0.8rem; padding: 2px 8px; }
       .is-invalid-custom { border: 2px solid #dc3545 !important; box-shadow: 0 0 0 0.2rem rgba(220,53,69,.25) !important; }
+      .resp-area-wrapper { position: relative; }
+      .table-responsive { overflow: visible !important; }
     </style>
   </head>
   <body>
@@ -46,7 +48,7 @@
         </a>
         <div class="header-title">
           <h5>INTERNAL QUALITY ASSURANCE CELL (IQAC)</h5>
-          <small style="font-size:0.8rem; font-weight:400;">Monthly Work Done Report – IQAC Coordinators (AQAR Aligned)</small>
+          <small style="font-size:0.8rem; font-weight:400;">Monthly Work Done Report</small>
         </div>
         <div>
           <span class="text-light me-3">{{ username.title() }}</span>
@@ -60,11 +62,8 @@
         <!-- ── Report Header / Particulars ── -->
         <div class="card mb-4">
           <div class="card-body">
-            <h6 class="text-primary mb-1">Monthly Work Done Report – IQAC Coordinators (AQAR Aligned)</h6>
+            <h6 class="text-primary mb-1">Monthly Work Done Report</h6>
             <p class="text-muted small mb-3">(AQAR | NAAC | Rankings/Awards | Quality Assurance Activities)</p>
-            <p class="mb-3" style="font-size:0.9rem; color:#003366; font-weight:600;">
-              {{ aqar_coordinator_names | join(', ') }}
-            </p>
             <div class="table-responsive">
               <table class="table table-bordered mb-0" style="font-size:0.9rem;">
                 <tbody>
@@ -90,9 +89,24 @@
                     </td>
                   </tr>
                   <tr>
-                    <td style="background:#e9ecef; font-weight:600;">Responsibility Area(s)</td>
-                    <td class="text-muted" style="font-size:0.85rem;">
-                      AQAR / NAAC / Rankings/Awards / Audits / Documentation / Others
+                    <td style="background:#e9ecef; font-weight:600; vertical-align: middle;">Responsibility Area(s)</td>
+                    <td style="position: relative;">
+                      {% set resp_areas_val = draft_data.get('responsibility_areas', '') if (draft_data and draft_data.get('responsibility_areas') is not none) else '' %}
+                      {% set selected_resp_areas = resp_areas_val.split(', ') if resp_areas_val else [] %}
+                      <div class="resp-area-wrapper">
+                        <input type="hidden" name="responsibility_areas" class="resp-area-hidden" value="{{ resp_areas_val }}">
+                        <div class="resp-area-display border rounded px-2 py-1" style="min-height:34px; cursor:pointer; font-size:0.85rem; background:#fff; display:flex; flex-wrap:wrap; gap:3px; align-items:center;">
+                          <span class="resp-area-placeholder text-muted fst-italic" style="font-size:0.85rem;">Click to select…</span>
+                        </div>
+                        <div class="resp-area-checklist border rounded p-2 mt-1 bg-white shadow-sm" style="display:none; max-height:200px; overflow-y:auto; font-size:0.85rem; z-index:1000; position:absolute; left:0; right:0; min-width:280px;">
+                          <label class="d-flex align-items-start gap-1 mb-1"><input type="checkbox" class="resp-cb mt-1" value="AQAR" {% if 'AQAR' in selected_resp_areas %}checked{% endif %}> AQAR</label>
+                          <label class="d-flex align-items-start gap-1 mb-1"><input type="checkbox" class="resp-cb mt-1" value="NAAC" {% if 'NAAC' in selected_resp_areas %}checked{% endif %}> NAAC</label>
+                          <label class="d-flex align-items-start gap-1 mb-1"><input type="checkbox" class="resp-cb mt-1" value="Rankings/Awards" {% if 'Rankings/Awards' in selected_resp_areas %}checked{% endif %}> Rankings/Awards</label>
+                          <label class="d-flex align-items-start gap-1 mb-1"><input type="checkbox" class="resp-cb mt-1" value="Audits" {% if 'Audits' in selected_resp_areas %}checked{% endif %}> Audits</label>
+                          <label class="d-flex align-items-start gap-1 mb-1"><input type="checkbox" class="resp-cb mt-1" value="Documentation" {% if 'Documentation' in selected_resp_areas %}checked{% endif %}> Documentation</label>
+                          <label class="d-flex align-items-start gap-1 mb-0"><input type="checkbox" class="resp-cb mt-1" value="Others" {% if 'Others' in selected_resp_areas %}checked{% endif %}> Others</label>
+                        </div>
+                      </div>
                     </td>
                   </tr>
                 </tbody>
@@ -356,6 +370,27 @@
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
     <script>
+      function syncRespArea(wrapper) {
+        const checked = Array.from(wrapper.querySelectorAll('.resp-cb:checked')).map(c => c.value);
+        const hidden = wrapper.querySelector('.resp-area-hidden');
+        if (hidden) hidden.value = checked.join(', ');
+        const display = wrapper.querySelector('.resp-area-display');
+        if (!display) return;
+        display.innerHTML = '';
+        if (checked.length === 0) {
+          display.innerHTML = '<span class="resp-area-placeholder text-muted fst-italic" style="font-size:0.85rem;">Click to select…</span>';
+        } else {
+          checked.forEach(val => {
+            const badge = document.createElement('span');
+            badge.className = 'badge rounded-pill text-bg-primary me-1 mb-1';
+            badge.style.cssText = 'font-size:0.75rem; font-weight:500; white-space:normal; text-align:left;';
+            badge.textContent = val;
+            display.appendChild(badge);
+          });
+        }
+        return checked;
+      }
+
       function applyDateMax(root) {
         const reportingMonth = "{{ reporting_month_str }}"; // "YYYY-MM"
         if (!reportingMonth) return;
@@ -408,6 +443,31 @@
         });
         // Show/hide "Other" text input based on select
         document.querySelectorAll('select[name="act_area[]"], select[name="plan_area[]"]').forEach(bindOtherToggle);
+        document.querySelectorAll('.resp-area-wrapper').forEach(wrapper => {
+          wrapper.querySelector('.resp-area-checklist').style.display = 'none';
+          syncRespArea(wrapper);
+        });
+      });
+
+      // ── Toggle checklist on display click ──
+      document.addEventListener('click', function(e) {
+        const display = e.target.closest('.resp-area-display');
+        if (display) {
+          const checklist = display.parentElement.querySelector('.resp-area-checklist');
+          checklist.style.display = checklist.style.display === 'none' ? 'block' : 'none';
+          return;
+        }
+        // Click outside wrapper → close all
+        if (!e.target.closest('.resp-area-wrapper')) {
+          document.querySelectorAll('.resp-area-checklist').forEach(cl => cl.style.display = 'none');
+        }
+      });
+
+      // ── Checkbox change: sync display + hidden ──
+      document.addEventListener('change', function(e) {
+        if (!e.target.classList.contains('resp-cb')) return;
+        const wrapper = e.target.closest('.resp-area-wrapper');
+        if (wrapper) syncRespArea(wrapper);
       });
 
       // ── "Others" area toggle ──

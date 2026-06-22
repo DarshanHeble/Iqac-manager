@@ -596,13 +596,8 @@ def _generate_aqar_coordinator_pdf(form_data, aqar_names=None):
 
     # ── Title ──
     elements.append(Paragraph('INTERNAL QUALITY ASSURANCE CELL (IQAC)', make_style('aqar_h1', size=13, bold=True, align=TA_CENTER, space_after=4)))
-    elements.append(Paragraph('Monthly Work Done Report – IQAC Coordinators (AQAR Aligned)', make_style('aqar_h2', size=10, bold=True, align=TA_CENTER, space_after=4)))
-    elements.append(Paragraph('(AQAR | NAAC | Rankings | Awards | Quality Assurance Activities)', make_style('aqar_h3', size=8, align=TA_CENTER, space_after=4, italic=True)))
-
-    # Names line
-    if aqar_names:
-        names_str = ', '.join(aqar_names)
-        elements.append(Paragraph(names_str, make_style('aqar_names', size=9, bold=True, align=TA_CENTER, space_after=6)))
+    elements.append(Paragraph('Monthly Work Done Report', make_style('aqar_h2', size=10, bold=True, align=TA_CENTER, space_after=4)))
+    elements.append(Paragraph('(AQAR | NAAC | Rankings/Awards | Quality Assurance Activities)', make_style('aqar_h3', size=8, align=TA_CENTER, space_after=4, italic=True)))
 
     elements.append(HRFlowable(width=usable_width, thickness=2, color=accent, spaceAfter=10))
 
@@ -615,6 +610,10 @@ def _generate_aqar_coordinator_pdf(form_data, aqar_names=None):
     except Exception:
         rep_month_display = rep_month_raw
 
+    resp_areas_val = form_data.get('responsibility_areas', '')
+    if not resp_areas_val:
+        resp_areas_val = 'AQAR / NAAC / Rankings/Awards / Audits / Documentation / Others'
+
     w = usable_width
     particulars_data = [
         [Paragraph('<b>Particulars</b>', make_style('aqar_p_lbl', size=9, bold=True, space_after=0)),
@@ -626,7 +625,7 @@ def _generate_aqar_coordinator_pdf(form_data, aqar_names=None):
         [Paragraph('Reporting Month', make_style('aqar_p3', size=9, space_after=0)),
          Paragraph(rep_month_display, make_style('aqar_pv3', size=9, space_after=0))],
         [Paragraph('Responsibility Area(s)', make_style('aqar_p4', size=9, space_after=0)),
-         Paragraph('AQAR / NAAC / Rankings/Awards / Audits / Documentation / Others', make_style('aqar_pv4', size=9, space_after=0))],
+         Paragraph(resp_areas_val, make_style('aqar_pv4', size=9, space_after=0))],
     ]
     particulars_table = Table(particulars_data, colWidths=[w * 0.35, w * 0.65])
     particulars_table.setStyle(TableStyle([
