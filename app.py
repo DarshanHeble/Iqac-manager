@@ -2904,6 +2904,49 @@ def admin_reject_report(id):
     return redirect("/admin_signed_reports")
 
 
+# ------------------ VIEW SIGNED REPORT (PROXY) ------------------
+@app.route("/view_report/<int:report_id>")
+def view_report(report_id):
+    if 'username' not in session:
+        return redirect('/login')
+
+    conn = get_db_connection()
+    cursor = get_cursor(conn)
+    cursor.execute("SELECT * FROM users WHERE username=%s", (session['username'],))
+    user = cursor.fetchone()
+    cursor.execute("SELECT * FROM signed_reports WHERE id=%s", (report_id,))
+    report = cursor.fetchone()
+    conn.close()
+
+    if not user or not report:
+        flash("Report not found.", "danger")
+        return redirect('/admin_signed_reports')
+
+    role = user['role'].lower()
+    is_admin = role in ('admin', 'secretary')
+    is_owner = user['username'] == report['username']
+    if not is_admin and not is_owner:
+        flash("Access denied.", "danger")
+        return redirect('/dashboard')
+
+    if not report['uploaded_file_path']:
+        flash("No file uploaded for this report.", "danger")
+        return redirect('/admin_signed_reports')
+
+    try:
+        with urllib.request.urlopen(report['uploaded_file_path']) as resp:
+            file_data = resp.read()
+        from flask import Response
+        return Response(
+            file_data,
+            mimetype='application/pdf',
+            headers={'Content-Disposition': 'inline; filename="signed_report.pdf"'}
+        )
+    except Exception as e:
+        flash("Could not load report file.", "danger")
+        return redirect('/admin_signed_reports')
+
+
 # ------------------ IQAC UPLOAD SIGNED REPORT ------------------
 ALLOWED_UPLOAD_EXTENSIONS = {'pdf', 'jpg', 'jpeg', 'png'}
 
