@@ -7,8 +7,8 @@ import cloudinary
 import cloudinary.uploader
 
 def _cloudinary_upload_ws(file_obj, username, reporting_month, index):
-    public_id = f"iqac/workshop_attachments/{username}/{reporting_month}/workshop_{index + 1}"
-    result = cloudinary.uploader.upload(file_obj, folder="iqac/workshop_attachments", public_id=public_id, resource_type="auto", overwrite=True)
+    public_id = f"{username}/{reporting_month}/workshop_{index + 1}"
+    result = cloudinary.uploader.upload(file_obj, folder="iqac/workshop_attachments", public_id=public_id, resource_type="auto", access_mode="public", overwrite=True)
     return result["secure_url"], result["public_id"]
 
 # ReportLab for PDF generation

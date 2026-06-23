@@ -30,8 +30,8 @@ cloudinary.config(
     secure=True
 )
 
-def cloudinary_upload(file_obj, folder, public_id=None):
-    opts = {"folder": folder, "resource_type": "auto"}
+def cloudinary_upload(file_obj, folder, public_id=None, resource_type="auto"):
+    opts = {"folder": folder, "resource_type": resource_type, "access_mode": "public"}
     if public_id:
         opts["public_id"] = public_id
         opts["overwrite"] = True
@@ -2955,10 +2955,10 @@ def iqac_upload_signed_report():
         conn.close()
         return redirect("/iqac_dashboard")
 
-    # Upload to Cloudinary
-    public_id = f"iqac/signed_reports/{secure_filename(username)}_{reporting_month}"
+    # Upload to Cloudinary (public_id excludes folder since folder param already sets it)
+    public_id = f"{secure_filename(username)}_{reporting_month}"
     try:
-        file_url, cld_public_id = cloudinary_upload(uploaded_file, folder="iqac/signed_reports", public_id=public_id)
+        file_url, cld_public_id = cloudinary_upload(uploaded_file, folder="iqac/signed_reports", public_id=public_id, resource_type="raw")
     except Exception as e:
         flash(f"File upload failed: {str(e)}", "danger")
         conn.close()
