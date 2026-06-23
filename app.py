@@ -2937,10 +2937,13 @@ def view_report(report_id):
         with urllib.request.urlopen(report['uploaded_file_path']) as resp:
             file_data = resp.read()
         from flask import Response
+        download = request.args.get('download') == '1'
+        disposition = 'attachment' if download else 'inline'
+        filename = f"signed_report_{report['reporting_month']}.pdf"
         return Response(
             file_data,
             mimetype='application/pdf',
-            headers={'Content-Disposition': 'inline; filename="signed_report.pdf"'}
+            headers={'Content-Disposition': f'{disposition}; filename="{filename}"'}
         )
     except Exception as e:
         flash("Could not load report file.", "danger")

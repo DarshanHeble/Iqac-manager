@@ -132,7 +132,7 @@
                         <a href="/view_report/{{ r.id }}" target="_blank" class="btn btn-outline-primary btn-sm me-1" title="View Signed Report">
                           <i class="bi bi-eye"></i> View Report
                         </a>
-                        <a href="{{ r.uploaded_file_path }}" download class="btn btn-outline-secondary btn-sm me-1" title="Download Signed Report">
+                        <a href="/view_report/{{ r.id }}?download=1" class="btn btn-outline-secondary btn-sm me-1" title="Download Signed Report">
                           <i class="bi bi-download"></i>
                         </a>
                         {% endif %}
