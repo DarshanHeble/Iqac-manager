@@ -128,12 +128,14 @@
                         <a href="/iqac_report/view_raw/{{ r.username }}/{{ r.reporting_month }}" target="_blank" class="btn btn-outline-info btn-sm me-1" title="View Raw Data">
                           <i class="bi bi-file-earmark-text"></i> View Raw Data
                         </a>
+                        {% if r.uploaded_file_path %}
                         <a href="{{ url_for('static', filename=r.uploaded_file_path) }}" target="_blank" class="btn btn-outline-primary btn-sm me-1" title="View Signed Report">
                           <i class="bi bi-eye"></i> View Report
                         </a>
                         <a href="{{ url_for('static', filename=r.uploaded_file_path) }}" download class="btn btn-outline-secondary btn-sm me-1" title="Download Signed Report">
                           <i class="bi bi-download"></i>
                         </a>
+                        {% endif %}
                         {% if workshop_attachments.get(r.username) %}
                           <button type="button" class="btn btn-outline-info btn-sm me-1" title="View Workshop Attachments"
                             data-bs-toggle="modal" data-bs-target="#wsModal{{ loop.index }}">
