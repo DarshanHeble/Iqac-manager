@@ -1315,21 +1315,21 @@ def admin_panel():
 
     # Which coordinators have NOT submitted
     cursor.execute("""
-        SELECT username FROM users WHERE role IN ('School IQAC Coordinator', 'Campus IQAC Coordinator')
+        SELECT username, full_name FROM users WHERE role IN ('School IQAC Coordinator', 'Campus IQAC Coordinator')
         AND username NOT IN (
             SELECT DISTINCT username FROM signed_reports WHERE reporting_month = %s
         )
     """, (current_report_month,))
-    pending_coordinators = [r['username'] for r in cursor.fetchall()]
+    pending_coordinators = [r['full_name'] or r['username'] for r in cursor.fetchall()]
 
     # Which coordinators HAVE submitted
     cursor.execute("""
-        SELECT DISTINCT u.username FROM users u
+        SELECT DISTINCT u.username, u.full_name FROM users u
         JOIN signed_reports sr ON sr.username = u.username
         WHERE u.role IN ('School IQAC Coordinator', 'Campus IQAC Coordinator')
         AND sr.reporting_month = %s
     """, (current_report_month,))
-    submitted_coordinator_names = [r['username'] for r in cursor.fetchall()]
+    submitted_coordinator_names = [r['full_name'] or r['username'] for r in cursor.fetchall()]
 
     # Handle submission window settings update
     if request.method == "POST" and "update_window" in request.form:
@@ -3125,20 +3125,20 @@ def secretary_dashboard():
     submission_pct = int((submitted_coordinators / total_coordinators * 100) if total_coordinators > 0 else 0)
 
     cursor.execute("""
-        SELECT username FROM users WHERE role IN ('School IQAC Coordinator', 'Campus IQAC Coordinator')
+        SELECT username, full_name FROM users WHERE role IN ('School IQAC Coordinator', 'Campus IQAC Coordinator')
         AND username NOT IN (
             SELECT DISTINCT username FROM signed_reports WHERE reporting_month = %s
         )
     """, (current_report_month,))
-    pending_coordinators = [r['username'] for r in cursor.fetchall()]
+    pending_coordinators = [r['full_name'] or r['username'] for r in cursor.fetchall()]
 
     cursor.execute("""
-        SELECT DISTINCT u.username FROM users u
+        SELECT DISTINCT u.username, u.full_name FROM users u
         JOIN signed_reports sr ON sr.username = u.username
         WHERE u.role IN ('School IQAC Coordinator', 'Campus IQAC Coordinator')
         AND sr.reporting_month = %s
     """, (current_report_month,))
-    submitted_coordinator_names = [r['username'] for r in cursor.fetchall()]
+    submitted_coordinator_names = [r['full_name'] or r['username'] for r in cursor.fetchall()]
 
     # Coordinators list for Quick Summary dropdown
     cursor.execute("SELECT username, role FROM users WHERE role IN ('School IQAC Coordinator', 'Campus IQAC Coordinator') ORDER BY username")
