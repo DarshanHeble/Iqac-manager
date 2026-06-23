@@ -559,6 +559,7 @@ def init_postgres():
         )
     """)
     cursor.execute("ALTER TABLE worklog ADD COLUMN IF NOT EXISTS attachment TEXT")
+    cursor.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS full_name VARCHAR(255)")
 
     # Create signed_reports table for IQAC Coordinator uploaded reports
     cursor.execute("""
