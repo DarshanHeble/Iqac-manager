@@ -3,6 +3,13 @@ import os
 from datetime import datetime
 from io import BytesIO
 from db import get_db_connection, get_cursor
+import cloudinary
+import cloudinary.uploader
+
+def _cloudinary_upload_ws(file_obj, username, reporting_month, index):
+    public_id = f"iqac/workshop_attachments/{username}/{reporting_month}/workshop_{index + 1}"
+    result = cloudinary.uploader.upload(file_obj, folder="iqac/workshop_attachments", public_id=public_id, resource_type="auto", overwrite=True)
+    return result["secure_url"], result["public_id"]
 
 # ReportLab for PDF generation
 try:
@@ -99,52 +106,54 @@ def iqac_monthly_report_download():
         print("Error saving draft/signed_reports:", str(e))
         conn.rollback()
 
-    base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    ws_upload_dir = os.path.join(base_dir, "static", "signed_reports", "workshop_attachments", username, reporting_month)
-
-    import glob
     ws_files = request.files.getlist("ws_report_file[]")
-    ws_attachments = []
-    
-    # Let's count how many rows are in the form for workshops
     ws_titles = request.form.getlist("ws_title[]")
     num_rows = len(ws_titles)
-    
-    os.makedirs(ws_upload_dir, exist_ok=True)
-    
+    ws_attachments = []  # list of (index, cloudinary_url, filename)
+
+    # Load existing workshop attachments from DB for this user/month
+    db_conn2 = get_db_connection()
+    db_cur2 = get_cursor(db_conn2)
+    db_cur2.execute("""
+        SELECT workshop_index, filename, cloudinary_url
+        FROM workshop_attachment_files
+        WHERE username=%s AND reporting_month=%s
+    """, (username, reporting_month))
+    existing_ws = {row["workshop_index"]: row for row in db_cur2.fetchall()}
+    db_conn2.close()
+
     for i in range(num_rows):
         uploaded_file = ws_files[i] if i < len(ws_files) else None
         if uploaded_file and uploaded_file.filename:
-            # Delete any existing workshop_{i+1}.* files to prevent duplicates with different extensions
-            for existing in glob.glob(os.path.join(ws_upload_dir, f"workshop_{i+1}.*")):
-                try:
-                    os.remove(existing)
-                except Exception:
-                    pass
-            ext = os.path.splitext(uploaded_file.filename)[1]
-            save_path = os.path.join(ws_upload_dir, f"workshop_{i+1}{ext}")
-            uploaded_file.save(save_path)
-            ws_attachments.append((i, save_path, uploaded_file.filename))
-        else:
-            # No new file uploaded, check if an existing file exists on disk
-            existing_files = glob.glob(os.path.join(ws_upload_dir, f"workshop_{i+1}.*"))
-            if existing_files:
-                save_path = existing_files[0]
-                filename = os.path.basename(save_path)
-                ws_attachments.append((i, save_path, filename))
+            try:
+                cld_url, cld_pid = _cloudinary_upload_ws(uploaded_file, username, reporting_month, i)
+                # Upsert into DB
+                db_conn3 = get_db_connection()
+                db_cur3 = get_cursor(db_conn3)
+                db_cur3.execute("""
+                    INSERT INTO workshop_attachment_files (username, reporting_month, workshop_index, filename, cloudinary_url, cloudinary_public_id)
+                    VALUES (%s, %s, %s, %s, %s, %s)
+                    ON CONFLICT (username, reporting_month, workshop_index)
+                    DO UPDATE SET filename=EXCLUDED.filename, cloudinary_url=EXCLUDED.cloudinary_url, cloudinary_public_id=EXCLUDED.cloudinary_public_id, uploaded_at=CURRENT_TIMESTAMP
+                """, (username, reporting_month, i, uploaded_file.filename, cld_url, cld_pid))
+                db_conn3.commit()
+                db_conn3.close()
+                ws_attachments.append((i, cld_url, uploaded_file.filename))
+            except Exception as e:
+                print(f"Workshop upload error row {i}: {e}")
+        elif i in existing_ws:
+            ws_attachments.append((i, existing_ws[i]["cloudinary_url"], existing_ws[i]["filename"]))
 
-    # Clean up orphaned files from deleted rows
-    if os.path.exists(ws_upload_dir):
-        for f in os.listdir(ws_upload_dir):
-            if f.startswith("workshop_"):
-                try:
-                    parts = os.path.splitext(f)[0].split("_")
-                    if len(parts) > 1:
-                        idx = int(parts[1])
-                        if idx > num_rows:
-                            os.remove(os.path.join(ws_upload_dir, f))
-                except Exception:
-                    pass
+    # Delete DB records for rows that no longer exist
+    if num_rows < len(existing_ws):
+        db_conn4 = get_db_connection()
+        db_cur4 = get_cursor(db_conn4)
+        db_cur4.execute("""
+            DELETE FROM workshop_attachment_files
+            WHERE username=%s AND reporting_month=%s AND workshop_index >= %s
+        """, (username, reporting_month, num_rows))
+        db_conn4.commit()
+        db_conn4.close()
 
     pdf_buffer = _generate_iqac_pdf(request.form, ws_attachments)
     conn.close()
@@ -389,10 +398,15 @@ def _generate_iqac_pdf(form_data, ws_attachments=None):
             
             title_para_text = ws_title
             if attachment_name:
-                username = session.get('username', '')
-                rep_month_raw = form_data.get('reporting_month', '')
-                file_url = f"{request.host_url}static/signed_reports/workshop_attachments/{username}/{rep_month_raw}/{attachment_name}"
-                title_para_text += f"<br/><a href='{file_url}' color='blue'><b>View Attachment:</b> {attachment_name}</a>"
+                # ws_attachments now stores (index, cloudinary_url, filename)
+                file_url = None
+                if ws_attachments:
+                    for att_idx, att_url, _ in ws_attachments:
+                        if att_idx == i:
+                            file_url = att_url
+                            break
+                if file_url:
+                    title_para_text += f"<br/><a href='{file_url}' color='blue'><b>View Attachment:</b> {attachment_name}</a>"
 
             pb_data.append([
                 Paragraph(format_date(ws_dates[i]) if i < len(ws_dates) else '', small),

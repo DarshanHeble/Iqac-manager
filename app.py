@@ -20,6 +20,30 @@ app.secret_key = os.getenv("SECRET_KEY", "your_secret_key")
 from routes.pdf import pdf_bp
 app.register_blueprint(pdf_bp)
 
+# Cloudinary configuration
+import cloudinary
+import cloudinary.uploader
+cloudinary.config(
+    cloud_name=os.getenv("CLOUDINARY_CLOUD_NAME"),
+    api_key=os.getenv("CLOUDINARY_API_KEY"),
+    api_secret=os.getenv("CLOUDINARY_API_SECRET"),
+    secure=True
+)
+
+def cloudinary_upload(file_obj, folder, public_id=None):
+    opts = {"folder": folder, "resource_type": "auto"}
+    if public_id:
+        opts["public_id"] = public_id
+        opts["overwrite"] = True
+    result = cloudinary.uploader.upload(file_obj, **opts)
+    return result["secure_url"], result["public_id"]
+
+def cloudinary_delete(public_id, resource_type="auto"):
+    try:
+        cloudinary.uploader.destroy(public_id, resource_type=resource_type)
+    except Exception as e:
+        print(f"Cloudinary delete error: {e}")
+
 # Make datetime and timedelta available in all templates
 app.jinja_env.globals['datetime'] = datetime
 app.jinja_env.globals['timedelta'] = timedelta
@@ -574,6 +598,22 @@ def init_postgres():
     """)
     cursor.execute("ALTER TABLE signed_reports ADD COLUMN IF NOT EXISTS remarks TEXT")
     cursor.execute("ALTER TABLE signed_reports ALTER COLUMN status TYPE VARCHAR(50)")
+    cursor.execute("ALTER TABLE signed_reports ADD COLUMN IF NOT EXISTS cloudinary_public_id VARCHAR(500)")
+
+    # Create workshop_attachment_files table for Cloudinary-stored workshop files
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS workshop_attachment_files (
+            id SERIAL PRIMARY KEY,
+            username VARCHAR(255) NOT NULL,
+            reporting_month VARCHAR(20) NOT NULL,
+            workshop_index INTEGER NOT NULL,
+            filename VARCHAR(500),
+            cloudinary_url VARCHAR(1000),
+            cloudinary_public_id VARCHAR(500),
+            uploaded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE (username, reporting_month, workshop_index)
+        )
+    """)
 
     # Create app_settings table for configurable options
     cursor.execute("""
@@ -2404,20 +2444,24 @@ def iqac_dashboard():
     cursor.execute("SELECT * FROM signed_reports WHERE username=%s ORDER BY uploaded_at DESC", (username,))
     submitted_reports = cursor.fetchall()
 
-    # Collect workshop attachments for coordinator's submitted reports
-    import os
-    ws_att_base = os.path.join(app.root_path, 'static', 'signed_reports', 'workshop_attachments')
+    # Query workshop attachments from DB (Cloudinary URLs)
+    months = [r['reporting_month'] for r in submitted_reports]
     workshop_attachments = {}
-    if os.path.isdir(ws_att_base):
-        for r in submitted_reports:
-            month_dir = os.path.join(ws_att_base, username, r['reporting_month'])
-            if os.path.isdir(month_dir):
-                files = [f for f in os.listdir(month_dir) if not f.startswith('.')]
-                if files:
-                    workshop_attachments[r['reporting_month']] = [
-                        {'name': f, 'path': f'signed_reports/workshop_attachments/{username}/{r["reporting_month"]}/{f}'}
-                        for f in sorted(files)
-                    ]
+    if months:
+        ws_conn = get_db_connection()
+        ws_cur = get_cursor(ws_conn)
+        ws_cur.execute("""
+            SELECT reporting_month, filename, cloudinary_url, workshop_index
+            FROM workshop_attachment_files
+            WHERE username = %s AND reporting_month = ANY(%s)
+            ORDER BY reporting_month, workshop_index
+        """, (username, months))
+        for row in ws_cur.fetchall():
+            m = row["reporting_month"]
+            if m not in workshop_attachments:
+                workshop_attachments[m] = []
+            workshop_attachments[m].append({'name': row["filename"], 'url': row["cloudinary_url"]})
+        ws_conn.close()
 
     is_open, reporting_month_str, open_day, close_day, window_msg = check_submission_window()
 
@@ -2824,17 +2868,10 @@ def admin_reject_report(id):
 
     reporting_month = report["reporting_month"]
     target_username = report["username"]
-    uploaded_file_path = report["uploaded_file_path"]
 
-    # Delete physical file if exists
-    if uploaded_file_path:
-        static_dir = os.path.join(app.root_path, 'static')
-        full_path = os.path.join(static_dir, uploaded_file_path)
-        if os.path.exists(full_path):
-            try:
-                os.remove(full_path)
-            except Exception as e:
-                print(f"Error deleting rejected file {full_path}: {str(e)}")
+    # Delete from Cloudinary if public_id exists
+    if report.get("cloudinary_public_id"):
+        cloudinary_delete(report["cloudinary_public_id"])
 
     remarks = request.form.get("remarks", "").strip()
 
@@ -2918,34 +2955,36 @@ def iqac_upload_signed_report():
         conn.close()
         return redirect("/iqac_dashboard")
 
-    original_name = secure_filename(uploaded_file.filename)
-    ext = original_name.rsplit('.', 1)[1].lower()
-    timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
-    save_name = f"{secure_filename(username)}_{reporting_month}_{timestamp}.{ext}"
-    save_dir = os.path.join(os.path.dirname(__file__), 'static', 'signed_reports')
-    save_path = os.path.join(save_dir, save_name)
-    uploaded_file.save(save_path)
+    # Upload to Cloudinary
+    public_id = f"iqac/signed_reports/{secure_filename(username)}_{reporting_month}"
+    try:
+        file_url, cld_public_id = cloudinary_upload(uploaded_file, folder="iqac/signed_reports", public_id=public_id)
+    except Exception as e:
+        flash(f"File upload failed: {str(e)}", "danger")
+        conn.close()
+        return redirect("/iqac_dashboard")
 
-    db_path = f"signed_reports/{save_name}"
-    
     # Check if a record already exists (e.g. created during PDF download)
     cursor.execute("""
-        SELECT * FROM signed_reports 
+        SELECT * FROM signed_reports
         WHERE username=%s AND reporting_month=%s
     """, (username, reporting_month))
     existing = cursor.fetchone()
-    
+
     if existing:
+        # Delete old Cloudinary file if different public_id
+        if existing.get("cloudinary_public_id") and existing["cloudinary_public_id"] != cld_public_id:
+            cloudinary_delete(existing["cloudinary_public_id"])
         cursor.execute("""
-            UPDATE signed_reports 
-            SET uploaded_file_path=%s, status='uploaded', uploaded_at=CURRENT_TIMESTAMP
+            UPDATE signed_reports
+            SET uploaded_file_path=%s, cloudinary_public_id=%s, status='uploaded', uploaded_at=CURRENT_TIMESTAMP
             WHERE id=%s
-        """, (db_path, existing["id"]))
+        """, (file_url, cld_public_id, existing["id"]))
     else:
         cursor.execute("""
-            INSERT INTO signed_reports (username, reporting_month, uploaded_file_path, status)
-            VALUES (%s, %s, %s, 'uploaded')
-        """, (username, reporting_month, db_path))
+            INSERT INTO signed_reports (username, reporting_month, uploaded_file_path, cloudinary_public_id, status)
+            VALUES (%s, %s, %s, %s, 'uploaded')
+        """, (username, reporting_month, file_url, cld_public_id))
         
     conn.commit()
     conn.close()
@@ -3014,19 +3053,23 @@ def admin_signed_reports():
     reports = cursor.fetchall()
     conn.close()
 
-    # Collect workshop attachments for selected month from filesystem
-    ws_att_base = os.path.join(os.path.dirname(__file__), 'static', 'signed_reports', 'workshop_attachments')
+    # Query workshop attachments from DB (Cloudinary URLs)
+    conn2 = get_db_connection()
+    cursor2 = get_cursor(conn2)
+    cursor2.execute("""
+        SELECT username, filename, cloudinary_url, workshop_index
+        FROM workshop_attachment_files
+        WHERE reporting_month = %s
+        ORDER BY username, workshop_index
+    """, (selected_month,))
+    ws_rows = cursor2.fetchall()
+    conn2.close()
     workshop_attachments = {}
-    if os.path.isdir(ws_att_base):
-        for uname in os.listdir(ws_att_base):
-            month_dir = os.path.join(ws_att_base, uname, selected_month)
-            if os.path.isdir(month_dir):
-                files = [f for f in os.listdir(month_dir) if not f.startswith('.')]
-                if files:
-                    workshop_attachments[uname] = [
-                        {'name': f, 'path': f'signed_reports/workshop_attachments/{uname}/{selected_month}/{f}'}
-                        for f in sorted(files)
-                    ]
+    for row in ws_rows:
+        uname = row["username"]
+        if uname not in workshop_attachments:
+            workshop_attachments[uname] = []
+        workshop_attachments[uname].append({'name': row["filename"], 'url': row["cloudinary_url"]})
 
     return render_template("admin_signed_reports.html",
         username=session["username"],
@@ -3052,18 +3095,21 @@ def public_workshop_attachments():
         default_month = f"{now.year}-{now.month - 1:02d}"
     selected_month = request.args.get("month", default_month)
 
-    ws_att_base = os.path.join(os.path.dirname(__file__), 'static', 'signed_reports', 'workshop_attachments')
+    ws_conn = get_db_connection()
+    ws_cur = get_cursor(ws_conn)
+    ws_cur.execute("""
+        SELECT username, filename, cloudinary_url, workshop_index
+        FROM workshop_attachment_files
+        WHERE reporting_month = %s
+        ORDER BY username, workshop_index
+    """, (selected_month,))
     workshop_attachments = {}
-    if os.path.isdir(ws_att_base):
-        for uname in os.listdir(ws_att_base):
-            month_dir = os.path.join(ws_att_base, uname, selected_month)
-            if os.path.isdir(month_dir):
-                files = [f for f in os.listdir(month_dir) if not f.startswith('.')]
-                if files:
-                    workshop_attachments[uname] = [
-                        {'name': f, 'path': f'signed_reports/workshop_attachments/{uname}/{selected_month}/{f}'}
-                        for f in sorted(files)
-                    ]
+    for row in ws_cur.fetchall():
+        uname = row["username"]
+        if uname not in workshop_attachments:
+            workshop_attachments[uname] = []
+        workshop_attachments[uname].append({'name': row["filename"], 'url': row["cloudinary_url"]})
+    ws_conn.close()
 
     return render_template('workshop_attachments.html',
         username=session['username'],

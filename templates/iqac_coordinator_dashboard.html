@@ -327,11 +327,11 @@
                             <span class="small text-truncate me-2" style="max-width:200px;" title="{{ f.name }}">{{
                               f.name }}</span>
                             <div class="d-flex gap-2 flex-shrink-0">
-                              <a href="{{ url_for('static', filename=f.path) }}" target="_blank"
+                              <a href="{{ f.url }}" target="_blank"
                                 class="btn btn-outline-primary btn-sm">
                                 <i class="bi bi-eye"></i> View
                               </a>
-                              <a href="{{ url_for('static', filename=f.path) }}" download="{{ f.name }}"
+                              <a href="{{ f.url }}" download="{{ f.name }}"
                                 class="btn btn-outline-secondary btn-sm">
                                 <i class="bi bi-download"></i>
                               </a>
