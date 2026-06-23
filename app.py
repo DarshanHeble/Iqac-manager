@@ -44,6 +44,13 @@ def cloudinary_delete(public_id, resource_type="auto"):
     except Exception as e:
         print(f"Cloudinary delete error: {e}")
 
+# Jinja filter: make Cloudinary URL open inline in browser instead of downloading
+@app.template_filter('inline_url')
+def inline_url(url):
+    if url and 'cloudinary.com' in url and '/upload/' in url:
+        return url.replace('/upload/', '/upload/fl_attachment:false/')
+    return url
+
 # Make datetime and timedelta available in all templates
 app.jinja_env.globals['datetime'] = datetime
 app.jinja_env.globals['timedelta'] = timedelta

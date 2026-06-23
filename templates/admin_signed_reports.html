@@ -129,7 +129,7 @@
                           <i class="bi bi-file-earmark-text"></i> View Raw Data
                         </a>
                         {% if r.uploaded_file_path %}
-                        <a href="{{ r.uploaded_file_path }}" target="_blank" class="btn btn-outline-primary btn-sm me-1" title="View Signed Report">
+                        <a href="{{ r.uploaded_file_path | inline_url }}" target="_blank" class="btn btn-outline-primary btn-sm me-1" title="View Signed Report">
                           <i class="bi bi-eye"></i> View Report
                         </a>
                         <a href="{{ r.uploaded_file_path }}" download class="btn btn-outline-secondary btn-sm me-1" title="Download Signed Report">

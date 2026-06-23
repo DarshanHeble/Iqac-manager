@@ -290,7 +290,7 @@
                           {% endif %}
                         </td>
                         <td>
-                          <a href="{{ url_for('static', filename=r.uploaded_file_path) }}" target="_blank" class="btn btn-outline-primary btn-sm">
+                          <a href="{{ r.uploaded_file_path | inline_url }}" target="_blank" class="btn btn-outline-primary btn-sm">
                             <i class="bi bi-eye"></i>
                           </a>
                         </td>
