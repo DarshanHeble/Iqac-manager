@@ -245,7 +245,13 @@ def iqac_monthly_report_download():
     pdf_buffer = _generate_iqac_pdf(sorted_multi_form, ws_attachments)
     conn.close()
 
-    filename = f"IQAC_Monthly_Report_{reporting_month}.pdf"
+    full_name = (user.get("full_name") or username).strip()
+    try:
+        month_label = datetime.strptime(reporting_month, "%Y-%m").strftime("%B")
+    except Exception:
+        month_label = reporting_month
+    safe_name = "".join(c if c.isalnum() or c in (' ', '-') else '' for c in full_name).strip()
+    filename = f"{safe_name} {month_label} IQAC Report.pdf"
 
     return send_file(
         pdf_buffer,
@@ -674,7 +680,13 @@ def iqac_coordinator_report_download():
     pdf_buffer = _generate_aqar_coordinator_pdf(sorted_multi_form, aqar_names)
     conn.close()
 
-    filename = f"IQAC_Coordinator_Report_AQAR_{reporting_month}.pdf"
+    full_name = (user.get("full_name") or username).strip()
+    try:
+        month_label = datetime.strptime(reporting_month, "%Y-%m").strftime("%B")
+    except Exception:
+        month_label = reporting_month
+    safe_name = "".join(c if c.isalnum() or c in (' ', '-') else '' for c in full_name).strip()
+    filename = f"{safe_name} {month_label} IQAC Report.pdf"
 
     return send_file(
         pdf_buffer,
