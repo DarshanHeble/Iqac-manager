@@ -243,7 +243,13 @@ def iqac_monthly_report_download():
         else:
             sorted_multi_form.set(k, v)
 
-    pdf_buffer = _generate_iqac_pdf(sorted_multi_form, ws_attachments)
+    try:
+        pdf_buffer = _generate_iqac_pdf(sorted_multi_form, ws_attachments)
+    except Exception as e:
+        print(f"PDF generation error: {e}")
+        conn.close()
+        flash("PDF generation failed. Please try again.", "danger")
+        return redirect("/iqac_monthly_report")
     conn.close()
 
     full_name = (user.get("full_name") or username).strip()
@@ -678,7 +684,13 @@ def iqac_coordinator_report_download():
         else:
             sorted_multi_form.set(k, v)
 
-    pdf_buffer = _generate_aqar_coordinator_pdf(sorted_multi_form, aqar_names)
+    try:
+        pdf_buffer = _generate_aqar_coordinator_pdf(sorted_multi_form, aqar_names)
+    except Exception as e:
+        print(f"PDF generation error: {e}")
+        conn.close()
+        flash("PDF generation failed. Please try again.", "danger")
+        return redirect("/iqac_coordinator_report")
     conn.close()
 
     full_name = (user.get("full_name") or username).strip()
