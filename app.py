@@ -3092,21 +3092,32 @@ def view_report(report_id):
         flash("No file uploaded for this report.", "danger")
         return redirect('/admin_signed_reports')
 
-    try:
-        with urllib.request.urlopen(report['uploaded_file_path']) as resp:
-            file_data = resp.read()
-        from flask import Response
+    file_path = report['uploaded_file_path']
+    if file_path.startswith("http://") or file_path.startswith("https://"):
         download = request.args.get('download') == '1'
-        disposition = 'attachment' if download else 'inline'
-        filename = f"signed_report_{report['reporting_month']}.pdf"
-        return Response(
-            file_data,
-            mimetype='application/pdf',
-            headers={'Content-Disposition': f'{disposition}; filename="{filename}"'}
-        )
-    except Exception as e:
-        flash("Could not load report file.", "danger")
-        return redirect('/admin_signed_reports')
+        if download:
+            return redirect(file_path)
+        else:
+            url_to_use = file_path
+            if 'cloudinary.com' in url_to_use and '/upload/' in url_to_use:
+                url_to_use = url_to_use.replace('/upload/', '/upload/fl_attachment:false/')
+            return redirect(url_to_use)
+    else:
+        
+        target_path = file_path.lstrip('/')
+        if target_path.startswith("static/"):
+            target_path = target_path[7:]
+        
+        full_path = os.path.join(app.root_path, "static", target_path)
+        if not os.path.exists(full_path):
+            full_path = os.path.join(app.root_path, target_path)
+            
+        if not os.path.exists(full_path):
+            flash("Could not locate report file locally.", "danger")
+            return redirect('/admin_signed_reports')
+            
+        download = request.args.get('download') == '1'
+        return send_file(full_path, mimetype='application/pdf', as_attachment=download)
 
 
 # ------------------ VIEW WORKSHOP ATTACHMENT (PROXY) ------------------
@@ -3134,22 +3145,42 @@ def view_attachment(attachment_id):
         flash("Access denied.", "danger")
         return redirect('/dashboard')
 
-    try:
-        with urllib.request.urlopen(att['cloudinary_url']) as resp:
-            file_data = resp.read()
-            content_type = resp.headers.get('Content-Type', 'application/octet-stream')
-        download = request.args.get('download') == '1'
-        disposition = 'attachment' if download else 'inline'
-        filename = att['filename'] or f"attachment_{attachment_id}"
-        from flask import Response
-        return Response(
-            file_data,
-            mimetype=content_type,
-            headers={'Content-Disposition': f'{disposition}; filename="{filename}"'}
-        )
-    except Exception as e:
-        flash("Could not load attachment file.", "danger")
+    file_path = att['cloudinary_url']
+    if not file_path:
+        flash("No file attached.", "danger")
         return redirect('/dashboard')
+
+    if file_path.startswith("http://") or file_path.startswith("https://"):
+        download = request.args.get('download') == '1'
+        if download:
+            return redirect(file_path)
+        else:
+            url_to_use = file_path
+            if 'cloudinary.com' in url_to_use and '/upload/' in url_to_use:
+                url_to_use = url_to_use.replace('/upload/', '/upload/fl_attachment:false/')
+            return redirect(url_to_use)
+    else:
+        import os
+        from flask import send_file
+        import mimetypes
+        target_path = file_path.lstrip('/')
+        if target_path.startswith("static/"):
+            target_path = target_path[7:]
+            
+        full_path = os.path.join(app.root_path, "static", target_path)
+        if not os.path.exists(full_path):
+            full_path = os.path.join(app.root_path, target_path)
+            
+        if not os.path.exists(full_path):
+            flash("Could not locate attachment file locally.", "danger")
+            return redirect('/dashboard')
+            
+        mime_type, _ = mimetypes.guess_type(full_path)
+        if not mime_type:
+            mime_type = 'application/octet-stream'
+            
+        download = request.args.get('download') == '1'
+        return send_file(full_path, mimetype=mime_type, as_attachment=download)
 
 
 # ------------------ IQAC UPLOAD SIGNED REPORT ------------------
