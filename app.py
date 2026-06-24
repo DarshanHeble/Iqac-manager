@@ -3118,10 +3118,7 @@ def view_attachment(attachment_id):
         flash("Attachment file is no longer available. Please re-upload.", "warning")
         return redirect('/iqac_monthly_report')
 
-    url_to_use = file_path
-    if 'cloudinary.com' in url_to_use and '/upload/' in url_to_use:
-        url_to_use = url_to_use.replace('/upload/', '/upload/fl_attachment:false/')
-    return redirect(url_to_use)
+    return redirect(file_path)
 
 
 # ------------------ IQAC UPLOAD SIGNED REPORT ------------------
