@@ -3119,9 +3119,11 @@ def view_attachment(attachment_id):
         return redirect('/iqac_monthly_report')
 
     url_to_use = file_path
-    # PDFs uploaded under image/upload can't be served as raw files — fix the delivery type
-    if 'cloudinary.com' in url_to_use and '/image/upload/' in url_to_use:
+    if 'cloudinary.com' in url_to_use:
+        # Ensure raw delivery type (not image) so original file is served
         url_to_use = url_to_use.replace('/image/upload/', '/raw/upload/')
+        # Add inline flag so browser views instead of downloads
+        url_to_use = url_to_use.replace('/raw/upload/', '/raw/upload/fl_attachment:false/')
     return redirect(url_to_use)
 
 
