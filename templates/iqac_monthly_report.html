@@ -497,8 +497,15 @@
         const tbody = btn.closest('tbody');
         const rows = tbody.querySelectorAll('tr');
         if (rows.length <= 1) {
-          // Clear rather than delete the last row
-          btn.closest('tr').querySelectorAll('input, textarea').forEach(el => el.value = '');
+          const row = btn.closest('tr');
+          // Clear text inputs and textareas
+          row.querySelectorAll('input:not([type="checkbox"]), textarea').forEach(el => el.value = '');
+          // Uncheck all responsibility area checkboxes
+          row.querySelectorAll('.resp-cb').forEach(cb => cb.checked = false);
+          // Reset the visual tag display
+          row.querySelectorAll('.resp-area-display').forEach(d => {
+            d.innerHTML = '<span class="resp-area-placeholder text-muted fst-italic" style="font-size:0.78rem;">Click to select…</span>';
+          });
           return;
         }
         const row = btn.closest('tr');
