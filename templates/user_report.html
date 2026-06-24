@@ -6,6 +6,7 @@
     <title>My Report - IQAC Worklog</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
     <style>
       html { height: 100%; }
       body { background-color:#f8fafc; font-size:14px; min-height: 100%; display: flex; flex-direction: column; }
@@ -237,6 +238,7 @@
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
     <script>
       document.addEventListener("DOMContentLoaded", function () {
         const modeSelect = document.getElementById("filter_mode");
@@ -265,18 +267,31 @@
         const today = new Date().toISOString().split('T')[0];
         const fromDate = document.getElementById('from_date');
         const toDate = document.getElementById('to_date');
-        if (fromDate) {
-          fromDate.max = today;
-          fromDate.addEventListener('change', function () {
-            if (toDate) {
-              toDate.min = this.value;
-              if (toDate.value && toDate.value < this.value) toDate.value = this.value;
+
+        if (fromDate && toDate) {
+          const fpFrom = flatpickr(fromDate, {
+            dateFormat: "Y-m-d",
+            altInput: true,
+            altFormat: "d-m-Y",
+            maxDate: today,
+            defaultDate: fromDate.value || null,
+            onChange: function(selectedDates, dateStr) {
+              fromDate.value = dateStr;
+              fpTo.set('minDate', dateStr);
             }
           });
-        }
-        if (toDate) {
-          toDate.max = today;
-          if (fromDate && fromDate.value) toDate.min = fromDate.value;
+          
+          const fpTo = flatpickr(toDate, {
+            dateFormat: "Y-m-d",
+            altInput: true,
+            altFormat: "d-m-Y",
+            maxDate: today,
+            minDate: fromDate.value || null,
+            defaultDate: toDate.value || null,
+            onChange: function(selectedDates, dateStr) {
+              toDate.value = dateStr;
+            }
+          });
         }
 
         toggleFilterFields(modeSelect.value || "{{ filter_mode or 'date' }}");

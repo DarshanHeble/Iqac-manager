@@ -6,6 +6,7 @@
     <title>Admin Report - IQAC Worklog</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
     <style>
       html { height: 100%; }
       body { background-color:#f8fafc; font-size:14px; min-height: 100%; display: flex; flex-direction: column; }
@@ -350,6 +351,7 @@
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
     <script>
       document.addEventListener("DOMContentLoaded", function () {
         // Set default dates on page load
@@ -362,15 +364,33 @@
         const toDateInput = document.getElementById('to_date');
         const monthInput = document.getElementById('month_input');
         
-        fromDateInput.max = todayString;
-        toDateInput.max = todayString;
         if (!fromDateInput.value) fromDateInput.value = todayString;
         if (!toDateInput.value) toDateInput.value = todayString;
-        toDateInput.min = fromDateInput.value;
-        fromDateInput.addEventListener('change', function () {
-          toDateInput.min = this.value;
-          if (toDateInput.value && toDateInput.value < this.value) toDateInput.value = this.value;
+        
+        const fpFrom = flatpickr(fromDateInput, {
+          dateFormat: "Y-m-d",
+          altInput: true,
+          altFormat: "d-m-Y",
+          maxDate: todayString,
+          defaultDate: fromDateInput.value,
+          onChange: function(selectedDates, dateStr) {
+            fromDateInput.value = dateStr;
+            fpTo.set('minDate', dateStr);
+          }
         });
+        
+        const fpTo = flatpickr(toDateInput, {
+          dateFormat: "Y-m-d",
+          altInput: true,
+          altFormat: "d-m-Y",
+          maxDate: todayString,
+          minDate: fromDateInput.value,
+          defaultDate: toDateInput.value,
+          onChange: function(selectedDates, dateStr) {
+            toDateInput.value = dateStr;
+          }
+        });
+
         if (!monthInput.value) monthInput.value = currentMonthString;
         
         // Set default academic year
