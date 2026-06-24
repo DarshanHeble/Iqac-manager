@@ -502,21 +502,6 @@
         }
       });
 
-      function sortTableRows(tbodyId, dateInputName) {
-        const tbody = document.getElementById(tbodyId);
-        if (!tbody) return;
-        const rows = Array.from(tbody.querySelectorAll('tr'));
-        rows.sort((a, b) => {
-          const valA = a.querySelector(`input[name="${dateInputName}"]`)?.value || '';
-          const valB = b.querySelector(`input[name="${dateInputName}"]`)?.value || '';
-          if (!valA && !valB) return 0;
-          if (!valA) return 1;
-          if (!valB) return -1;
-          return valA.localeCompare(valB);
-        });
-        rows.forEach(row => tbody.appendChild(row));
-      }
-
       // ── Dynamic table row management ──
       function addTableRow(tableId) {
         const tbody = document.getElementById('table' + tableId + '-body');
@@ -660,10 +645,6 @@
       document.getElementById('reportForm').addEventListener('submit', function(e) {
         e.preventDefault();
 
-        // Sort rows by date before validating or submitting
-        sortTableRows('tableActivities-body', 'act_date[]');
-        sortTableRows('tableMeetings-body', 'meet_date[]');
-
         // Clear all previous highlights
         document.querySelectorAll('.is-invalid-custom').forEach(el => el.classList.remove('is-invalid-custom'));
 
@@ -732,10 +713,6 @@
       });
 
       document.getElementById('saveDraftBtn').addEventListener('click', function() {
-        // Sort rows by date before saving draft
-        sortTableRows('tableActivities-body', 'act_date[]');
-        sortTableRows('tableMeetings-body', 'meet_date[]');
-
         const form = document.getElementById('reportForm');
         const btn = this;
         btn.disabled = true;

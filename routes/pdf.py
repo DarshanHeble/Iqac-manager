@@ -23,6 +23,61 @@ try:
 except ImportError:
     REPORTLAB_AVAILABLE = False
 
+from werkzeug.datastructures import MultiDict
+
+def sort_list_fields(form_data, report_type, ws_files=None):
+    def sort_section(date_key, keys):
+        dates = form_data.get(date_key) or []
+        if not isinstance(dates, list):
+            dates = [dates] if dates else []
+        if not dates:
+            return None
+            
+        max_len = len(dates)
+        lists = {}
+        for k in keys:
+            vals = form_data.get(k) or []
+            if not isinstance(vals, list):
+                vals = [vals] if vals else []
+            lists[k] = vals
+            if len(vals) > max_len:
+                max_len = len(vals)
+                
+        ws_file_objs = []
+        if date_key == "ws_date[]" and ws_files:
+            ws_file_objs = ws_files
+            
+        rows = []
+        for i in range(max_len):
+            row = {}
+            for k in keys:
+                row[k] = lists[k][i] if i < len(lists[k]) else ""
+            if date_key == "ws_date[]" and ws_files:
+                row["_file"] = ws_file_objs[i] if i < len(ws_file_objs) else None
+            rows.append(row)
+            
+        def get_date_val(r):
+            v = r.get(date_key) or ""
+            return v.strip()
+            
+        rows.sort(key=lambda r: (1 if not get_date_val(r) else 0, get_date_val(r)))
+        
+        for k in keys:
+            form_data[k] = [r[k] for r in rows]
+            
+        if date_key == "ws_date[]" and ws_files:
+            return [r["_file"] for r in rows]
+        return None
+
+    if report_type == "aqar_coordinator":
+        sort_section("act_date[]", ["act_date[]", "act_task[]", "act_area[]", "act_area_other[]", "act_stakeholders[]", "act_outcome[]", "act_status[]"])
+        sort_section("meet_date[]", ["meet_date[]", "meet_programme[]", "meet_role[]", "meet_outcome[]"])
+    elif report_type == "standard":
+        sort_section("meeting_date[]", ["meeting_date[]", "dept_name[]", "participants[]", "topics[]", "action_points[]", "responsibility_area[]"])
+        sorted_ws_files = sort_section("ws_date[]", ["ws_date[]", "ws_venue[]", "ws_title[]", "ws_participants[]", "ws_resource[]", "ws_responsibility[]", "ws_existing_file[]"])
+        return sorted_ws_files
+    return None
+
 pdf_bp = Blueprint('pdf', __name__)
 
 @pdf_bp.route("/iqac_monthly_report/download", methods=["POST"])
@@ -69,6 +124,9 @@ def iqac_monthly_report_download():
         else:
             form_data_obj[key] = request.form.get(key)
 
+    ws_files = request.files.getlist("ws_report_file[]")
+    sorted_ws_files = sort_list_fields(form_data_obj, "standard", ws_files) or ws_files
+
     aqar_emails_env = os.getenv("AQAR_COORDINATOR_EMAILS", "")
     aqar_emails = [e.strip().lower() for e in aqar_emails_env.split(",") if e.strip()]
     email = (user.get("email") or "").strip().lower()
@@ -106,9 +164,8 @@ def iqac_monthly_report_download():
         print("Error saving draft/signed_reports:", str(e))
         conn.rollback()
 
-    ws_files = request.files.getlist("ws_report_file[]")
-    ws_titles = request.form.getlist("ws_title[]")
-    ws_existing_files = request.form.getlist("ws_existing_file[]")
+    ws_titles = form_data_obj.get("ws_title[]") or []
+    ws_existing_files = form_data_obj.get("ws_existing_file[]") or []
     num_rows = len(ws_titles)
     ws_attachments = []  # list of (index, cloudinary_url, filename)
 
@@ -126,7 +183,7 @@ def iqac_monthly_report_download():
     new_db_records = []
 
     for i in range(num_rows):
-        uploaded_file = ws_files[i] if i < len(ws_files) else None
+        uploaded_file = sorted_ws_files[i] if i < len(sorted_ws_files) else None
         existing_name = ws_existing_files[i] if i < len(ws_existing_files) else ""
         
         if uploaded_file and uploaded_file.filename:
@@ -176,7 +233,16 @@ def iqac_monthly_report_download():
     db_conn3.commit()
     db_conn3.close()
 
-    pdf_buffer = _generate_iqac_pdf(request.form, ws_attachments)
+    # Construct MultiDict from sorted form_data_obj to pass to _generate_iqac_pdf
+    sorted_multi_form = MultiDict()
+    for k, v in form_data_obj.items():
+        if isinstance(v, list):
+            for val in v:
+                sorted_multi_form.add(k, val)
+        else:
+            sorted_multi_form.set(k, v)
+
+    pdf_buffer = _generate_iqac_pdf(sorted_multi_form, ws_attachments)
     conn.close()
 
     filename = f"IQAC_Monthly_Report_{reporting_month}.pdf"
@@ -553,6 +619,8 @@ def iqac_coordinator_report_download():
         else:
             form_data_obj[key] = request.form.get(key)
 
+    sort_list_fields(form_data_obj, "aqar_coordinator")
+
     aqar_emails_env = os.getenv("AQAR_COORDINATOR_EMAILS", "")
     aqar_emails = [e.strip().lower() for e in aqar_emails_env.split(",") if e.strip()]
     email = (user.get("email") or "").strip().lower()
@@ -594,7 +662,16 @@ def iqac_coordinator_report_download():
     aqar_names_env = os.getenv("AQAR_COORDINATOR_NAMES", "")
     aqar_names = [n.strip() for n in aqar_names_env.split(",") if n.strip()] if aqar_names_env else []
 
-    pdf_buffer = _generate_aqar_coordinator_pdf(request.form, aqar_names)
+    # Construct MultiDict from sorted form_data_obj to pass to _generate_aqar_coordinator_pdf
+    sorted_multi_form = MultiDict()
+    for k, v in form_data_obj.items():
+        if isinstance(v, list):
+            for val in v:
+                sorted_multi_form.add(k, val)
+        else:
+            sorted_multi_form.set(k, v)
+
+    pdf_buffer = _generate_aqar_coordinator_pdf(sorted_multi_form, aqar_names)
     conn.close()
 
     filename = f"IQAC_Coordinator_Report_AQAR_{reporting_month}.pdf"

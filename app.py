@@ -2605,6 +2605,60 @@ def iqac_monthly_report():
                            ws_files_map=ws_files_map)
 
 
+def sort_list_fields(form_data, report_type, ws_files=None):
+    def sort_section(date_key, keys):
+        dates = form_data.get(date_key) or []
+        if not isinstance(dates, list):
+            dates = [dates] if dates else []
+        if not dates:
+            return None
+            
+        max_len = len(dates)
+        lists = {}
+        for k in keys:
+            vals = form_data.get(k) or []
+            if not isinstance(vals, list):
+                vals = [vals] if vals else []
+            lists[k] = vals
+            if len(vals) > max_len:
+                max_len = len(vals)
+                
+        ws_file_objs = []
+        if date_key == "ws_date[]" and ws_files:
+            ws_file_objs = ws_files
+            
+        rows = []
+        for i in range(max_len):
+            row = {}
+            for k in keys:
+                row[k] = lists[k][i] if i < len(lists[k]) else ""
+            if date_key == "ws_date[]" and ws_files:
+                row["_file"] = ws_file_objs[i] if i < len(ws_file_objs) else None
+            rows.append(row)
+            
+        def get_date_val(r):
+            v = r.get(date_key) or ""
+            return v.strip()
+            
+        rows.sort(key=lambda r: (1 if not get_date_val(r) else 0, get_date_val(r)))
+        
+        for k in keys:
+            form_data[k] = [r[k] for r in rows]
+            
+        if date_key == "ws_date[]" and ws_files:
+            return [r["_file"] for r in rows]
+        return None
+
+    if report_type == "aqar_coordinator":
+        sort_section("act_date[]", ["act_date[]", "act_task[]", "act_area[]", "act_area_other[]", "act_stakeholders[]", "act_outcome[]", "act_status[]"])
+        sort_section("meet_date[]", ["meet_date[]", "meet_programme[]", "meet_role[]", "meet_outcome[]"])
+    elif report_type == "standard":
+        sort_section("meeting_date[]", ["meeting_date[]", "dept_name[]", "participants[]", "topics[]", "action_points[]", "responsibility_area[]"])
+        sorted_ws_files = sort_section("ws_date[]", ["ws_date[]", "ws_venue[]", "ws_title[]", "ws_participants[]", "ws_resource[]", "ws_responsibility[]", "ws_existing_file[]"])
+        return sorted_ws_files
+    return None
+
+
 @app.route("/iqac_report/save_draft", methods=["POST"])
 def iqac_report_save_draft():
     if "username" not in session:
@@ -2650,6 +2704,14 @@ def iqac_report_save_draft():
         if signed_row and signed_row["status"] in ('pending_upload', 'uploaded', 'reviewed'):
             return {"success": False, "error": "This report is locked because the PDF has been generated/submitted. No modifications are allowed."}, 400
 
+        # Sort the fields on the backend first
+        sorted_ws_files = None
+        if not request.is_json:
+            ws_files = request.files.getlist("ws_report_file[]")
+            sorted_ws_files = sort_list_fields(form_data, report_type, ws_files)
+        else:
+            sort_list_fields(form_data, report_type)
+
         import json
         form_data_str = json.dumps(form_data)
 
@@ -2672,6 +2734,16 @@ def iqac_report_save_draft():
             ws_existing_files = request.form.getlist("ws_existing_file[]")
             num_rows = len(ws_titles)
             
+            # Fetch existing workshop attachment database records to align them
+            cursor.execute("""
+                SELECT workshop_index, filename, cloudinary_url, cloudinary_public_id
+                FROM workshop_attachment_files
+                WHERE username=%s AND reporting_month=%s
+            """, (username, reporting_month))
+            existing_ws = cursor.fetchall()
+            
+            new_db_records = []
+            
             if num_rows > 0:
                 os.makedirs(ws_upload_dir, exist_ok=True)
                 temp_files = {}  # index -> temp filename
@@ -2685,14 +2757,35 @@ def iqac_report_save_draft():
                         temp_path = os.path.join(ws_upload_dir, temp_name)
                         uploaded_file.save(temp_path)
                         temp_files[i] = temp_name
+                        
+                        new_db_records.append({
+                            "workshop_index": i,
+                            "filename": uploaded_file.filename,
+                            "cloudinary_url": f"/static/signed_reports/workshop_attachments/{username}/{reporting_month}/workshop_{i+1}{ext}",
+                            "cloudinary_public_id": ""
+                        })
                     elif existing_name:
-                        src_path = os.path.join(ws_upload_dir, existing_name)
-                        if os.path.exists(src_path):
+                        # Find matching record from existing_ws
+                        matching = None
+                        for rec in existing_ws:
+                            if rec["filename"] == existing_name:
+                                matching = rec
+                                break
+                        if matching:
                             ext = os.path.splitext(existing_name)[1]
                             temp_name = f"temp_workshop_{i+1}{ext}"
                             temp_path = os.path.join(ws_upload_dir, temp_name)
-                            shutil.copy2(src_path, temp_path)
-                            temp_files[i] = temp_name
+                            src_path = os.path.join(ws_upload_dir, existing_name)
+                            if os.path.exists(src_path):
+                                shutil.copy2(src_path, temp_path)
+                                temp_files[i] = temp_name
+                            
+                            new_db_records.append({
+                                "workshop_index": i,
+                                "filename": matching["filename"],
+                                "cloudinary_url": matching["cloudinary_url"],
+                                "cloudinary_public_id": matching["cloudinary_public_id"]
+                            })
                 
                 # Delete any existing workshop_*.ext files to prevent duplicates/orphans
                 for f in glob.glob(os.path.join(ws_upload_dir, "workshop_*")):
@@ -2723,6 +2816,21 @@ def iqac_report_save_draft():
                                     os.remove(os.path.join(ws_upload_dir, f))
                         except Exception:
                             pass
+            
+            # 2. Clear old database records for this user and month
+            cursor.execute("""
+                DELETE FROM workshop_attachment_files
+                WHERE username=%s AND reporting_month=%s
+            """, (username, reporting_month))
+
+            # 3. Insert new database records in sorted order
+            for rec in new_db_records:
+                cursor.execute("""
+                    INSERT INTO workshop_attachment_files (username, reporting_month, workshop_index, filename, cloudinary_url, cloudinary_public_id)
+                    VALUES (%s, %s, %s, %s, %s, %s)
+                """, (username, reporting_month, rec["workshop_index"], rec["filename"], rec["cloudinary_url"], rec["cloudinary_public_id"]))
+            
+            conn.commit()
 
         return {"success": True, "message": "Draft saved successfully!"}
     except Exception as e:
