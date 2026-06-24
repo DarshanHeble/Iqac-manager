@@ -249,9 +249,12 @@
                           </button>
                           <div class="ws-file-name text-muted mt-1" style="font-size:0.7rem; word-break:break-all;">{{ existing_file }}</div>
                           <div class="ws-existing-file-link mt-1">
-                            <a href="/static/signed_reports/workshop_attachments/{{ username }}/{{ reporting_month_str }}/{{ existing_file }}" target="_blank" class="text-success small fw-bold text-decoration-none" style="font-size: 0.72rem;">
+                            {% set att_id = ws_urls_map.get(loop.index0) if ws_urls_map else None %}
+                            {% if att_id %}
+                            <a href="/view_attachment/{{ att_id }}" target="_blank" class="text-success small fw-bold text-decoration-none" style="font-size: 0.72rem;">
                               <i class="bi bi-eye"></i> View Attached
                             </a>
+                            {% endif %}
                           </div>
                         {% else %}
                           <button type="button" class="btn btn-outline-secondary btn-sm ws-upload-btn" onclick="this.previousElementSibling.click()" title="Attach report file">

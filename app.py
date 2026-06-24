@@ -2567,14 +2567,16 @@ def iqac_monthly_report():
 
     # Load existing workshop attachment filenames from DB (Cloudinary-backed)
     ws_files_map = {}
+    ws_urls_map = {}
     ws_conn2 = get_db_connection()
     ws_cur2 = get_cursor(ws_conn2)
     ws_cur2.execute("""
-        SELECT workshop_index, filename FROM workshop_attachment_files
+        SELECT id, workshop_index, filename FROM workshop_attachment_files
         WHERE username=%s AND reporting_month=%s
     """, (username, reporting_month_str))
     for row in ws_cur2.fetchall():
         ws_files_map[row["workshop_index"]] = row["filename"]
+        ws_urls_map[row["workshop_index"]] = row["id"]
     ws_conn2.close()
 
     conn.close()
@@ -2597,7 +2599,8 @@ def iqac_monthly_report():
                                locked=locked,
                                can_unlock=can_unlock,
                                rejection_remarks=rejection_remarks,
-                               ws_files_map=ws_files_map)
+                               ws_files_map=ws_files_map,
+                               ws_urls_map=ws_urls_map)
 
     return render_template("iqac_monthly_report.html", username=username, user=user,
                            reporting_month_str=reporting_month_str,
@@ -2606,7 +2609,8 @@ def iqac_monthly_report():
                            locked=locked,
                            can_unlock=can_unlock,
                            rejection_remarks=rejection_remarks,
-                           ws_files_map=ws_files_map)
+                           ws_files_map=ws_files_map,
+                           ws_urls_map=ws_urls_map)
 
 
 def sort_list_fields(form_data, report_type, ws_files=None):
@@ -2853,14 +2857,16 @@ def iqac_report_view_raw(target_username, reporting_month):
 
     # Load existing workshop attachment filenames from DB (Cloudinary-backed)
     ws_files_map = {}
+    ws_urls_map = {}
     ws_conn_rv = get_db_connection()
     ws_cur_rv = get_cursor(ws_conn_rv)
     ws_cur_rv.execute("""
-        SELECT workshop_index, filename FROM workshop_attachment_files
+        SELECT id, workshop_index, filename FROM workshop_attachment_files
         WHERE username=%s AND reporting_month=%s
     """, (target_username, reporting_month))
     for row in ws_cur_rv.fetchall():
         ws_files_map[row["workshop_index"]] = row["filename"]
+        ws_urls_map[row["workshop_index"]] = row["id"]
     ws_conn_rv.close()
 
     conn.close()
@@ -2900,6 +2906,7 @@ def iqac_report_view_raw(target_username, reporting_month):
                                can_unlock=can_unlock,
                                rejection_remarks=rejection_remarks,
                                ws_files_map=ws_files_map,
+                               ws_urls_map=ws_urls_map,
                                readonly=is_readonly,
                                back_url=back_url)
 
@@ -2911,6 +2918,7 @@ def iqac_report_view_raw(target_username, reporting_month):
                            can_unlock=can_unlock,
                            rejection_remarks=rejection_remarks,
                            ws_files_map=ws_files_map,
+                           ws_urls_map=ws_urls_map,
                            readonly=is_readonly,
                            back_url=back_url)
 
@@ -3106,37 +3114,40 @@ def view_attachment(attachment_id):
         flash("No file attached.", "danger")
         return redirect('/dashboard')
 
-    if file_path.startswith("http://") or file_path.startswith("https://"):
-        download = request.args.get('download') == '1'
-        if download:
-            return redirect(file_path)
-        else:
-            url_to_use = file_path
-            if 'cloudinary.com' in url_to_use and '/upload/' in url_to_use:
-                url_to_use = url_to_use.replace('/upload/', '/upload/fl_attachment:false/')
-            return redirect(url_to_use)
-    else:
-        import os
-        from flask import send_file
-        import mimetypes
-        target_path = file_path.lstrip('/')
-        if target_path.startswith("static/"):
-            target_path = target_path[7:]
-            
-        full_path = os.path.join(app.root_path, "static", target_path)
-        if not os.path.exists(full_path):
-            full_path = os.path.join(app.root_path, target_path)
-            
-        if not os.path.exists(full_path):
-            flash("Could not locate attachment file locally.", "danger")
-            return redirect('/dashboard')
-            
-        mime_type, _ = mimetypes.guess_type(full_path)
-        if not mime_type:
-            mime_type = 'application/octet-stream'
-            
-        download = request.args.get('download') == '1'
-        return send_file(full_path, mimetype=mime_type, as_attachment=download)
+    if not (file_path.startswith("http://") or file_path.startswith("https://")):
+        flash("Attachment file is no longer available. Please re-upload.", "warning")
+        return redirect('/iqac_monthly_report')
+
+    import mimetypes
+    import urllib.request as _urlreq
+    from flask import Response, stream_with_context
+
+    fetch_url = file_path
+    if 'cloudinary.com' in fetch_url and '/upload/' in fetch_url:
+        fetch_url = fetch_url.replace('/upload/', '/upload/fl_attachment:false/')
+
+    try:
+        req = _urlreq.Request(fetch_url, headers={"User-Agent": "Mozilla/5.0"})
+        remote = _urlreq.urlopen(req, timeout=15)
+        content_type = remote.headers.get("Content-Type", "application/octet-stream")
+        filename = att['filename'] or "attachment"
+
+        def generate():
+            while True:
+                chunk = remote.read(8192)
+                if not chunk:
+                    break
+                yield chunk
+
+        headers = {
+            "Content-Type": content_type,
+            "Content-Disposition": f'inline; filename="{filename}"',
+        }
+        return Response(stream_with_context(generate()), headers=headers)
+    except Exception as e:
+        print(f"Attachment proxy error: {e}")
+        flash("Could not load attachment. Please try again.", "danger")
+        return redirect('/iqac_monthly_report')
 
 
 # ------------------ IQAC UPLOAD SIGNED REPORT ------------------
