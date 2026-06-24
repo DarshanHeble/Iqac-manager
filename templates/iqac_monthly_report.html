@@ -404,15 +404,6 @@
 
       document.addEventListener('DOMContentLoaded', function() {
         applyDateMax();
-        // Enforce chronological order on existing rows and on date changes
-        [['tableA-body', 'meeting_date[]'], ['tableB-body', 'ws_date[]']].forEach(([id, fieldName]) => {
-          const tbody = document.getElementById(id);
-          if (!tbody) return;
-          enforceTableDateOrder(tbody, fieldName);
-          tbody.addEventListener('change', function(e) {
-            if (e.target.name === fieldName) enforceTableDateOrder(tbody, fieldName);
-          });
-        });
         document.querySelectorAll('.resp-area-wrapper').forEach(wrapper => {
           wrapper.querySelector('.resp-area-checklist').style.display = 'none';
           syncRespArea(wrapper);
@@ -464,30 +455,19 @@
       });
 
       // ── Dynamic table row management ──
-      function nextDay(dateStr) {
-        const d = new Date(dateStr);
-        d.setDate(d.getDate() + 1);
-        return d.toISOString().split('T')[0];
-      }
-
-      function enforceTableDateOrder(tbody, dateName) {
-        const rows = tbody.querySelectorAll('tr');
-        const reportingMonth = "{{ reporting_month_str }}";
-        let prevDate = reportingMonth ? `${reportingMonth}-01` : '';
-        rows.forEach((row, idx) => {
-          const dateInput = row.querySelector(`input[name="${dateName}"]`);
-          if (!dateInput) return;
-          const minD = (idx > 0 && prevDate) ? nextDay(prevDate) : `${reportingMonth}-01`;
-          dateInput.min = minD;
-          if (dateInput._flatpickr) {
-            dateInput._flatpickr.set('minDate', minD);
-          }
-          if (dateInput.value) prevDate = dateInput.value;
+      function sortTableRows(tbodyId, dateInputName) {
+        const tbody = document.getElementById(tbodyId);
+        if (!tbody) return;
+        const rows = Array.from(tbody.querySelectorAll('tr'));
+        rows.sort((a, b) => {
+          const valA = a.querySelector(`input[name="${dateInputName}"]`)?.value || '';
+          const valB = b.querySelector(`input[name="${dateInputName}"]`)?.value || '';
+          if (!valA && !valB) return 0;
+          if (!valA) return 1;
+          if (!valB) return -1;
+          return valA.localeCompare(valB);
         });
-      }
-
-      function enforceMeetingDateOrder(tbody) {
-        enforceTableDateOrder(tbody, 'meeting_date[]');
+        rows.forEach(row => tbody.appendChild(row));
       }
 
       function addRow(table) {
@@ -508,16 +488,6 @@
         newRow.querySelectorAll('input[type="text"], input[type="date"], input[type="hidden"], textarea').forEach(el => el.value = '');
         
         // Set min for new row based on last row's date
-        const dateFieldMap = { 'A': 'meeting_date[]', 'B': 'ws_date[]' };
-        if (dateFieldMap[table]) {
-          const fieldName = dateFieldMap[table];
-          const rows = tbody.querySelectorAll('tr');
-          const lastDateInput = rows.length ? rows[rows.length - 1].querySelector(`input[name="${fieldName}"]`) : null;
-          const newDateInput = newRow.querySelector(`input[name="${fieldName}"]`);
-          if (lastDateInput && lastDateInput.value && newDateInput) {
-            newDateInput.min = nextDay(lastDateInput.value);
-          }
-        }
         applyDateMax(newRow);
         newRow.querySelectorAll('input[type="number"]').forEach(el => el.value = '');
         newRow.querySelectorAll('input[type="file"]').forEach(el => el.value = '');
@@ -530,8 +500,6 @@
           d.innerHTML = '<span class="resp-area-placeholder text-muted fst-italic" style="font-size:0.78rem;">Click to select…</span>';
         });
         tbody.appendChild(newRow);
-        const dateFieldMap2 = { 'A': 'meeting_date[]', 'B': 'ws_date[]' };
-        if (dateFieldMap2[table]) enforceTableDateOrder(tbody, dateFieldMap2[table]);
       }
 
       function delRow(btn) {
@@ -547,9 +515,6 @@
           if (el._flatpickr) el._flatpickr.destroy();
         });
         row.remove();
-        const tableId = tbody.id;
-        const dateFieldMap = { 'tableA-body': 'meeting_date[]', 'tableB-body': 'ws_date[]' };
-        if (dateFieldMap[tableId]) enforceTableDateOrder(tbody, dateFieldMap[tableId]);
       }
 
       // ── Dynamic plan items ──
@@ -586,6 +551,10 @@
       // ── Row validation: if any field in a row is filled, all must be filled ──
       document.getElementById('reportForm').addEventListener('submit', function(e) {
         e.preventDefault();
+
+        // Sort rows by date before validating or submitting
+        sortTableRows('tableA-body', 'meeting_date[]');
+        sortTableRows('tableB-body', 'ws_date[]');
 
         function highlight(el) {
           el.style.border = '2px solid red';
@@ -676,6 +645,10 @@
       });
 
       document.getElementById('saveDraftBtn').addEventListener('click', function() {
+        // Sort rows by date before saving draft
+        sortTableRows('tableA-body', 'meeting_date[]');
+        sortTableRows('tableB-body', 'ws_date[]');
+
         const form = document.getElementById('reportForm');
         const btn = this;
         btn.disabled = true;

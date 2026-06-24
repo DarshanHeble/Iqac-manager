@@ -452,19 +452,6 @@
 
       document.addEventListener('DOMContentLoaded', function() {
         applyDateMax();
-        // Enforce chronological order on date tables
-        ['Activities', 'ActionPlan'].forEach(tableId => {
-          const tbody = document.getElementById('table' + tableId + '-body');
-          if (!tbody) return;
-          const firstDate = tbody.querySelector('input[type="date"]:not([name="footer_date"])');
-          if (!firstDate) return;
-          enforceChronologicalDates(tbody, firstDate.name);
-          tbody.addEventListener('change', function(e) {
-            if (e.target.type === 'date' && e.target.name !== 'footer_date') {
-              enforceChronologicalDates(tbody, e.target.name);
-            }
-          });
-        });
         // Show/hide "Other" text input based on select
         document.querySelectorAll('select[name="act_area[]"], select[name="plan_area[]"]').forEach(bindOtherToggle);
         document.querySelectorAll('.resp-area-wrapper').forEach(wrapper => {
@@ -515,26 +502,19 @@
         }
       });
 
-      function nextDay(dateStr) {
-        const d = new Date(dateStr);
-        d.setDate(d.getDate() + 1);
-        return d.toISOString().split('T')[0];
-      }
-
-      function enforceChronologicalDates(tbody, dateName) {
-        const rows = tbody.querySelectorAll('tr');
-        const reportingMonth = "{{ reporting_month_str }}";
-        let prevDate = reportingMonth ? `${reportingMonth}-01` : '';
-        rows.forEach((row, idx) => {
-          const dateInput = row.querySelector(`input[name="${dateName}"]`);
-          if (!dateInput) return;
-          const minD = (idx > 0 && prevDate) ? nextDay(prevDate) : `${reportingMonth}-01`;
-          dateInput.min = minD;
-          if (dateInput._flatpickr) {
-            dateInput._flatpickr.set('minDate', minD);
-          }
-          if (dateInput.value) prevDate = dateInput.value;
+      function sortTableRows(tbodyId, dateInputName) {
+        const tbody = document.getElementById(tbodyId);
+        if (!tbody) return;
+        const rows = Array.from(tbody.querySelectorAll('tr'));
+        rows.sort((a, b) => {
+          const valA = a.querySelector(`input[name="${dateInputName}"]`)?.value || '';
+          const valB = b.querySelector(`input[name="${dateInputName}"]`)?.value || '';
+          if (!valA && !valB) return 0;
+          if (!valA) return 1;
+          if (!valB) return -1;
+          return valA.localeCompare(valB);
         });
+        rows.forEach(row => tbody.appendChild(row));
       }
 
       // ── Dynamic table row management ──
@@ -556,17 +536,8 @@
         newRow.querySelectorAll('select').forEach(el => el.selectedIndex = 0);
         newRow.querySelectorAll('input[type="text"][class*="d-none"]').forEach(el => el.classList.add('d-none'));
         
-        // Set min date for new row based on last row's date
-        const dateInput = newRow.querySelector('input[type="date"]:not([name="footer_date"])');
-        if (dateInput) {
-          const lastDateInput = Array.from(tbody.querySelectorAll(`input[type="date"][name="${dateInput.name}"]`)).pop();
-          if (lastDateInput && lastDateInput.value) dateInput.min = nextDay(lastDateInput.value);
-        }
         applyDateMax(newRow);
         tbody.appendChild(newRow);
-        
-        // Re-enforce order after adding
-        if (dateInput) enforceChronologicalDates(tbody, dateInput.name);
       }
 
       function delRow(btn) {
@@ -589,9 +560,7 @@
         });
         row.remove();
         
-        // Find the date input to trigger re-enforcing order after delete
-        const firstDate = tbody.querySelector('input[type="date"]:not([name="footer_date"])');
-        if (firstDate) enforceChronologicalDates(tbody, firstDate.name);
+        // Row deleted, order doesn't need enforcing
       }
 
       // ── Numbered list items (achievements, challenges) ──
@@ -691,6 +660,10 @@
       document.getElementById('reportForm').addEventListener('submit', function(e) {
         e.preventDefault();
 
+        // Sort rows by date before validating or submitting
+        sortTableRows('tableActivities-body', 'act_date[]');
+        sortTableRows('tableMeetings-body', 'meet_date[]');
+
         // Clear all previous highlights
         document.querySelectorAll('.is-invalid-custom').forEach(el => el.classList.remove('is-invalid-custom'));
 
@@ -759,6 +732,10 @@
       });
 
       document.getElementById('saveDraftBtn').addEventListener('click', function() {
+        // Sort rows by date before saving draft
+        sortTableRows('tableActivities-body', 'act_date[]');
+        sortTableRows('tableMeetings-body', 'meet_date[]');
+
         const form = document.getElementById('reportForm');
         const btn = this;
         btn.disabled = true;
