@@ -1440,7 +1440,7 @@ def admin_panel():
                 SELECT sr.*, u.designation, u.department, u.role
                 FROM signed_reports sr
                 JOIN users u ON sr.username = u.username
-                WHERE sr.reporting_month BETWEEN %s AND %s
+                WHERE sr.status = 'reviewed' AND sr.reporting_month BETWEEN %s AND %s
                 ORDER BY sr.reporting_month, sr.username
             """, (start_m, end_m))
         else:
@@ -1448,7 +1448,7 @@ def admin_panel():
                 SELECT sr.*, u.designation, u.department, u.role
                 FROM signed_reports sr
                 JOIN users u ON sr.username = u.username
-                WHERE sr.username = %s AND sr.reporting_month BETWEEN %s AND %s
+                WHERE sr.status = 'reviewed' AND sr.username = %s AND sr.reporting_month BETWEEN %s AND %s
                 ORDER BY sr.reporting_month
             """, (coord_user, start_m, end_m))
 
@@ -3340,7 +3340,7 @@ def secretary_dashboard():
                 SELECT sr.*, u.designation, u.department, u.role
                 FROM signed_reports sr
                 JOIN users u ON sr.username = u.username
-                WHERE sr.reporting_month BETWEEN %s AND %s
+                WHERE sr.status = 'reviewed' AND sr.reporting_month BETWEEN %s AND %s
                 ORDER BY sr.reporting_month, sr.username
             """, (start_m, end_m))
         else:
@@ -3348,7 +3348,7 @@ def secretary_dashboard():
                 SELECT sr.*, u.designation, u.department, u.role
                 FROM signed_reports sr
                 JOIN users u ON sr.username = u.username
-                WHERE sr.username = %s AND sr.reporting_month BETWEEN %s AND %s
+                WHERE sr.status = 'reviewed' AND sr.username = %s AND sr.reporting_month BETWEEN %s AND %s
                 ORDER BY sr.reporting_month
             """, (coord_user, start_m, end_m))
         coord_reports = cursor.fetchall()
