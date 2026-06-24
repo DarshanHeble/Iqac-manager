@@ -3291,7 +3291,8 @@ def admin_signed_reports():
         return redirect("/dashboard")
 
     now = datetime.now()
-    default_month = f"{now.year}-{now.month:02d}"
+    prev = now.replace(day=1) - timedelta(days=1)
+    default_month = f"{prev.year}-{prev.month:02d}"
     selected_month = request.args.get("month", default_month)
 
     cursor.execute("""
