@@ -2759,7 +2759,7 @@ def iqac_report_save_draft():
                             uploaded_file,
                             folder=f"iqac_workshop_attachments/{username}/{reporting_month}",
                             public_id=f"workshop_{i+1}",
-                            resource_type="auto"
+                            resource_type="raw"
                         )
                         new_db_records.append({
                             "workshop_index": i,
@@ -3118,7 +3118,11 @@ def view_attachment(attachment_id):
         flash("Attachment file is no longer available. Please re-upload.", "warning")
         return redirect('/iqac_monthly_report')
 
-    return redirect(file_path)
+    url_to_use = file_path
+    # PDFs uploaded under image/upload can't be served as raw files — fix the delivery type
+    if 'cloudinary.com' in url_to_use and '/image/upload/' in url_to_use:
+        url_to_use = url_to_use.replace('/image/upload/', '/raw/upload/')
+    return redirect(url_to_use)
 
 
 # ------------------ IQAC UPLOAD SIGNED REPORT ------------------
