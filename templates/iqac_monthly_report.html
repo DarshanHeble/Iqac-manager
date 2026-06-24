@@ -612,10 +612,7 @@
         fetch(form.action, { method: 'POST', body: new FormData(form) })
           .then(r => {
             const ct = r.headers.get('content-type') || '';
-            if (ct.includes('application/json')) {
-              return r.json().then(data => { throw new Error(data.error || 'Unknown error'); });
-            }
-            if (!ct.includes('application/pdf')) throw new Error('Server returned non-PDF response');
+            if (!ct.includes('application/pdf')) throw new Error('not_pdf');
             const cd = r.headers.get('content-disposition') || '';
             const m = cd.match(/filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/);
             if (m) _pdfFilename = m[1].replace(/['"]/g, '').trim();
@@ -631,10 +628,10 @@
             setTimeout(() => { URL.revokeObjectURL(url); a.remove(); }, 200);
             setTimeout(() => { window.location.href = '/iqac_dashboard'; }, 1500);
           })
-          .catch(err => {
+          .catch(() => {
             btn.disabled = false;
             btn.innerHTML = '<i class="bi bi-file-earmark-pdf me-2"></i>Download as PDF';
-            alert('PDF generation failed:\n' + err.message);
+            alert('PDF generation failed. Please try again.');
           });
       });
 
