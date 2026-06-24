@@ -1,10 +1,17 @@
 from flask import Blueprint, request, redirect, flash, session, send_file
 import os
+import html as _html
 from datetime import datetime
 from io import BytesIO
 from db import get_db_connection, get_cursor
 import cloudinary
 import cloudinary.uploader
+
+def esc(s):
+    """HTML-escape a string so ReportLab's XML parser doesn't choke on & < > characters."""
+    if s is None:
+        return ''
+    return _html.escape(str(s))
 
 def _cloudinary_upload_ws(file_obj, username, reporting_month, index):
     public_id = f"{username}/{reporting_month}/workshop_{index + 1}"
@@ -246,11 +253,9 @@ def iqac_monthly_report_download():
     try:
         pdf_buffer = _generate_iqac_pdf(sorted_multi_form, ws_attachments)
     except Exception as e:
-        import traceback
-        err_detail = traceback.format_exc()
-        print(f"PDF generation error: {err_detail}")
+        print(f"PDF generation error: {e}")
         conn.close()
-        flash(f"PDF generation failed: {e}", "danger")
+        flash("PDF generation failed. Please try again.", "danger")
         return redirect("/iqac_monthly_report")
     conn.close()
 
@@ -387,8 +392,8 @@ def _generate_iqac_pdf(form_data, ws_attachments=None):
     elements.append(HRFlowable(width=usable_width, thickness=2, color=accent, spaceAfter=10))
 
     # ── Header Info ─────────────────────────────────────────────────────────
-    coord_name = form_data.get('coordinator_name', '')
-    school = form_data.get('school_campus', '')
+    coord_name = esc(form_data.get('coordinator_name', ''))
+    school = esc(form_data.get('school_campus', ''))
     rep_month_raw = form_data.get('reporting_month', '')
     try:
         rep_month_display = datetime.strptime(rep_month_raw, '%Y-%m').strftime('%m-%Y')
@@ -447,10 +452,10 @@ def _generate_iqac_pdf(form_data, ws_attachments=None):
             continue
         pa_data.append([
             Paragraph(format_date(meet_dates[i]) if i < len(meet_dates) else '', small),
-            Paragraph(dept_names[i] if i < len(dept_names) else '', small),
-            Paragraph(participants[i] if i < len(participants) else '', small),
-            Paragraph(topics[i] if i < len(topics) else '', small),
-            Paragraph(action_pts[i] if i < len(action_pts) else '', small),
+            Paragraph(esc(dept_names[i]) if i < len(dept_names) else '', small),
+            Paragraph(esc(participants[i]) if i < len(participants) else '', small),
+            Paragraph(esc(topics[i]) if i < len(topics) else '', small),
+            Paragraph(esc(action_pts[i]) if i < len(action_pts) else '', small),
         ])
 
     if has_pa_data:
@@ -498,9 +503,8 @@ def _generate_iqac_pdf(form_data, ws_attachments=None):
                         attachment_name = att_filename
                         break
             
-            title_para_text = ws_title
+            title_para_text = esc(ws_title)
             if attachment_name:
-                # ws_attachments now stores (index, cloudinary_url, filename)
                 file_url = None
                 if ws_attachments:
                     for att_idx, att_url, _ in ws_attachments:
@@ -508,14 +512,14 @@ def _generate_iqac_pdf(form_data, ws_attachments=None):
                             file_url = att_url
                             break
                 if file_url:
-                    title_para_text += f"<br/><a href='{file_url}' color='blue'><b>View Attachment:</b> {attachment_name}</a>"
+                    title_para_text += f"<br/><a href='{file_url}' color='blue'><b>View Attachment:</b> {esc(attachment_name)}</a>"
 
             pb_data.append([
                 Paragraph(format_date(ws_dates[i]) if i < len(ws_dates) else '', small),
-                Paragraph(ws_venues[i] if i < len(ws_venues) else '', small),
+                Paragraph(esc(ws_venues[i]) if i < len(ws_venues) else '', small),
                 Paragraph(title_para_text, small),
-                Paragraph(ws_parts[i] if i < len(ws_parts) else '', small),
-                Paragraph(ws_res[i] if i < len(ws_res) else '', small),
+                Paragraph(esc(ws_parts[i]) if i < len(ws_parts) else '', small),
+                Paragraph(esc(ws_res[i]) if i < len(ws_res) else '', small),
             ])
         pb_table = Table(pb_data, colWidths=pb_cols, repeatRows=1)
         pb_table.setStyle(table_style())
@@ -532,7 +536,7 @@ def _generate_iqac_pdf(form_data, ws_attachments=None):
         plan_rows = []
         for i, p in enumerate(plans, 1):
             plan_rows.append([Paragraph(f'{i}.', make_style(f'pn{i}', size=9, space_after=0)),
-                              Paragraph(p, make_style(f'pt{i}', size=9, space_after=0))])
+                              Paragraph(esc(p), make_style(f'pt{i}', size=9, space_after=0))])
 
         plan_table = Table(plan_rows, colWidths=[0.6 * cm, usable_width - 0.6 * cm])
         plan_table.setStyle(TableStyle([
@@ -549,10 +553,10 @@ def _generate_iqac_pdf(form_data, ws_attachments=None):
     # ── Signature Footer ────────────────────────────────────────────────────
     elements.append(Spacer(1, 16))
 
-    coord_sig = form_data.get('sig_coordinator_name', '')
-    dean_rem = form_data.get('sig_dean_remarks', '')
-    dir_rem = form_data.get('sig_director_remarks', '')
-    footer_date = form_data.get('footer_date', '')
+    coord_sig = esc(form_data.get('sig_coordinator_name', ''))
+    dean_rem = esc(form_data.get('sig_dean_remarks', ''))
+    dir_rem = esc(form_data.get('sig_director_remarks', ''))
+    footer_date = esc(form_data.get('footer_date', ''))
 
     def sig_cell(label, value):
         return [
@@ -820,15 +824,15 @@ def _generate_aqar_coordinator_pdf(form_data, aqar_names=None):
     elements.append(HRFlowable(width=usable_width, thickness=2, color=accent, spaceAfter=10))
 
     # ── Particulars Table ──
-    coord_name = form_data.get('coordinator_name', '')
-    school = form_data.get('school_campus', '')
+    coord_name = esc(form_data.get('coordinator_name', ''))
+    school = esc(form_data.get('school_campus', ''))
     rep_month_raw = form_data.get('reporting_month', '')
     try:
         rep_month_display = datetime.strptime(rep_month_raw, '%Y-%m').strftime('%m-%Y')
     except Exception:
         rep_month_display = rep_month_raw
 
-    resp_areas_val = form_data.get('responsibility_areas', '')
+    resp_areas_val = esc(form_data.get('responsibility_areas', ''))
     if not resp_areas_val:
         resp_areas_val = 'AQAR / NAAC / Rankings/Awards / Audits / Documentation / Others'
 
@@ -894,11 +898,11 @@ def _generate_aqar_coordinator_pdf(form_data, aqar_names=None):
             area_text = get_area_text(act_areas, act_area_others, i)
             s1_data.append([
                 Paragraph(format_date(act_dates[i]) if i < len(act_dates) else '', small),
-                Paragraph(act_tasks[i] if i < len(act_tasks) else '', small),
-                Paragraph(area_text, small),
-                Paragraph(act_stakeholders[i] if i < len(act_stakeholders) else '', small),
-                Paragraph(act_outcomes[i] if i < len(act_outcomes) else '', small),
-                Paragraph(act_statuses[i] if i < len(act_statuses) else '', small),
+                Paragraph(esc(act_tasks[i]) if i < len(act_tasks) else '', small),
+                Paragraph(esc(area_text), small),
+                Paragraph(esc(act_stakeholders[i]) if i < len(act_stakeholders) else '', small),
+                Paragraph(esc(act_outcomes[i]) if i < len(act_outcomes) else '', small),
+                Paragraph(esc(act_statuses[i]) if i < len(act_statuses) else '', small),
             ])
         s1_table = Table(s1_data, colWidths=s1_cols, repeatRows=1)
         s1_table.setStyle(table_style())
@@ -928,9 +932,9 @@ def _generate_aqar_coordinator_pdf(form_data, aqar_names=None):
                 continue
             s2_data.append([
                 Paragraph(format_date(meet_dates[i]) if i < len(meet_dates) else '', small),
-                Paragraph(meet_programmes[i] if i < len(meet_programmes) else '', small),
-                Paragraph(meet_roles[i] if i < len(meet_roles) else '', small),
-                Paragraph(meet_outcomes[i] if i < len(meet_outcomes) else '', small),
+                Paragraph(esc(meet_programmes[i]) if i < len(meet_programmes) else '', small),
+                Paragraph(esc(meet_roles[i]) if i < len(meet_roles) else '', small),
+                Paragraph(esc(meet_outcomes[i]) if i < len(meet_outcomes) else '', small),
             ])
         s2_table = Table(s2_data, colWidths=s2_cols, repeatRows=1)
         s2_table.setStyle(table_style())
@@ -944,7 +948,7 @@ def _generate_aqar_coordinator_pdf(form_data, aqar_names=None):
         elements.append(section_header('3. Key Achievements During the Month'))
         elements.append(Spacer(1, 4))
         for i, a in enumerate(achievements, 1):
-            elements.append(Paragraph(f'{i}. {a}', make_style(f'aqar_ach{i}', size=9, space_after=3)))
+            elements.append(Paragraph(f'{i}. {esc(a)}', make_style(f'aqar_ach{i}', size=9, space_after=3)))
         elements.append(Spacer(1, 8))
 
     # ── Section 4: Challenges / Issues Faced ──
@@ -954,7 +958,7 @@ def _generate_aqar_coordinator_pdf(form_data, aqar_names=None):
         elements.append(section_header('4. Challenges / Issues Faced'))
         elements.append(Spacer(1, 4))
         for i, c in enumerate(challenges, 1):
-            elements.append(Paragraph(f'{i}. {c}', make_style(f'aqar_ch{i}', size=9, space_after=3)))
+            elements.append(Paragraph(f'{i}. {esc(c)}', make_style(f'aqar_ch{i}', size=9, space_after=3)))
 
     # ── Section 5: Action Plan for Next Month ──
     plan_activities = form_data.getlist('plan_activity[]')
@@ -979,18 +983,18 @@ def _generate_aqar_coordinator_pdf(form_data, aqar_names=None):
                 continue
             area_text = get_area_text(plan_areas, plan_area_others, i)
             s5_data.append([
-                Paragraph(plan_activities[i] if i < len(plan_activities) else '', small),
-                Paragraph(area_text, small),
-                Paragraph(plan_outcomes[i] if i < len(plan_outcomes) else '', small),
+                Paragraph(esc(plan_activities[i]) if i < len(plan_activities) else '', small),
+                Paragraph(esc(area_text), small),
+                Paragraph(esc(plan_outcomes[i]) if i < len(plan_outcomes) else '', small),
             ])
         s5_table = Table(s5_data, colWidths=s5_cols, repeatRows=1)
         s5_table.setStyle(table_style())
         elements.append(s5_table)
 
     # ── Signature Section ──
-    coord_sig = form_data.get('sig_coordinator_name', '')
+    coord_sig = esc(form_data.get('sig_coordinator_name', ''))
     footer_date = form_data.get('footer_date', '')
-    dir_rem = form_data.get('sig_director_remarks', '')
+    dir_rem = esc(form_data.get('sig_director_remarks', ''))
 
     sig_block = [
         Spacer(1, 20),
