@@ -108,6 +108,7 @@ def iqac_monthly_report_download():
 
     ws_files = request.files.getlist("ws_report_file[]")
     ws_titles = request.form.getlist("ws_title[]")
+    ws_existing_files = request.form.getlist("ws_existing_file[]")
     num_rows = len(ws_titles)
     ws_attachments = []  # list of (index, cloudinary_url, filename)
 
@@ -115,45 +116,65 @@ def iqac_monthly_report_download():
     db_conn2 = get_db_connection()
     db_cur2 = get_cursor(db_conn2)
     db_cur2.execute("""
-        SELECT workshop_index, filename, cloudinary_url
+        SELECT workshop_index, filename, cloudinary_url, cloudinary_public_id
         FROM workshop_attachment_files
         WHERE username=%s AND reporting_month=%s
     """, (username, reporting_month))
-    existing_ws = {row["workshop_index"]: row for row in db_cur2.fetchall()}
+    existing_ws = db_cur2.fetchall()
     db_conn2.close()
+
+    new_db_records = []
 
     for i in range(num_rows):
         uploaded_file = ws_files[i] if i < len(ws_files) else None
+        existing_name = ws_existing_files[i] if i < len(ws_existing_files) else ""
+        
         if uploaded_file and uploaded_file.filename:
             try:
                 cld_url, cld_pid = _cloudinary_upload_ws(uploaded_file, username, reporting_month, i)
-                # Upsert into DB
-                db_conn3 = get_db_connection()
-                db_cur3 = get_cursor(db_conn3)
-                db_cur3.execute("""
-                    INSERT INTO workshop_attachment_files (username, reporting_month, workshop_index, filename, cloudinary_url, cloudinary_public_id)
-                    VALUES (%s, %s, %s, %s, %s, %s)
-                    ON CONFLICT (username, reporting_month, workshop_index)
-                    DO UPDATE SET filename=EXCLUDED.filename, cloudinary_url=EXCLUDED.cloudinary_url, cloudinary_public_id=EXCLUDED.cloudinary_public_id, uploaded_at=CURRENT_TIMESTAMP
-                """, (username, reporting_month, i, uploaded_file.filename, cld_url, cld_pid))
-                db_conn3.commit()
-                db_conn3.close()
+                new_db_records.append({
+                    "workshop_index": i,
+                    "filename": uploaded_file.filename,
+                    "cloudinary_url": cld_url,
+                    "cloudinary_public_id": cld_pid
+                })
                 ws_attachments.append((i, cld_url, uploaded_file.filename))
             except Exception as e:
                 print(f"Workshop upload error row {i}: {e}")
-        elif i in existing_ws:
-            ws_attachments.append((i, existing_ws[i]["cloudinary_url"], existing_ws[i]["filename"]))
+        elif existing_name:
+            # Find the matching record from existing_ws
+            matching = None
+            for rec in existing_ws:
+                if rec["filename"] == existing_name:
+                    matching = rec
+                    break
+            if matching:
+                new_db_records.append({
+                    "workshop_index": i,
+                    "filename": matching["filename"],
+                    "cloudinary_url": matching["cloudinary_url"],
+                    "cloudinary_public_id": matching["cloudinary_public_id"]
+                })
+                ws_attachments.append((i, matching["cloudinary_url"], matching["filename"]))
 
-    # Delete DB records for rows that no longer exist
-    if num_rows < len(existing_ws):
-        db_conn4 = get_db_connection()
-        db_cur4 = get_cursor(db_conn4)
-        db_cur4.execute("""
-            DELETE FROM workshop_attachment_files
-            WHERE username=%s AND reporting_month=%s AND workshop_index >= %s
-        """, (username, reporting_month, num_rows))
-        db_conn4.commit()
-        db_conn4.close()
+    # Now update the database:
+    # 1. Clear all old workshop attachment files for this user/month
+    db_conn3 = get_db_connection()
+    db_cur3 = get_cursor(db_conn3)
+    db_cur3.execute("""
+        DELETE FROM workshop_attachment_files
+        WHERE username=%s AND reporting_month=%s
+    """, (username, reporting_month))
+    
+    # 2. Insert the records with their new sorted indices
+    for rec in new_db_records:
+        db_cur3.execute("""
+            INSERT INTO workshop_attachment_files (username, reporting_month, workshop_index, filename, cloudinary_url, cloudinary_public_id)
+            VALUES (%s, %s, %s, %s, %s, %s)
+        """, (username, reporting_month, rec["workshop_index"], rec["filename"], rec["cloudinary_url"], rec["cloudinary_public_id"]))
+    
+    db_conn3.commit()
+    db_conn3.close()
 
     pdf_buffer = _generate_iqac_pdf(request.form, ws_attachments)
     conn.close()

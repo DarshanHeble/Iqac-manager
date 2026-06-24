@@ -241,6 +241,7 @@
                       </td>
                       <td class="text-center align-middle">
                         {% set existing_file = ws_files_map.get(loop.index0) if ws_files_map else None %}
+                        <input type="hidden" name="ws_existing_file[]" class="ws-existing-file-input" value="{{ existing_file or '' }}">
                         <input type="file" name="ws_report_file[]" class="d-none ws-file-input" accept=".pdf,.jpg,.jpeg,.png">
                         {% if existing_file %}
                           <button type="button" class="btn btn-success btn-sm ws-upload-btn" onclick="this.previousElementSibling.click()" title="Change attached file">
@@ -434,6 +435,10 @@
           btn.classList.add('btn-success');
           btn.innerHTML = '<i class="bi bi-check-circle-fill"></i>';
           nameDiv.textContent = e.target.files[0].name;
+          
+          // Clear the hidden input indicating an existing file
+          const existingInput = e.target.closest('td').querySelector('.ws-existing-file-input');
+          if (existingInput) existingInput.value = '';
         } else {
           btn.classList.remove('btn-success');
           btn.classList.add('btn-outline-secondary');

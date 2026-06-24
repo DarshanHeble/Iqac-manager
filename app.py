@@ -2665,25 +2665,51 @@ def iqac_report_save_draft():
         if not request.is_json:
             import os
             import glob
+            import shutil
             ws_upload_dir = os.path.join(app.root_path, "static", "signed_reports", "workshop_attachments", username, reporting_month)
             ws_files = request.files.getlist("ws_report_file[]")
             ws_titles = request.form.getlist("ws_title[]")
+            ws_existing_files = request.form.getlist("ws_existing_file[]")
             num_rows = len(ws_titles)
             
             if num_rows > 0:
                 os.makedirs(ws_upload_dir, exist_ok=True)
+                temp_files = {}  # index -> temp filename
                 for i in range(num_rows):
                     uploaded_file = ws_files[i] if i < len(ws_files) else None
+                    existing_name = ws_existing_files[i] if i < len(ws_existing_files) else ""
+                    
                     if uploaded_file and uploaded_file.filename:
-                        # Delete any existing workshop_{i+1}.* files to prevent duplicates
-                        for existing in glob.glob(os.path.join(ws_upload_dir, f"workshop_{i+1}.*")):
-                            try:
-                                os.remove(existing)
-                            except Exception:
-                                pass
                         ext = os.path.splitext(uploaded_file.filename)[1]
-                        save_path = os.path.join(ws_upload_dir, f"workshop_{i+1}{ext}")
-                        uploaded_file.save(save_path)
+                        temp_name = f"temp_workshop_{i+1}{ext}"
+                        temp_path = os.path.join(ws_upload_dir, temp_name)
+                        uploaded_file.save(temp_path)
+                        temp_files[i] = temp_name
+                    elif existing_name:
+                        src_path = os.path.join(ws_upload_dir, existing_name)
+                        if os.path.exists(src_path):
+                            ext = os.path.splitext(existing_name)[1]
+                            temp_name = f"temp_workshop_{i+1}{ext}"
+                            temp_path = os.path.join(ws_upload_dir, temp_name)
+                            shutil.copy2(src_path, temp_path)
+                            temp_files[i] = temp_name
+                
+                # Delete any existing workshop_*.ext files to prevent duplicates/orphans
+                for f in glob.glob(os.path.join(ws_upload_dir, "workshop_*")):
+                    try:
+                        os.remove(f)
+                    except Exception:
+                        pass
+                
+                # Rename temp files to final names
+                for idx, temp_name in temp_files.items():
+                    src = os.path.join(ws_upload_dir, temp_name)
+                    ext = os.path.splitext(temp_name)[1]
+                    dest = os.path.join(ws_upload_dir, f"workshop_{idx+1}{ext}")
+                    try:
+                        os.rename(src, dest)
+                    except Exception:
+                        pass
             
             # Clean up orphaned files
             if os.path.exists(ws_upload_dir):
