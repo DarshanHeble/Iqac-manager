@@ -2561,19 +2561,17 @@ def iqac_monthly_report():
     can_unlock = signed_row is not None and signed_row["status"] == 'pending_upload'
     rejection_remarks = signed_row["remarks"] if (signed_row and signed_row["status"] == 'corrections_requested') else None
 
-    # Scan for existing workshop files
+    # Load existing workshop attachment filenames from DB (Cloudinary-backed)
     ws_files_map = {}
-    ws_upload_dir = os.path.join(app.root_path, 'static', 'signed_reports', 'workshop_attachments', username, reporting_month_str)
-    if os.path.exists(ws_upload_dir):
-        for f in os.listdir(ws_upload_dir):
-            if f.startswith("workshop_"):
-                try:
-                    parts = os.path.splitext(f)[0].split("_")
-                    if len(parts) > 1:
-                        idx = int(parts[1]) - 1
-                        ws_files_map[idx] = f
-                except Exception:
-                    pass
+    ws_conn2 = get_db_connection()
+    ws_cur2 = get_cursor(ws_conn2)
+    ws_cur2.execute("""
+        SELECT workshop_index, filename FROM workshop_attachment_files
+        WHERE username=%s AND reporting_month=%s
+    """, (username, reporting_month_str))
+    for row in ws_cur2.fetchall():
+        ws_files_map[row["workshop_index"]] = row["filename"]
+    ws_conn2.close()
 
     conn.close()
 
@@ -2757,19 +2755,17 @@ def iqac_report_view_raw(target_username, reporting_month):
     """, (target_username, reporting_month))
     signed_row = cursor.fetchone()
 
-    # Scan for existing workshop files
+    # Load existing workshop attachment filenames from DB (Cloudinary-backed)
     ws_files_map = {}
-    ws_upload_dir = os.path.join(app.root_path, 'static', 'signed_reports', 'workshop_attachments', target_username, reporting_month)
-    if os.path.exists(ws_upload_dir):
-        for f in os.listdir(ws_upload_dir):
-            if f.startswith("workshop_"):
-                try:
-                    parts = os.path.splitext(f)[0].split("_")
-                    if len(parts) > 1:
-                        idx = int(parts[1]) - 1
-                        ws_files_map[idx] = f
-                except Exception:
-                    pass
+    ws_conn_rv = get_db_connection()
+    ws_cur_rv = get_cursor(ws_conn_rv)
+    ws_cur_rv.execute("""
+        SELECT workshop_index, filename FROM workshop_attachment_files
+        WHERE username=%s AND reporting_month=%s
+    """, (target_username, reporting_month))
+    for row in ws_cur_rv.fetchall():
+        ws_files_map[row["workshop_index"]] = row["filename"]
+    ws_conn_rv.close()
 
     conn.close()
 
