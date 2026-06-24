@@ -534,28 +534,42 @@ def _generate_iqac_pdf(form_data, ws_attachments=None):
     dir_rem = esc(form_data.get('sig_director_remarks', ''))
     footer_date = esc(form_data.get('footer_date', ''))
 
-    def sig_cell(label, value):
-        return [
-            Paragraph(label, make_style('sigh', size=8, bold=True, space_after=4)),
-            Paragraph(f'{value or ""}   {"_" * 28}', make_style('sigv', size=8, space_after=2)),
-            Paragraph('(Signature)', make_style('sigs', size=7, italic=True, space_after=0)),
+    _sc = [0]
+    def sig_cell(label, value, show_remarks_lines=False):
+        _sc[0] += 1
+        n = _sc[0]
+        line = '_' * 32
+        items = [
+            Paragraph(label, make_style(f'sigh{n}', size=8, bold=True, space_after=6)),
         ]
+        if show_remarks_lines:
+            # Blank writing lines for hand-written remarks
+            items.append(Paragraph(line, make_style(f'sigrl1_{n}', size=8, space_after=10)))
+            items.append(Paragraph(line, make_style(f'sigrl2_{n}', size=8, space_after=10)))
+            items.append(Paragraph(line, make_style(f'sigrl3_{n}', size=8, space_after=8)))
+        else:
+            if value:
+                items.append(Paragraph(esc(value), make_style(f'sigval{n}', size=9, space_after=4)))
+            items.append(Paragraph(line, make_style(f'sigln{n}', size=8, space_after=4)))
+        items.append(Paragraph('(Signature)', make_style(f'sigs{n}', size=7, italic=True, space_after=0)))
+        return items
 
     third = usable_width / 3
     sig_data = [
-        [sig_cell('Name & Signature of\nIQAC Coordinator', coord_sig),
-         sig_cell('Remarks & Signature of\nDean', dean_rem),
-         sig_cell('Remarks & Signature of\nDirector IQAC', dir_rem)],
+        [sig_cell('Name & Signature of\nIQAC Coordinator', coord_sig, show_remarks_lines=False),
+         sig_cell('Remarks & Signature of\nDean', dean_rem, show_remarks_lines=True),
+         sig_cell('Remarks & Signature of\nDirector IQAC', dir_rem, show_remarks_lines=True)],
     ]
     sig_table = Table(sig_data, colWidths=[third, third, third])
     sig_table.setStyle(TableStyle([
         ('BOX', (0, 0), (-1, -1), 0.5, colors.black),
         ('INNERGRID', (0, 0), (-1, -1), 0.5, colors.black),
         ('VALIGN', (0, 0), (-1, -1), 'TOP'),
-        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-        ('TOPPADDING', (0, 0), (-1, -1), 6),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 30),
-        ('LEFTPADDING', (0, 0), (-1, -1), 4),
+        ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+        ('TOPPADDING', (0, 0), (-1, -1), 8),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 8),
+        ('LEFTPADDING', (0, 0), (-1, -1), 6),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 6),
     ]))
     elements.append(sig_table)
     elements.append(Spacer(1, 6))
