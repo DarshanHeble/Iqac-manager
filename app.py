@@ -2474,7 +2474,7 @@ def iqac_dashboard():
         ws_conn = get_db_connection()
         ws_cur = get_cursor(ws_conn)
         ws_cur.execute("""
-            SELECT reporting_month, filename, cloudinary_url, workshop_index
+            SELECT id, reporting_month, filename, cloudinary_url, workshop_index
             FROM workshop_attachment_files
             WHERE username = %s AND reporting_month = ANY(%s)
             ORDER BY reporting_month, workshop_index
@@ -2483,7 +2483,7 @@ def iqac_dashboard():
             m = row["reporting_month"]
             if m not in workshop_attachments:
                 workshop_attachments[m] = []
-            workshop_attachments[m].append({'name': row["filename"], 'url': row["cloudinary_url"]})
+            workshop_attachments[m].append({'id': row["id"], 'name': row["filename"], 'url': row["cloudinary_url"]})
         ws_conn.close()
 
     is_open, reporting_month_str, open_day, close_day, window_msg = check_submission_window()
@@ -2962,6 +2962,49 @@ def view_report(report_id):
         return redirect('/admin_signed_reports')
 
 
+# ------------------ VIEW WORKSHOP ATTACHMENT (PROXY) ------------------
+@app.route("/view_attachment/<int:attachment_id>")
+def view_attachment(attachment_id):
+    if 'username' not in session:
+        return redirect('/login')
+
+    conn = get_db_connection()
+    cursor = get_cursor(conn)
+    cursor.execute("SELECT * FROM users WHERE username=%s", (session['username'],))
+    user = cursor.fetchone()
+    cursor.execute("SELECT * FROM workshop_attachment_files WHERE id=%s", (attachment_id,))
+    att = cursor.fetchone()
+    conn.close()
+
+    if not user or not att:
+        flash("Attachment not found.", "danger")
+        return redirect('/dashboard')
+
+    role = user['role'].lower()
+    is_admin = role in ('admin', 'secretary')
+    is_owner = user['username'] == att['username']
+    if not is_admin and not is_owner:
+        flash("Access denied.", "danger")
+        return redirect('/dashboard')
+
+    try:
+        with urllib.request.urlopen(att['cloudinary_url']) as resp:
+            file_data = resp.read()
+            content_type = resp.headers.get('Content-Type', 'application/octet-stream')
+        download = request.args.get('download') == '1'
+        disposition = 'attachment' if download else 'inline'
+        filename = att['filename'] or f"attachment_{attachment_id}"
+        from flask import Response
+        return Response(
+            file_data,
+            mimetype=content_type,
+            headers={'Content-Disposition': f'{disposition}; filename="{filename}"'}
+        )
+    except Exception as e:
+        flash("Could not load attachment file.", "danger")
+        return redirect('/dashboard')
+
+
 # ------------------ IQAC UPLOAD SIGNED REPORT ------------------
 ALLOWED_UPLOAD_EXTENSIONS = {'pdf', 'jpg', 'jpeg', 'png'}
 
@@ -3122,7 +3165,7 @@ def admin_signed_reports():
     conn2 = get_db_connection()
     cursor2 = get_cursor(conn2)
     cursor2.execute("""
-        SELECT username, filename, cloudinary_url, workshop_index
+        SELECT id, username, filename, cloudinary_url, workshop_index
         FROM workshop_attachment_files
         WHERE reporting_month = %s
         ORDER BY username, workshop_index
@@ -3134,7 +3177,7 @@ def admin_signed_reports():
         uname = row["username"]
         if uname not in workshop_attachments:
             workshop_attachments[uname] = []
-        workshop_attachments[uname].append({'name': row["filename"], 'url': row["cloudinary_url"]})
+        workshop_attachments[uname].append({'id': row["id"], 'name': row["filename"], 'url': row["cloudinary_url"]})
 
     return render_template("admin_signed_reports.html",
         username=session["username"],
@@ -3163,7 +3206,7 @@ def public_workshop_attachments():
     ws_conn = get_db_connection()
     ws_cur = get_cursor(ws_conn)
     ws_cur.execute("""
-        SELECT username, filename, cloudinary_url, workshop_index
+        SELECT id, username, filename, cloudinary_url, workshop_index
         FROM workshop_attachment_files
         WHERE reporting_month = %s
         ORDER BY username, workshop_index
@@ -3173,7 +3216,7 @@ def public_workshop_attachments():
         uname = row["username"]
         if uname not in workshop_attachments:
             workshop_attachments[uname] = []
-        workshop_attachments[uname].append({'name': row["filename"], 'url': row["cloudinary_url"]})
+        workshop_attachments[uname].append({'id': row["id"], 'name': row["filename"], 'url': row["cloudinary_url"]})
     ws_conn.close()
 
     return render_template('workshop_attachments.html',

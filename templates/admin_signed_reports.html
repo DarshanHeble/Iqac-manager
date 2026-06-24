@@ -156,10 +156,10 @@
                                   <div class="d-flex align-items-center justify-content-between mb-2 p-2 rounded" style="background:#f0f4f8;">
                                     <span class="small text-truncate me-2" style="max-width:200px;" title="{{ f.name }}">{{ f.name }}</span>
                                     <div class="d-flex gap-2 flex-shrink-0">
-                                      <a href="{{ f.url }}" target="_blank" class="btn btn-outline-primary btn-sm">
+                                      <a href="/view_attachment/{{ f.id }}" target="_blank" class="btn btn-outline-primary btn-sm">
                                         <i class="bi bi-eye"></i> View
                                       </a>
-                                      <a href="{{ f.url }}" download="{{ f.name }}" class="btn btn-outline-secondary btn-sm">
+                                      <a href="/view_attachment/{{ f.id }}?download=1" class="btn btn-outline-secondary btn-sm">
                                         <i class="bi bi-download"></i>
                                       </a>
                                     </div>
