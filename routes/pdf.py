@@ -246,9 +246,11 @@ def iqac_monthly_report_download():
     try:
         pdf_buffer = _generate_iqac_pdf(sorted_multi_form, ws_attachments)
     except Exception as e:
-        print(f"PDF generation error: {e}")
+        import traceback
+        err_detail = traceback.format_exc()
+        print(f"PDF generation error: {err_detail}")
         conn.close()
-        flash("PDF generation failed. Please try again.", "danger")
+        flash(f"PDF generation failed: {e}", "danger")
         return redirect("/iqac_monthly_report")
     conn.close()
 
