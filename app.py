@@ -1356,7 +1356,12 @@ def admin_panel():
     current_report_month = prev.strftime("%Y-%m")
     cursor.execute("SELECT COUNT(*) as count FROM users WHERE role IN ('School IQAC Coordinator', 'Campus IQAC Coordinator')")
     total_coordinators = cursor.fetchone()['count']
-    cursor.execute("SELECT COUNT(DISTINCT username) as count FROM signed_reports WHERE reporting_month = %s", (current_report_month,))
+    cursor.execute("""
+        SELECT COUNT(DISTINCT sr.username) as count FROM signed_reports sr
+        JOIN users u ON sr.username = u.username
+        WHERE sr.reporting_month = %s
+        AND u.role IN ('School IQAC Coordinator', 'Campus IQAC Coordinator')
+    """, (current_report_month,))
     submitted_coordinators = cursor.fetchone()['count']
     submission_pct = int((submitted_coordinators / total_coordinators * 100) if total_coordinators > 0 else 0)
 
@@ -3218,7 +3223,12 @@ def secretary_dashboard():
     cursor.execute("SELECT COUNT(*) as count FROM users WHERE role IN ('School IQAC Coordinator', 'Campus IQAC Coordinator')")
     total_coordinators = cursor.fetchone()['count']
 
-    cursor.execute("SELECT COUNT(DISTINCT username) as count FROM signed_reports WHERE reporting_month = %s", (current_report_month,))
+    cursor.execute("""
+        SELECT COUNT(DISTINCT sr.username) as count FROM signed_reports sr
+        JOIN users u ON sr.username = u.username
+        WHERE sr.reporting_month = %s
+        AND u.role IN ('School IQAC Coordinator', 'Campus IQAC Coordinator')
+    """, (current_report_month,))
     submitted_coordinators = cursor.fetchone()['count']
 
     submission_pct = int((submitted_coordinators / total_coordinators * 100) if total_coordinators > 0 else 0)
