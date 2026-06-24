@@ -1356,16 +1356,13 @@ def admin_panel():
     current_report_month = prev.strftime("%Y-%m")
     cursor.execute("SELECT COUNT(*) as count FROM users WHERE role IN ('School IQAC Coordinator', 'Campus IQAC Coordinator')")
     total_coordinators = cursor.fetchone()['count']
-<<<<<<< HEAD
-    cursor.execute("SELECT COUNT(DISTINCT username) as count FROM signed_reports WHERE reporting_month = %s AND status IN ('uploaded','reviewed')", (current_report_month,))
-=======
     cursor.execute("""
         SELECT COUNT(DISTINCT sr.username) as count FROM signed_reports sr
         JOIN users u ON sr.username = u.username
         WHERE sr.reporting_month = %s
+        AND sr.status IN ('uploaded', 'reviewed')
         AND u.role IN ('School IQAC Coordinator', 'Campus IQAC Coordinator')
     """, (current_report_month,))
->>>>>>> a210b0dea5fc9023782e4ccc0a697403e8c57ca1
     submitted_coordinators = cursor.fetchone()['count']
     submission_pct = int((submitted_coordinators / total_coordinators * 100) if total_coordinators > 0 else 0)
 
@@ -3237,16 +3234,13 @@ def secretary_dashboard():
     cursor.execute("SELECT COUNT(*) as count FROM users WHERE role IN ('School IQAC Coordinator', 'Campus IQAC Coordinator')")
     total_coordinators = cursor.fetchone()['count']
 
-<<<<<<< HEAD
-    cursor.execute("SELECT COUNT(DISTINCT username) as count FROM signed_reports WHERE reporting_month = %s AND status IN ('uploaded','reviewed')", (current_report_month,))
-=======
     cursor.execute("""
         SELECT COUNT(DISTINCT sr.username) as count FROM signed_reports sr
         JOIN users u ON sr.username = u.username
         WHERE sr.reporting_month = %s
+        AND sr.status IN ('uploaded', 'reviewed')
         AND u.role IN ('School IQAC Coordinator', 'Campus IQAC Coordinator')
     """, (current_report_month,))
->>>>>>> a210b0dea5fc9023782e4ccc0a697403e8c57ca1
     submitted_coordinators = cursor.fetchone()['count']
 
     submission_pct = int((submitted_coordinators / total_coordinators * 100) if total_coordinators > 0 else 0)
