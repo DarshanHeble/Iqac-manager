@@ -2772,13 +2772,17 @@ def iqac_report_save_draft():
                                 matching = rec
                                 break
                         if matching:
-                            ext = os.path.splitext(existing_name)[1]
-                            temp_name = f"temp_workshop_{i+1}{ext}"
-                            temp_path = os.path.join(ws_upload_dir, temp_name)
-                            src_path = os.path.join(ws_upload_dir, existing_name)
-                            if os.path.exists(src_path):
+                            old_idx = matching["workshop_index"]
+                            src_matches = glob.glob(os.path.join(ws_upload_dir, f"workshop_{old_idx+1}.*"))
+                            if src_matches:
+                                src_path = src_matches[0]
+                                ext = os.path.splitext(src_path)[1]
+                                temp_name = f"temp_workshop_{i+1}{ext}"
+                                temp_path = os.path.join(ws_upload_dir, temp_name)
                                 shutil.copy2(src_path, temp_path)
                                 temp_files[i] = temp_name
+                            else:
+                                ext = os.path.splitext(existing_name)[1]
                             
                             new_db_records.append({
                                 "workshop_index": i,
