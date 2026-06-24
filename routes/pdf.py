@@ -544,7 +544,7 @@ def _generate_iqac_pdf(form_data, ws_attachments=None):
         ]
         if show_remarks_lines:
             # Empty space matching coordinator name height, then signature line
-            items.append(Spacer(1, 14))
+            items.append(Spacer(1, 20))
             items.append(Paragraph(line, make_style(f'sigln{n}', size=8, space_after=4)))
         else:
             if value:

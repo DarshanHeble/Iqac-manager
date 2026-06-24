@@ -2727,117 +2727,71 @@ def iqac_report_save_draft():
         """, (username, report_type, reporting_month, form_data_str))
         conn.commit()
 
-        # If not JSON, save the uploaded workshop files and clean up orphaned ones
+        # If not JSON, save the uploaded workshop files to Cloudinary
         if not request.is_json:
-            import os
-            import glob
-            import shutil
-            ws_upload_dir = os.path.join(app.root_path, "static", "signed_reports", "workshop_attachments", username, reporting_month)
             ws_files = sorted_ws_files if sorted_ws_files is not None else []
             ws_titles = form_data.get("ws_title[]") or []
             ws_existing_files = form_data.get("ws_existing_file[]") or []
             num_rows = len(ws_titles)
-            
-            # Fetch existing workshop attachment database records to align them
+
+            # Fetch existing records keyed by filename for lookup
             cursor.execute("""
                 SELECT workshop_index, filename, cloudinary_url, cloudinary_public_id
                 FROM workshop_attachment_files
                 WHERE username=%s AND reporting_month=%s
             """, (username, reporting_month))
-            existing_ws = cursor.fetchall()
-            
+            existing_ws_by_name = {row["filename"]: row for row in cursor.fetchall()}
+
             new_db_records = []
-            
-            if num_rows > 0:
-                os.makedirs(ws_upload_dir, exist_ok=True)
-                temp_files = {}  # index -> temp filename
-                for i in range(num_rows):
-                    uploaded_file = ws_files[i] if i < len(ws_files) else None
-                    existing_name = ws_existing_files[i] if i < len(ws_existing_files) else ""
-                    
-                    if uploaded_file and uploaded_file.filename:
-                        ext = os.path.splitext(uploaded_file.filename)[1]
-                        temp_name = f"temp_workshop_{i+1}{ext}"
-                        temp_path = os.path.join(ws_upload_dir, temp_name)
-                        uploaded_file.save(temp_path)
-                        temp_files[i] = temp_name
-                        
+
+            for i in range(num_rows):
+                uploaded_file = ws_files[i] if i < len(ws_files) else None
+                existing_name = ws_existing_files[i] if i < len(ws_existing_files) else ""
+
+                if uploaded_file and uploaded_file.filename:
+                    # Upload new file to Cloudinary
+                    try:
+                        cl_url, cl_public_id = cloudinary_upload(
+                            uploaded_file,
+                            folder=f"iqac_workshop_attachments/{username}/{reporting_month}",
+                            public_id=f"workshop_{i+1}",
+                            resource_type="auto"
+                        )
                         new_db_records.append({
                             "workshop_index": i,
                             "filename": uploaded_file.filename,
-                            "cloudinary_url": f"/static/signed_reports/workshop_attachments/{username}/{reporting_month}/workshop_{i+1}{ext}",
-                            "cloudinary_public_id": ""
+                            "cloudinary_url": cl_url,
+                            "cloudinary_public_id": cl_public_id
                         })
-                    elif existing_name:
-                        # Find matching record from existing_ws
-                        matching = None
-                        for rec in existing_ws:
-                            if rec["filename"] == existing_name:
-                                matching = rec
-                                break
-                        if matching:
-                            old_idx = matching["workshop_index"]
-                            src_matches = glob.glob(os.path.join(ws_upload_dir, f"workshop_{old_idx+1}.*"))
-                            if src_matches:
-                                src_path = src_matches[0]
-                                ext = os.path.splitext(src_path)[1]
-                                temp_name = f"temp_workshop_{i+1}{ext}"
-                                temp_path = os.path.join(ws_upload_dir, temp_name)
-                                shutil.copy2(src_path, temp_path)
-                                temp_files[i] = temp_name
-                            else:
-                                ext = os.path.splitext(existing_name)[1]
-                            
-                            new_db_records.append({
-                                "workshop_index": i,
-                                "filename": matching["filename"],
-                                "cloudinary_url": matching["cloudinary_url"],
-                                "cloudinary_public_id": matching["cloudinary_public_id"]
-                            })
-                
-                # Delete any existing workshop_*.ext files to prevent duplicates/orphans
-                for f in glob.glob(os.path.join(ws_upload_dir, "workshop_*")):
-                    try:
-                        os.remove(f)
-                    except Exception:
-                        pass
-                
-                # Rename temp files to final names
-                for idx, temp_name in temp_files.items():
-                    src = os.path.join(ws_upload_dir, temp_name)
-                    ext = os.path.splitext(temp_name)[1]
-                    dest = os.path.join(ws_upload_dir, f"workshop_{idx+1}{ext}")
-                    try:
-                        os.rename(src, dest)
-                    except Exception:
-                        pass
-            
-            # Clean up orphaned files
-            if os.path.exists(ws_upload_dir):
-                for f in os.listdir(ws_upload_dir):
-                    if f.startswith("workshop_"):
-                        try:
-                            parts = os.path.splitext(f)[0].split("_")
-                            if len(parts) > 1:
-                                idx = int(parts[1])
-                                if idx > num_rows:
-                                    os.remove(os.path.join(ws_upload_dir, f))
-                        except Exception:
-                            pass
-            
-            # 2. Clear old database records for this user and month
+                    except Exception as e:
+                        print(f"Cloudinary upload error for workshop {i+1}: {e}")
+                elif existing_name and existing_name in existing_ws_by_name:
+                    rec = existing_ws_by_name[existing_name]
+                    new_db_records.append({
+                        "workshop_index": i,
+                        "filename": rec["filename"],
+                        "cloudinary_url": rec["cloudinary_url"],
+                        "cloudinary_public_id": rec["cloudinary_public_id"]
+                    })
+
+            # Delete from Cloudinary any files that are no longer kept
+            kept_filenames = {r["filename"] for r in new_db_records}
+            for fname, rec in existing_ws_by_name.items():
+                if fname not in kept_filenames and rec["cloudinary_public_id"]:
+                    cloudinary_delete(rec["cloudinary_public_id"])
+
+            # Replace database records
             cursor.execute("""
                 DELETE FROM workshop_attachment_files
                 WHERE username=%s AND reporting_month=%s
             """, (username, reporting_month))
 
-            # 3. Insert new database records in sorted order
             for rec in new_db_records:
                 cursor.execute("""
                     INSERT INTO workshop_attachment_files (username, reporting_month, workshop_index, filename, cloudinary_url, cloudinary_public_id)
                     VALUES (%s, %s, %s, %s, %s, %s)
                 """, (username, reporting_month, rec["workshop_index"], rec["filename"], rec["cloudinary_url"], rec["cloudinary_public_id"]))
-            
+
             conn.commit()
 
         return {"success": True, "message": "Draft saved successfully!"}
