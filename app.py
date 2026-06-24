@@ -1356,11 +1356,29 @@ def admin_panel():
     current_report_month = prev.strftime("%Y-%m")
     cursor.execute("SELECT COUNT(*) as count FROM users WHERE role IN ('School IQAC Coordinator', 'Campus IQAC Coordinator')")
     total_coordinators = cursor.fetchone()['count']
-    cursor.execute("SELECT COUNT(DISTINCT username) as count FROM signed_reports WHERE reporting_month = %s", (current_report_month,))
+    cursor.execute("SELECT COUNT(DISTINCT username) as count FROM signed_reports WHERE reporting_month = %s AND status IN ('uploaded','reviewed')", (current_report_month,))
     submitted_coordinators = cursor.fetchone()['count']
     submission_pct = int((submitted_coordinators / total_coordinators * 100) if total_coordinators > 0 else 0)
 
-    # Which coordinators have NOT submitted
+    # Coordinators with signed PDF uploaded
+    cursor.execute("""
+        SELECT DISTINCT u.username, u.full_name FROM users u
+        JOIN signed_reports sr ON sr.username = u.username
+        WHERE u.role IN ('School IQAC Coordinator', 'Campus IQAC Coordinator')
+        AND sr.reporting_month = %s AND sr.status IN ('uploaded', 'reviewed')
+    """, (current_report_month,))
+    submitted_coordinator_names = [r['full_name'] or r['username'] for r in cursor.fetchall()]
+
+    # Coordinators with draft saved but not yet uploaded
+    cursor.execute("""
+        SELECT DISTINCT u.username, u.full_name FROM users u
+        JOIN signed_reports sr ON sr.username = u.username
+        WHERE u.role IN ('School IQAC Coordinator', 'Campus IQAC Coordinator')
+        AND sr.reporting_month = %s AND sr.status IN ('pending_upload', 'corrections_requested')
+    """, (current_report_month,))
+    draft_coordinator_names = [r['full_name'] or r['username'] for r in cursor.fetchall()]
+
+    # Coordinators with nothing done
     cursor.execute("""
         SELECT username, full_name FROM users WHERE role IN ('School IQAC Coordinator', 'Campus IQAC Coordinator')
         AND username NOT IN (
@@ -1368,15 +1386,6 @@ def admin_panel():
         )
     """, (current_report_month,))
     pending_coordinators = [r['full_name'] or r['username'] for r in cursor.fetchall()]
-
-    # Which coordinators HAVE submitted
-    cursor.execute("""
-        SELECT DISTINCT u.username, u.full_name FROM users u
-        JOIN signed_reports sr ON sr.username = u.username
-        WHERE u.role IN ('School IQAC Coordinator', 'Campus IQAC Coordinator')
-        AND sr.reporting_month = %s
-    """, (current_report_month,))
-    submitted_coordinator_names = [r['full_name'] or r['username'] for r in cursor.fetchall()]
 
     # Handle submission window settings update
     if request.method == "POST" and "update_window" in request.form:
@@ -1538,6 +1547,7 @@ def admin_panel():
         submission_pct=submission_pct,
         pending_coordinators=pending_coordinators,
         submitted_coordinator_names=submitted_coordinator_names,
+        draft_coordinator_names=draft_coordinator_names,
         current_report_month=datetime.strptime(current_report_month, "%Y-%m").strftime("%m-%Y"),
         **dict(zip(('submission_open_day', 'submission_close_day'), get_submission_window())),
         coordinators=coordinators,
@@ -3218,10 +3228,26 @@ def secretary_dashboard():
     cursor.execute("SELECT COUNT(*) as count FROM users WHERE role IN ('School IQAC Coordinator', 'Campus IQAC Coordinator')")
     total_coordinators = cursor.fetchone()['count']
 
-    cursor.execute("SELECT COUNT(DISTINCT username) as count FROM signed_reports WHERE reporting_month = %s", (current_report_month,))
+    cursor.execute("SELECT COUNT(DISTINCT username) as count FROM signed_reports WHERE reporting_month = %s AND status IN ('uploaded','reviewed')", (current_report_month,))
     submitted_coordinators = cursor.fetchone()['count']
 
     submission_pct = int((submitted_coordinators / total_coordinators * 100) if total_coordinators > 0 else 0)
+
+    cursor.execute("""
+        SELECT DISTINCT u.username, u.full_name FROM users u
+        JOIN signed_reports sr ON sr.username = u.username
+        WHERE u.role IN ('School IQAC Coordinator', 'Campus IQAC Coordinator')
+        AND sr.reporting_month = %s AND sr.status IN ('uploaded', 'reviewed')
+    """, (current_report_month,))
+    submitted_coordinator_names = [r['full_name'] or r['username'] for r in cursor.fetchall()]
+
+    cursor.execute("""
+        SELECT DISTINCT u.username, u.full_name FROM users u
+        JOIN signed_reports sr ON sr.username = u.username
+        WHERE u.role IN ('School IQAC Coordinator', 'Campus IQAC Coordinator')
+        AND sr.reporting_month = %s AND sr.status IN ('pending_upload', 'corrections_requested')
+    """, (current_report_month,))
+    draft_coordinator_names = [r['full_name'] or r['username'] for r in cursor.fetchall()]
 
     cursor.execute("""
         SELECT username, full_name FROM users WHERE role IN ('School IQAC Coordinator', 'Campus IQAC Coordinator')
@@ -3230,14 +3256,6 @@ def secretary_dashboard():
         )
     """, (current_report_month,))
     pending_coordinators = [r['full_name'] or r['username'] for r in cursor.fetchall()]
-
-    cursor.execute("""
-        SELECT DISTINCT u.username, u.full_name FROM users u
-        JOIN signed_reports sr ON sr.username = u.username
-        WHERE u.role IN ('School IQAC Coordinator', 'Campus IQAC Coordinator')
-        AND sr.reporting_month = %s
-    """, (current_report_month,))
-    submitted_coordinator_names = [r['full_name'] or r['username'] for r in cursor.fetchall()]
 
     # Coordinators list for Quick Summary dropdown
     cursor.execute("SELECT username, role FROM users WHERE role IN ('School IQAC Coordinator', 'Campus IQAC Coordinator') ORDER BY username")
@@ -3294,6 +3312,7 @@ def secretary_dashboard():
         submission_pct=submission_pct,
         pending_coordinators=pending_coordinators,
         submitted_coordinator_names=submitted_coordinator_names,
+        draft_coordinator_names=draft_coordinator_names,
         coordinators=coordinators,
         coord_reports=coord_reports,
         coord_user=coord_user,
