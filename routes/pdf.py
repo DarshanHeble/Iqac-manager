@@ -543,11 +543,8 @@ def _generate_iqac_pdf(form_data, ws_attachments=None):
             Paragraph(label, make_style(f'sigh{n}', size=8, bold=True, space_after=6)),
         ]
         if show_remarks_lines:
-            # Blank writing lines for hand-written remarks
-            items.append(Paragraph(line, make_style(f'sigrl1_{n}', size=8, space_after=10)))
-            items.append(Paragraph(line, make_style(f'sigrl2_{n}', size=8, space_after=10)))
-            items.append(Paragraph(line, make_style(f'sigrl3_{n}', size=8, space_after=12)))
-            # Signature underline below the remarks lines
+            # Empty space matching coordinator name height, then signature line
+            items.append(Spacer(1, 22))
             items.append(Paragraph(line, make_style(f'sigln{n}', size=8, space_after=4)))
         else:
             if value:
