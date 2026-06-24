@@ -2925,6 +2925,9 @@ def iqac_report_view_raw(target_username, reporting_month):
     except Exception:
         reporting_month_display = reporting_month
 
+    is_readonly = role in ("admin", "secretary")
+    back_url = "/admin_signed_reports" if is_readonly else "/iqac_dashboard"
+
     if report_type == "aqar_coordinator":
         return render_template("iqac_coordinator_report.html", username=target_username, user=target_user,
                                reporting_month_str=reporting_month,
@@ -2934,7 +2937,9 @@ def iqac_report_view_raw(target_username, reporting_month):
                                locked=locked,
                                can_unlock=can_unlock,
                                rejection_remarks=rejection_remarks,
-                               ws_files_map=ws_files_map)
+                               ws_files_map=ws_files_map,
+                               readonly=is_readonly,
+                               back_url=back_url)
 
     return render_template("iqac_monthly_report.html", username=target_username, user=target_user,
                            reporting_month_str=reporting_month,
@@ -2943,7 +2948,9 @@ def iqac_report_view_raw(target_username, reporting_month):
                            locked=locked,
                            can_unlock=can_unlock,
                            rejection_remarks=rejection_remarks,
-                           ws_files_map=ws_files_map)
+                           ws_files_map=ws_files_map,
+                           readonly=is_readonly,
+                           back_url=back_url)
 
 
 

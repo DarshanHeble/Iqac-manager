@@ -140,7 +140,7 @@
                           <i class="bi bi-download"></i>
                         </a>
                         {% endif %}
-                        {% if workshop_attachments.get(r.username) %}
+                        {% if workshop_attachments.get(r.username) and r.status != 'corrections_requested' %}
                           <button type="button" class="btn btn-outline-info btn-sm me-1" title="View Workshop Attachments"
                             data-bs-toggle="modal" data-bs-target="#wsModal{{ loop.index }}">
                             <i class="bi bi-paperclip"></i> View Workshops
