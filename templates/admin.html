@@ -576,7 +576,7 @@
     {% if summary %}
     const ctx = document.getElementById('summaryChart');
     const labels = [{% for row in summary %}'{{ row["username"].title() }}', {% endfor %}];
-    const dataValues = [{% for row in summary %}{ { row["count"] } }, {% endfor %}];
+    const dataValues = [{% for row in summary %}{{ row["count"] }}, {% endfor %}];
 
     // Generate distinct HSL colors
     const backgroundColors = labels.map((_, i) =>
