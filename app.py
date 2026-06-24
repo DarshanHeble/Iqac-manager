@@ -1420,12 +1420,13 @@ def admin_panel():
     coord_to_month = f"{now.year}-{now.month:02d}"
     coord_year = str(now.year)
 
-    if request.method == "POST" and "coord_form" in request.form:
-        coord_user = request.form.get("coord_user", "All")
-        coord_report_type = request.form.get("coord_report_type", "monthly")
-        coord_from_month = request.form.get("coord_from_month", f"{now.year}-01")
-        coord_to_month = request.form.get("coord_to_month", f"{now.year}-{now.month:02d}")
-        coord_year = request.form.get("coord_year", str(now.year))
+    is_coord_form = ("coord_form" in request.form) or ("coord_form" in request.args)
+    if is_coord_form:
+        coord_user = request.form.get("coord_user") or request.args.get("coord_user", "All")
+        coord_report_type = request.form.get("coord_report_type") or request.args.get("coord_report_type", "monthly")
+        coord_from_month = request.form.get("coord_from_month") or request.args.get("coord_from_month", f"{now.year}-01")
+        coord_to_month = request.form.get("coord_to_month") or request.args.get("coord_to_month", f"{now.year}-{now.month:02d}")
+        coord_year = request.form.get("coord_year") or request.args.get("coord_year", str(now.year))
 
         year_int = int(coord_year)
         if coord_report_type == "yearly":
@@ -1464,14 +1465,15 @@ def admin_panel():
     category_filter = "All"
 
     # Get filter values from form
-    if request.method == "POST" and "coord_form" not in request.form:
-        filter_mode = request.form.get("filter_mode", "month")
-        selected_month = request.form.get("month", datetime.now().strftime("%Y-%m"))
-        from_date = request.form.get("from_date")
-        to_date = request.form.get("to_date")
-        selected_academic_year = request.form.get("academic_year")
-        selected_user = request.form.get("user", "All")
-        category_filter = request.form.get("category_filter", "All")
+    is_worklog_form = (request.method == "POST" and "coord_form" not in request.form) or ("user" in request.args or "filter_mode" in request.args)
+    if is_worklog_form:
+        filter_mode = request.form.get("filter_mode") or request.args.get("filter_mode", "month")
+        selected_month = request.form.get("month") or request.args.get("month", datetime.now().strftime("%Y-%m"))
+        from_date = request.form.get("from_date") or request.args.get("from_date")
+        to_date = request.form.get("to_date") or request.args.get("to_date")
+        selected_academic_year = request.form.get("academic_year") or request.args.get("academic_year")
+        selected_user = request.form.get("user") or request.args.get("user", "All")
+        category_filter = request.form.get("category_filter") or request.args.get("category_filter", "All")
 
     # Build date range based on filter mode
     if filter_mode == "academic_year" and selected_academic_year:
@@ -2772,13 +2774,17 @@ def iqac_report_save_draft():
                                 matching = rec
                                 break
                         if matching:
-                            ext = os.path.splitext(existing_name)[1]
-                            temp_name = f"temp_workshop_{i+1}{ext}"
-                            temp_path = os.path.join(ws_upload_dir, temp_name)
-                            src_path = os.path.join(ws_upload_dir, existing_name)
-                            if os.path.exists(src_path):
+                            old_idx = matching["workshop_index"]
+                            src_matches = glob.glob(os.path.join(ws_upload_dir, f"workshop_{old_idx+1}.*"))
+                            if src_matches:
+                                src_path = src_matches[0]
+                                ext = os.path.splitext(src_path)[1]
+                                temp_name = f"temp_workshop_{i+1}{ext}"
+                                temp_path = os.path.join(ws_upload_dir, temp_name)
                                 shutil.copy2(src_path, temp_path)
                                 temp_files[i] = temp_name
+                            else:
+                                ext = os.path.splitext(existing_name)[1]
                             
                             new_db_records.append({
                                 "workshop_index": i,
@@ -3284,12 +3290,8 @@ def admin_signed_reports():
         flash("Access denied.", "danger")
         return redirect("/dashboard")
 
-    # Default to previous month (reports submitted in early current month cover last month)
     now = datetime.now()
-    if now.month == 1:
-        default_month = f"{now.year - 1}-12"
-    else:
-        default_month = f"{now.year}-{now.month - 1:02d}"
+    default_month = f"{now.year}-{now.month:02d}"
     selected_month = request.args.get("month", default_month)
 
     cursor.execute("""
