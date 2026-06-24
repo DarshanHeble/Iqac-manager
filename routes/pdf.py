@@ -146,29 +146,9 @@ def iqac_monthly_report_download():
             ON CONFLICT (username, report_type, reporting_month)
             DO UPDATE SET form_data = EXCLUDED.form_data, updated_at = CURRENT_TIMESTAMP
         """, (username, report_type, reporting_month, json.dumps(form_data_obj)))
-
-        # Insert/update signed_reports status = 'pending_upload'
-        cursor.execute("""
-            SELECT status FROM signed_reports 
-            WHERE username=%s AND reporting_month=%s
-        """, (username, reporting_month))
-        existing_report = cursor.fetchone()
-        
-        if not existing_report:
-            cursor.execute("""
-                INSERT INTO signed_reports (username, reporting_month, status)
-                VALUES (%s, %s, 'pending_upload')
-            """, (username, reporting_month))
-        else:
-            cursor.execute("""
-                UPDATE signed_reports 
-                SET status = 'pending_upload', remarks = NULL, uploaded_file_path = NULL
-                WHERE username = %s AND reporting_month = %s
-            """, (username, reporting_month))
-            
         conn.commit()
     except Exception as e:
-        print("Error saving draft/signed_reports:", str(e))
+        print("Error saving draft:", str(e))
         conn.rollback()
 
     ws_titles = form_data_obj.get("ws_title[]") or []
@@ -253,10 +233,25 @@ def iqac_monthly_report_download():
     try:
         pdf_buffer = _generate_iqac_pdf(sorted_multi_form, ws_attachments)
     except Exception as e:
-        print(f"PDF generation error: {e}")
+        import traceback
+        tb = traceback.format_exc()
+        print(f"PDF generation error:\n{tb}")
         conn.close()
-        flash("PDF generation failed. Please try again.", "danger")
+        flash(f"PDF error: {type(e).__name__}: {e}", "danger")
         return redirect("/iqac_monthly_report")
+
+    # Only mark pending_upload AFTER successful PDF generation
+    try:
+        cursor.execute("SELECT status FROM signed_reports WHERE username=%s AND reporting_month=%s", (username, reporting_month))
+        existing_report = cursor.fetchone()
+        if not existing_report:
+            cursor.execute("INSERT INTO signed_reports (username, reporting_month, status) VALUES (%s, %s, 'pending_upload')", (username, reporting_month))
+        else:
+            cursor.execute("UPDATE signed_reports SET status='pending_upload', remarks=NULL, uploaded_file_path=NULL WHERE username=%s AND reporting_month=%s", (username, reporting_month))
+        conn.commit()
+    except Exception as e:
+        print("Error updating signed_reports status:", str(e))
+        conn.rollback()
     conn.close()
 
     full_name = (user.get("full_name") or username).strip()
