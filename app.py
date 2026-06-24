@@ -3281,12 +3281,8 @@ def admin_signed_reports():
         flash("Access denied.", "danger")
         return redirect("/dashboard")
 
-    # Default to previous month (reports submitted in early current month cover last month)
     now = datetime.now()
-    if now.month == 1:
-        default_month = f"{now.year - 1}-12"
-    else:
-        default_month = f"{now.year}-{now.month - 1:02d}"
+    default_month = f"{now.year}-{now.month:02d}"
     selected_month = request.args.get("month", default_month)
 
     cursor.execute("""

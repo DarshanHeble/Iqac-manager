@@ -76,10 +76,8 @@
           <!-- Month filter -->
           <form method="GET" action="/admin_signed_reports" class="d-flex align-items-center gap-3 mb-4 p-3 rounded" style="background-color:#f0f4f8;">
             <label class="form-label mb-0 fw-semibold text-primary" style="white-space:nowrap;">Reporting Month:</label>
-            <input type="month" name="month" class="form-control" style="max-width:200px;" value="{{ selected_month }}"
-              max="{{ (datetime.now().replace(day=1) - timedelta(days=1)).strftime('%Y-%m') }}">
+            <input type="month" name="month" class="form-control" style="max-width:200px;" value="{{ selected_month }}">
             <button type="submit" class="btn btn-primary btn-sm px-4">Filter</button>
-            <a href="/admin_signed_reports" class="btn btn-outline-secondary btn-sm">Reset</a>
             <span class="text-muted small ms-2">
               Showing: <strong>{{ selected_month }}</strong>
             </span>
