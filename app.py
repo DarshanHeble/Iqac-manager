@@ -3118,36 +3118,10 @@ def view_attachment(attachment_id):
         flash("Attachment file is no longer available. Please re-upload.", "warning")
         return redirect('/iqac_monthly_report')
 
-    import mimetypes
-    import urllib.request as _urlreq
-    from flask import Response, stream_with_context
-
-    fetch_url = file_path
-    if 'cloudinary.com' in fetch_url and '/upload/' in fetch_url:
-        fetch_url = fetch_url.replace('/upload/', '/upload/fl_attachment:false/')
-
-    try:
-        req = _urlreq.Request(fetch_url, headers={"User-Agent": "Mozilla/5.0"})
-        remote = _urlreq.urlopen(req, timeout=15)
-        content_type = remote.headers.get("Content-Type", "application/octet-stream")
-        filename = att['filename'] or "attachment"
-
-        def generate():
-            while True:
-                chunk = remote.read(8192)
-                if not chunk:
-                    break
-                yield chunk
-
-        headers = {
-            "Content-Type": content_type,
-            "Content-Disposition": f'inline; filename="{filename}"',
-        }
-        return Response(stream_with_context(generate()), headers=headers)
-    except Exception as e:
-        print(f"Attachment proxy error: {e}")
-        flash("Could not load attachment. Please try again.", "danger")
-        return redirect('/iqac_monthly_report')
+    url_to_use = file_path
+    if 'cloudinary.com' in url_to_use and '/upload/' in url_to_use:
+        url_to_use = url_to_use.replace('/upload/', '/upload/fl_attachment:false/')
+    return redirect(url_to_use)
 
 
 # ------------------ IQAC UPLOAD SIGNED REPORT ------------------

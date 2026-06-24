@@ -509,6 +509,14 @@
           row.querySelectorAll('.resp-area-display').forEach(d => {
             d.innerHTML = '<span class="resp-area-placeholder text-muted fst-italic" style="font-size:0.78rem;">Click to select…</span>';
           });
+          // Reset attachment: hide file name, link, reset button to paperclip
+          row.querySelectorAll('.ws-file-name').forEach(el => el.textContent = '');
+          row.querySelectorAll('.ws-existing-file-link').forEach(el => el.innerHTML = '');
+          row.querySelectorAll('.ws-upload-btn').forEach(btn => {
+            btn.classList.remove('btn-success');
+            btn.classList.add('btn-outline-secondary');
+            btn.innerHTML = '<i class="bi bi-paperclip"></i>';
+          });
           return;
         }
         const row = btn.closest('tr');
