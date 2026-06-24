@@ -3118,13 +3118,40 @@ def view_attachment(attachment_id):
         flash("Attachment file is no longer available. Please re-upload.", "warning")
         return redirect('/iqac_monthly_report')
 
-    url_to_use = file_path
-    if 'cloudinary.com' in url_to_use:
-        # Ensure raw delivery type (not image) so original file is served
-        url_to_use = url_to_use.replace('/image/upload/', '/raw/upload/')
-        # Add inline flag so browser views instead of downloads
-        url_to_use = url_to_use.replace('/raw/upload/', '/raw/upload/fl_attachment:false/')
-    return redirect(url_to_use)
+    # Fix Cloudinary delivery type: PDFs must use raw/upload not image/upload
+    fetch_url = file_path.replace('/image/upload/', '/raw/upload/')
+
+    import mimetypes
+    from flask import Response, stream_with_context
+    import urllib.request as _ur
+
+    mime, _ = mimetypes.guess_type(att['filename'] or '')
+    if not mime:
+        mime = 'application/octet-stream'
+
+    try:
+        req = _ur.Request(fetch_url, headers={'User-Agent': 'Mozilla/5.0'})
+        remote = _ur.urlopen(req, timeout=20)
+        filename = att['filename'] or 'attachment'
+
+        def _stream():
+            while True:
+                chunk = remote.read(65536)
+                if not chunk:
+                    break
+                yield chunk
+
+        return Response(
+            stream_with_context(_stream()),
+            headers={
+                'Content-Type': mime,
+                'Content-Disposition': f'inline; filename="{filename}"',
+            }
+        )
+    except Exception as e:
+        print(f"Attachment proxy error: {e}")
+        flash("Could not load attachment.", "danger")
+        return redirect('/iqac_monthly_report')
 
 
 # ------------------ IQAC UPLOAD SIGNED REPORT ------------------
