@@ -490,28 +490,10 @@ def _generate_iqac_pdf(form_data, ws_attachments=None):
                 continue
             
             ws_title = ws_titles[i] if i < len(ws_titles) else ''
-            attachment_name = None
-            if ws_attachments:
-                for att_idx, _, att_filename in ws_attachments:
-                    if att_idx == i:
-                        attachment_name = att_filename
-                        break
-            
-            title_para_text = esc(ws_title)
-            if attachment_name:
-                file_url = None
-                if ws_attachments:
-                    for att_idx, att_url, _ in ws_attachments:
-                        if att_idx == i:
-                            file_url = att_url
-                            break
-                if file_url:
-                    title_para_text += f"<br/><a href='{file_url}' color='blue'><b>View Attachment:</b> {esc(attachment_name)}</a>"
-
             pb_data.append([
                 Paragraph(format_date(ws_dates[i]) if i < len(ws_dates) else '', small),
                 Paragraph(esc(ws_venues[i]) if i < len(ws_venues) else '', small),
-                Paragraph(title_para_text, small),
+                Paragraph(esc(ws_title), small),
                 Paragraph(esc(ws_parts[i]) if i < len(ws_parts) else '', small),
                 Paragraph(esc(ws_res[i]) if i < len(ws_res) else '', small),
             ])
