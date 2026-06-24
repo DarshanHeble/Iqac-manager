@@ -116,7 +116,7 @@
                       <td>{{ r.designation or '—' }}</td>
                       <td>{{ r.department or '—' }}</td>
                       <td>{{ r.reporting_month | datetimeformat }}</td>
-                      <td>{{ r.uploaded_at.strftime('%d-%m-%Y') if r.uploaded_at else '—' }}</td>
+                      <td>{{ (r.uploaded_at + timedelta(hours=5, minutes=30)).strftime('%d-%m-%Y') if r.uploaded_at else '—' }}</td>
                       <td>
                         {% if r.status == 'reviewed' %}
                           <span class="badge badge-reviewed">Authorised</span>

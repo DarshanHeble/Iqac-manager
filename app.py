@@ -699,6 +699,15 @@ def _allowed_attachment(filename):
 
 # ------------------ TEMPLATE FILTER ------------------
 
+@app.template_filter("ist")
+def to_ist(value):
+    if not value:
+        return value
+    try:
+        return (value + timedelta(hours=5, minutes=30)).strftime('%d-%m-%Y %I:%M %p')
+    except Exception:
+        return value
+
 # ------------------ TEMPLATE FILTER ------------------
 @app.template_filter("datetimeformat")
 def datetimeformat(value):
@@ -3057,31 +3066,40 @@ def view_report(report_id):
         return redirect('/admin_signed_reports')
 
     file_path = report['uploaded_file_path']
-    if file_path.startswith("http://") or file_path.startswith("https://"):
-        download = request.args.get('download') == '1'
-        if download:
-            return redirect(file_path)
-        else:
-            url_to_use = file_path
-            if 'cloudinary.com' in url_to_use and '/upload/' in url_to_use:
-                url_to_use = url_to_use.replace('/upload/', '/upload/fl_attachment:false/')
-            return redirect(url_to_use)
-    else:
-        
-        target_path = file_path.lstrip('/')
-        if target_path.startswith("static/"):
-            target_path = target_path[7:]
-        
-        full_path = os.path.join(app.root_path, "static", target_path)
-        if not os.path.exists(full_path):
-            full_path = os.path.join(app.root_path, target_path)
-            
-        if not os.path.exists(full_path):
-            flash("Could not locate report file locally.", "danger")
-            return redirect('/admin_signed_reports')
-            
-        download = request.args.get('download') == '1'
-        return send_file(full_path, mimetype='application/pdf', as_attachment=download)
+    if not file_path:
+        flash("No file uploaded for this report.", "danger")
+        return redirect('/admin_signed_reports')
+
+    if not (file_path.startswith("http://") or file_path.startswith("https://")):
+        flash("Report file is no longer available.", "danger")
+        return redirect('/admin_signed_reports')
+
+    from flask import Response, stream_with_context
+    import urllib.request as _ur
+
+    fetch_url = file_path.replace('/image/upload/', '/raw/upload/')
+    try:
+        req = _ur.Request(fetch_url, headers={'User-Agent': 'Mozilla/5.0'})
+        remote = _ur.urlopen(req, timeout=20)
+
+        def _stream():
+            while True:
+                chunk = remote.read(65536)
+                if not chunk:
+                    break
+                yield chunk
+
+        return Response(
+            stream_with_context(_stream()),
+            headers={
+                'Content-Type': 'application/pdf',
+                'Content-Disposition': 'inline; filename="report.pdf"',
+            }
+        )
+    except Exception as e:
+        print(f"Report proxy error: {e}")
+        flash("Could not load report file.", "danger")
+        return redirect('/admin_signed_reports')
 
 
 # ------------------ VIEW WORKSHOP ATTACHMENT (PROXY) ------------------
