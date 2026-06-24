@@ -234,11 +234,11 @@ def iqac_monthly_report_download():
         pdf_buffer = _generate_iqac_pdf(sorted_multi_form, ws_attachments)
     except Exception as e:
         import traceback
+        from flask import jsonify
         tb = traceback.format_exc()
         print(f"PDF generation error:\n{tb}")
         conn.close()
-        flash(f"PDF error: {type(e).__name__}: {e}", "danger")
-        return redirect("/iqac_monthly_report")
+        return jsonify({"error": f"{type(e).__name__}: {e}", "traceback": tb}), 500
 
     # Only mark pending_upload AFTER successful PDF generation
     try:
