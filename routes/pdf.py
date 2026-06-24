@@ -169,69 +169,70 @@ def iqac_monthly_report_download():
     num_rows = len(ws_titles)
     ws_attachments = []  # list of (index, cloudinary_url, filename)
 
-    # Load existing workshop attachments from DB for this user/month
-    db_conn2 = get_db_connection()
-    db_cur2 = get_cursor(db_conn2)
-    db_cur2.execute("""
-        SELECT workshop_index, filename, cloudinary_url, cloudinary_public_id
-        FROM workshop_attachment_files
-        WHERE username=%s AND reporting_month=%s
-    """, (username, reporting_month))
-    existing_ws = db_cur2.fetchall()
-    db_conn2.close()
+    try:
+        # Load existing workshop attachments from DB for this user/month
+        db_conn2 = get_db_connection()
+        db_cur2 = get_cursor(db_conn2)
+        db_cur2.execute("""
+            SELECT workshop_index, filename, cloudinary_url, cloudinary_public_id
+            FROM workshop_attachment_files
+            WHERE username=%s AND reporting_month=%s
+        """, (username, reporting_month))
+        existing_ws = db_cur2.fetchall()
+        db_conn2.close()
 
-    new_db_records = []
+        new_db_records = []
 
-    for i in range(num_rows):
-        uploaded_file = sorted_ws_files[i] if i < len(sorted_ws_files) else None
-        existing_name = ws_existing_files[i] if i < len(ws_existing_files) else ""
-        
-        if uploaded_file and uploaded_file.filename:
-            try:
-                cld_url, cld_pid = _cloudinary_upload_ws(uploaded_file, username, reporting_month, i)
-                new_db_records.append({
-                    "workshop_index": i,
-                    "filename": uploaded_file.filename,
-                    "cloudinary_url": cld_url,
-                    "cloudinary_public_id": cld_pid
-                })
-                ws_attachments.append((i, cld_url, uploaded_file.filename))
-            except Exception as e:
-                print(f"Workshop upload error row {i}: {e}")
-        elif existing_name:
-            # Find the matching record from existing_ws
-            matching = None
-            for rec in existing_ws:
-                if rec["filename"] == existing_name:
-                    matching = rec
-                    break
-            if matching:
-                new_db_records.append({
-                    "workshop_index": i,
-                    "filename": matching["filename"],
-                    "cloudinary_url": matching["cloudinary_url"],
-                    "cloudinary_public_id": matching["cloudinary_public_id"]
-                })
-                ws_attachments.append((i, matching["cloudinary_url"], matching["filename"]))
+        for i in range(num_rows):
+            uploaded_file = sorted_ws_files[i] if i < len(sorted_ws_files) else None
+            existing_name = ws_existing_files[i] if i < len(ws_existing_files) else ""
 
-    # Now update the database:
-    # 1. Clear all old workshop attachment files for this user/month
-    db_conn3 = get_db_connection()
-    db_cur3 = get_cursor(db_conn3)
-    db_cur3.execute("""
-        DELETE FROM workshop_attachment_files
-        WHERE username=%s AND reporting_month=%s
-    """, (username, reporting_month))
-    
-    # 2. Insert the records with their new sorted indices
-    for rec in new_db_records:
+            if uploaded_file and uploaded_file.filename:
+                try:
+                    cld_url, cld_pid = _cloudinary_upload_ws(uploaded_file, username, reporting_month, i)
+                    new_db_records.append({
+                        "workshop_index": i,
+                        "filename": uploaded_file.filename,
+                        "cloudinary_url": cld_url,
+                        "cloudinary_public_id": cld_pid
+                    })
+                    ws_attachments.append((i, cld_url, uploaded_file.filename))
+                except Exception as e:
+                    print(f"Workshop upload error row {i}: {e}")
+            elif existing_name:
+                # Find the matching record from existing_ws
+                matching = None
+                for rec in existing_ws:
+                    if rec["filename"] == existing_name:
+                        matching = rec
+                        break
+                if matching:
+                    new_db_records.append({
+                        "workshop_index": i,
+                        "filename": matching["filename"],
+                        "cloudinary_url": matching["cloudinary_url"],
+                        "cloudinary_public_id": matching["cloudinary_public_id"]
+                    })
+                    ws_attachments.append((i, matching["cloudinary_url"], matching["filename"]))
+
+        # Clear and re-insert workshop attachment records with sorted indices
+        db_conn3 = get_db_connection()
+        db_cur3 = get_cursor(db_conn3)
         db_cur3.execute("""
-            INSERT INTO workshop_attachment_files (username, reporting_month, workshop_index, filename, cloudinary_url, cloudinary_public_id)
-            VALUES (%s, %s, %s, %s, %s, %s)
-        """, (username, reporting_month, rec["workshop_index"], rec["filename"], rec["cloudinary_url"], rec["cloudinary_public_id"]))
-    
-    db_conn3.commit()
-    db_conn3.close()
+            DELETE FROM workshop_attachment_files
+            WHERE username=%s AND reporting_month=%s
+        """, (username, reporting_month))
+
+        for rec in new_db_records:
+            db_cur3.execute("""
+                INSERT INTO workshop_attachment_files (username, reporting_month, workshop_index, filename, cloudinary_url, cloudinary_public_id)
+                VALUES (%s, %s, %s, %s, %s, %s)
+            """, (username, reporting_month, rec["workshop_index"], rec["filename"], rec["cloudinary_url"], rec["cloudinary_public_id"]))
+
+        db_conn3.commit()
+        db_conn3.close()
+    except Exception as e:
+        print(f"Workshop attachment processing error: {e}")
 
     # Construct MultiDict from sorted form_data_obj to pass to _generate_iqac_pdf
     sorted_multi_form = MultiDict()
