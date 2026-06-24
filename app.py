@@ -2731,9 +2731,9 @@ def iqac_report_save_draft():
             import glob
             import shutil
             ws_upload_dir = os.path.join(app.root_path, "static", "signed_reports", "workshop_attachments", username, reporting_month)
-            ws_files = request.files.getlist("ws_report_file[]")
-            ws_titles = request.form.getlist("ws_title[]")
-            ws_existing_files = request.form.getlist("ws_existing_file[]")
+            ws_files = sorted_ws_files if sorted_ws_files is not None else []
+            ws_titles = form_data.get("ws_title[]") or []
+            ws_existing_files = form_data.get("ws_existing_file[]") or []
             num_rows = len(ws_titles)
             
             # Fetch existing workshop attachment database records to align them
