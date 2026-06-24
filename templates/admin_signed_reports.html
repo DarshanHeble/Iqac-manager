@@ -90,8 +90,10 @@
             <div class="mb-3">
               {% set pending_count = (reports | selectattr('status', 'equalto', 'pending') | list | length) + (reports | selectattr('status', 'equalto', 'uploaded') | list | length) %}
               {% set reviewed_count = reports | selectattr('status', 'equalto', 'reviewed') | list | length %}
+              {% set corrections_count = reports | selectattr('status', 'equalto', 'corrections_requested') | list | length %}
               <span class="badge badge-pending me-2">{{ pending_count }} Pending Authorisation</span>
-              <span class="badge badge-reviewed">{{ reviewed_count }} Authorised</span>
+              <span class="badge badge-reviewed me-2">{{ reviewed_count }} Authorised</span>
+              {% if corrections_count %}<span class="badge bg-danger me-2">{{ corrections_count }} Corrections Requested</span>{% endif %}
             </div>
 
             <div class="table-responsive">
@@ -120,6 +122,8 @@
                       <td>
                         {% if r.status == 'reviewed' %}
                           <span class="badge badge-reviewed">Authorised</span>
+                        {% elif r.status == 'corrections_requested' %}
+                          <span class="badge bg-danger text-white">Corrections Requested</span>
                         {% else %}
                           <span class="badge badge-pending">Pending Authorisation</span>
                         {% endif %}
@@ -170,7 +174,9 @@
                             </div>
                           </div>
                         {% endif %}
-                        {% if r.status != 'reviewed' %}
+                        {% if r.status == 'corrections_requested' %}
+                          <span class="text-danger small fst-italic"><i class="bi bi-hourglass-split me-1"></i>Awaiting resubmission</span>
+                        {% elif r.status != 'reviewed' %}
                           <button type="button" class="btn btn-outline-danger btn-sm me-1" onclick="requestCorrections('{{ r.id }}', '{{ (r.full_name or r.username) | escape }}')">
                             <i class="bi bi-x-circle"></i> Request Corrections
                           </button>
