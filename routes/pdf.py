@@ -546,7 +546,9 @@ def _generate_iqac_pdf(form_data, ws_attachments=None):
             # Blank writing lines for hand-written remarks
             items.append(Paragraph(line, make_style(f'sigrl1_{n}', size=8, space_after=10)))
             items.append(Paragraph(line, make_style(f'sigrl2_{n}', size=8, space_after=10)))
-            items.append(Paragraph(line, make_style(f'sigrl3_{n}', size=8, space_after=8)))
+            items.append(Paragraph(line, make_style(f'sigrl3_{n}', size=8, space_after=12)))
+            # Signature underline below the remarks lines
+            items.append(Paragraph(line, make_style(f'sigln{n}', size=8, space_after=4)))
         else:
             if value:
                 items.append(Paragraph(esc(value), make_style(f'sigval{n}', size=9, space_after=4)))
