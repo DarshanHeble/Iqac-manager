@@ -228,7 +228,7 @@ def iqac_monthly_report_download():
             for val in v:
                 sorted_multi_form.add(k, val)
         else:
-            sorted_multi_form.set(k, v)
+            sorted_multi_form.add(k, v)
 
     try:
         pdf_buffer = _generate_iqac_pdf(sorted_multi_form, ws_attachments)
@@ -683,7 +683,7 @@ def iqac_coordinator_report_download():
             for val in v:
                 sorted_multi_form.add(k, val)
         else:
-            sorted_multi_form.set(k, v)
+            sorted_multi_form.add(k, v)
 
     try:
         pdf_buffer = _generate_aqar_coordinator_pdf(sorted_multi_form, aqar_names)
