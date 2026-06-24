@@ -1,7 +1,7 @@
 from flask import Flask, render_template, request, redirect, url_for, flash, session, send_file
 import os, random, string, json, urllib.request, urllib.error
 # import smtplib  # SMTP fallback — kept for reference, replaced by Brevo
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 # from email.mime.text import MIMEText  # SMTP fallback — replaced by Brevo
 from werkzeug.security import generate_password_hash, check_password_hash
 from werkzeug.utils import secure_filename
@@ -54,6 +54,8 @@ def inline_url(url):
 # Make datetime and timedelta available in all templates
 app.jinja_env.globals['datetime'] = datetime
 app.jinja_env.globals['timedelta'] = timedelta
+_IST = timezone(timedelta(hours=5, minutes=30))
+app.jinja_env.globals['ist_now'] = lambda: datetime.now(_IST)
 
 # Add context processor for current year in footer
 @app.context_processor

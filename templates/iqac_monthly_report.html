@@ -322,8 +322,8 @@
             <div class="row mt-3">
               <div class="col-md-3">
                 <label class="form-label">Date</label>
-                {% set fd_val = draft_data.get('footer_date', datetime.now().strftime('%Y-%m-%d')) if (draft_data and locked) else datetime.now().strftime('%Y-%m-%d') %}
-                {% set fd_disp = datetime.strptime(fd_val, '%Y-%m-%d').strftime('%d-%m-%Y') %}
+                {% set fd_val = ist_now().strftime('%Y-%m-%d') %}
+                {% set fd_disp = ist_now().strftime('%d-%m-%Y') %}
                 <input type="hidden" name="footer_date" value="{{ fd_val }}">
                 <input type="text" id="footerDateDisplay" class="form-control bg-light" disabled readonly value="{{ fd_disp }}" style="cursor:not-allowed;">
               </div>
