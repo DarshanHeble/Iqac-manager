@@ -557,8 +557,10 @@ def check_submission_window():
         else:
             next_open = datetime(today.year, today.month + 1, open_day).strftime("%d-%m-%Y")
         close_date = today.replace(day=close_day).strftime("%d-%m-%Y")
-        window_msg = (f"Submission window for {month_name} closed on {close_date}. "
-                      f"Next window opens {next_open}.")
+        window_msg = (f"Submission window for {month_name} is closed. ")
+
+        # window_msg = (f"Submission window for {month_name} closed on {close_date}. "
+        #               f"Next window opens {next_open}.")
 
     return is_open, reporting_month_str, open_day, close_day, window_msg
 
