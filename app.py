@@ -3078,7 +3078,7 @@ def admin_reject_report(id):
     try:
         cursor.execute("""
             UPDATE signed_reports 
-            SET status = 'corrections_requested', remarks = %s, uploaded_file_path = NULL, uploaded_at = CURRENT_TIMESTAMP
+            SET status = 'corrections_requested', remarks = %s, uploaded_file_path = NULL, uploaded_at = NULL, cloudinary_public_id = NULL
             WHERE id = %s
         """, (remarks, id))
         conn.commit()
