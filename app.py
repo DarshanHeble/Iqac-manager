@@ -44,6 +44,115 @@ def cloudinary_delete(public_id, resource_type="auto"):
     except Exception as e:
         print(f"Cloudinary delete error: {e}")
 
+# Google Drive storage support
+def get_gdrive_service():
+    from googleapiclient.discovery import build
+    from google.oauth2.credentials import Credentials
+    from google.oauth2 import service_account
+    from google.auth.transport.requests import Request
+    
+    scopes = ["https://www.googleapis.com/auth/drive"]
+    
+    # 1. Try token.json (User account flow)
+    if os.path.exists("token.json"):
+        try:
+            creds = Credentials.from_authorized_user_file("token.json", scopes)
+            if creds and creds.expired and creds.refresh_token:
+                creds.refresh(Request())
+            return build("drive", "v3", credentials=creds)
+        except Exception as e:
+            print(f"Error loading user token.json: {e}")
+            
+    # 2. Fall back to service_account.json
+    creds_path = os.getenv("GOOGLE_SERVICE_ACCOUNT_JSON", "service_account.json")
+    if os.path.exists(creds_path):
+        creds = service_account.Credentials.from_service_account_file(creds_path, scopes=scopes)
+        return build("drive", "v3", credentials=creds)
+        
+    raise FileNotFoundError("Google Drive credentials not found. Please provide credentials.json/token.json or service_account.json")
+
+def gdrive_upload(file_obj, filename):
+    import io
+    from googleapiclient.http import MediaIoBaseUpload
+
+    folder_id = os.getenv("GOOGLE_DRIVE_FOLDER_ID")
+    if not folder_id:
+        raise ValueError("GOOGLE_DRIVE_FOLDER_ID environment variable is not set")
+
+    service = get_gdrive_service()
+    file_metadata = {
+        "name": filename,
+        "parents": [folder_id]
+    }
+    
+    file_bytes = file_obj.read()
+    file_obj.seek(0)
+    
+    media = MediaIoBaseUpload(io.BytesIO(file_bytes), mimetype="application/octet-stream", resumable=True)
+    drive_file = service.files().create(body=file_metadata, media_body=media, fields="id").execute()
+    file_id = drive_file.get("id")
+    
+    return f"gdrive://{file_id}", f"gdrive://{file_id}"
+
+def gdrive_delete(file_id):
+    try:
+        service = get_gdrive_service()
+        service.files().delete(fileId=file_id).execute()
+    except Exception as e:
+        print(f"Google Drive delete error: {e}")
+
+# Stream Google Drive file content backend-side
+def stream_gdrive_file(file_path, filename_fallback):
+    if file_path.startswith("gdrive://"):
+        file_id = file_path.replace("gdrive://", "")
+        from googleapiclient.http import MediaIoBaseDownload
+        import io
+        import mimetypes
+        from flask import Response
+        
+        service = get_gdrive_service()
+        
+        meta = service.files().get(fileId=file_id, fields="name, mimeType").execute()
+        filename = meta.get("name", filename_fallback)
+        mimetype = meta.get("mimeType")
+        if not mimetype:
+            mimetype, _ = mimetypes.guess_type(filename)
+        if not mimetype:
+            mimetype = 'application/octet-stream'
+            
+        drive_request = service.files().get_media(fileId=file_id)
+        fh = io.BytesIO()
+        downloader = MediaIoBaseDownload(fh, drive_request)
+        done = False
+        while done is False:
+            status, done = downloader.next_chunk()
+        
+        fh.seek(0)
+        return Response(
+            fh.read(),
+            headers={
+                'Content-Type': mimetype,
+                'Content-Disposition': f'inline; filename="{filename}"',
+            }
+        )
+    return None
+
+# Universal functions that automatically route uploads/deletes
+def universal_upload(file_obj, filename, folder_path, public_id=None, resource_type="auto"):
+    if os.getenv("GOOGLE_DRIVE_FOLDER_ID"):
+        return gdrive_upload(file_obj, filename)
+    else:
+        return cloudinary_upload(file_obj, folder_path, public_id=public_id, resource_type=resource_type)
+
+def universal_delete(path_or_id, resource_type="auto"):
+    if not path_or_id:
+        return
+    if path_or_id.startswith("gdrive://"):
+        file_id = path_or_id.replace("gdrive://", "")
+        gdrive_delete(file_id)
+    else:
+        cloudinary_delete(path_or_id, resource_type=resource_type)
+
 # Jinja filter: make Cloudinary URL open inline in browser instead of downloading
 @app.template_filter('inline_url')
 def inline_url(url):
@@ -2834,11 +2943,12 @@ def iqac_report_save_draft():
                 existing_name = ws_existing_files[i] if i < len(ws_existing_files) else ""
 
                 if uploaded_file and uploaded_file.filename:
-                    # Upload new file to Cloudinary
+                    # Upload new file
                     try:
-                        cl_url, cl_public_id = cloudinary_upload(
+                        cl_url, cl_public_id = universal_upload(
                             uploaded_file,
-                            folder=f"iqac_workshop_attachments/{username}/{reporting_month}",
+                            uploaded_file.filename,
+                            folder_path=f"iqac_workshop_attachments/{username}/{reporting_month}",
                             public_id=f"workshop_{i+1}",
                             resource_type="raw"
                         )
@@ -2849,7 +2959,7 @@ def iqac_report_save_draft():
                             "cloudinary_public_id": cl_public_id
                         })
                     except Exception as e:
-                        print(f"Cloudinary upload error for workshop {i+1}: {e}")
+                        print(f"File upload error for workshop {i+1}: {e}")
                 elif existing_name and existing_name in existing_ws_by_name:
                     rec = existing_ws_by_name[existing_name]
                     new_db_records.append({
@@ -2859,11 +2969,11 @@ def iqac_report_save_draft():
                         "cloudinary_public_id": rec["cloudinary_public_id"]
                     })
 
-            # Delete from Cloudinary any files that are no longer kept
+            # Delete any files that are no longer kept
             kept_filenames = {r["filename"] for r in new_db_records}
             for fname, rec in existing_ws_by_name.items():
                 if fname not in kept_filenames and rec["cloudinary_public_id"]:
-                    cloudinary_delete(rec["cloudinary_public_id"])
+                    universal_delete(rec["cloudinary_public_id"])
 
             # Replace database records
             cursor.execute("""
@@ -3080,9 +3190,9 @@ def admin_reject_report(id):
     reporting_month = report["reporting_month"]
     target_username = report["username"]
 
-    # Delete from Cloudinary if public_id exists
+    # Delete file if public_id exists
     if report.get("cloudinary_public_id"):
-        cloudinary_delete(report["cloudinary_public_id"])
+        universal_delete(report["cloudinary_public_id"])
 
     remarks = request.form.get("remarks", "").strip()
 
@@ -3141,6 +3251,13 @@ def view_report(report_id):
     if not file_path:
         flash("No file uploaded for this report.", "danger")
         return redirect('/admin_signed_reports')
+
+    if file_path.startswith("gdrive://"):
+        try:
+            return stream_gdrive_file(file_path, "report.pdf")
+        except Exception as e:
+            flash(f"Could not load Google Drive file: {str(e)}", "danger")
+            return redirect('/admin_signed_reports')
 
     if not (file_path.startswith("http://") or file_path.startswith("https://")):
         flash("Report file is no longer available.", "danger")
@@ -3203,6 +3320,13 @@ def view_attachment(attachment_id):
     if not file_path:
         flash("No file attached.", "danger")
         return redirect('/dashboard')
+
+    if file_path.startswith("gdrive://"):
+        try:
+            return stream_gdrive_file(file_path, att['filename'] or 'attachment')
+        except Exception as e:
+            flash(f"Could not load Google Drive file: {str(e)}", "danger")
+            return redirect('/dashboard')
 
     if not (file_path.startswith("http://") or file_path.startswith("https://")):
         flash("Attachment file is no longer available. Please re-upload.", "warning")
@@ -3315,10 +3439,10 @@ def iqac_upload_signed_report():
         conn.close()
         return redirect("/iqac_dashboard")
 
-    # Upload to Cloudinary (public_id excludes folder since folder param already sets it)
+    # Upload file
     public_id = f"{secure_filename(username)}_{reporting_month}"
     try:
-        file_url, cld_public_id = cloudinary_upload(uploaded_file, folder="iqac/signed_reports", public_id=public_id, resource_type="raw")
+        file_url, cld_public_id = universal_upload(uploaded_file, uploaded_file.filename, folder_path="iqac/signed_reports", public_id=public_id, resource_type="raw")
     except Exception as e:
         flash(f"File upload failed: {str(e)}", "danger")
         conn.close()
@@ -3332,9 +3456,9 @@ def iqac_upload_signed_report():
     existing = cursor.fetchone()
 
     if existing:
-        # Delete old Cloudinary file if different public_id
+        # Delete old file if different public_id
         if existing.get("cloudinary_public_id") and existing["cloudinary_public_id"] != cld_public_id:
-            cloudinary_delete(existing["cloudinary_public_id"])
+            universal_delete(existing["cloudinary_public_id"])
         cursor.execute("""
             UPDATE signed_reports
             SET uploaded_file_path=%s, cloudinary_public_id=%s, status='uploaded', uploaded_at=CURRENT_TIMESTAMP

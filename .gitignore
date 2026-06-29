@@ -21,3 +21,8 @@ __pycache__/
 .venv
 venv
 seed_demo.py
+
+# Google Credentials / Secrets
+credentials.json
+token.json
+service_account.json
