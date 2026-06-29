@@ -418,9 +418,22 @@ This is an auto-generated email. Please do not reply to this message.
     
     return f"1st deadline reminder sent to {len(users)} users"
 
-# ------------------ GEMINI AI SETTINGS ------------------
+# ------------------ AI SETTINGS (NVIDIA & GEMINI) ------------------
+NVIDIA_API_KEY = os.getenv("NVIDIA_API_KEY")
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+nvidia_client = None
 ai_client = None
+
+if NVIDIA_API_KEY and NVIDIA_API_KEY != "your_nvidia_api_key_here":
+    try:
+        from openai import OpenAI
+        nvidia_client = OpenAI(
+            base_url="https://integrate.api.nvidia.com/v1",
+            api_key=NVIDIA_API_KEY
+        )
+    except Exception as e:
+        print(f"Warning: Failed to initialize NVIDIA Client: {e}")
+
 if GEMINI_API_KEY and GEMINI_API_KEY != "your_gemini_api_key_here":
     try:
         ai_client = genai.Client(api_key=GEMINI_API_KEY)
@@ -2011,8 +2024,53 @@ def admin_report_ai():
         processed_logs.append(log_dict)
 
     if request.method == "POST" and processed_logs:
-        if not GEMINI_API_KEY or GEMINI_API_KEY == "your_gemini_api_key_here":
-            ai_error = "Gemini API key is not configured. Please add GEMINI_API_KEY in your .env file."
+        use_nvidia = NVIDIA_API_KEY and NVIDIA_API_KEY != "your_nvidia_api_key_here"
+        use_gemini = GEMINI_API_KEY and GEMINI_API_KEY != "your_gemini_api_key_here"
+
+        if not use_nvidia and not use_gemini:
+            ai_error = "AI key is not configured. Please add NVIDIA_API_KEY or GEMINI_API_KEY in your .env file."
+        elif use_nvidia:
+            try:
+                global nvidia_client
+                if not nvidia_client:
+                    from openai import OpenAI
+                    nvidia_client = OpenAI(
+                        base_url="https://integrate.api.nvidia.com/v1",
+                        api_key=NVIDIA_API_KEY
+                    )
+
+                model_name = os.getenv("NVIDIA_MODEL_NAME", "meta/llama-3.1-8b-instruct")
+                system_instruction = (
+                    "You are an assistant summarizing worklog entries for an IQAC report. "
+                    "Write in a formal, official report tone. Do not use markdown, bullets, or asterisks. "
+                    "Do not include introductory or concluding remarks."
+                )
+                prompt = build_ai_summary_prompt(
+                    processed_logs,
+                    selected_user,
+                    filter_mode,
+                    from_date,
+                    to_date,
+                    selected_month,
+                    selected_academic_year,
+                    category_filter
+                )
+                completion = nvidia_client.chat.completions.create(
+                    model=model_name,
+                    messages=[
+                        {"role": "system", "content": system_instruction},
+                        {"role": "user", "content": prompt}
+                    ],
+                    temperature=0.2,
+                    top_p=0.7,
+                    max_tokens=1024,
+                )
+                ai_summary = (completion.choices[0].message.content or "").strip() if completion else ""
+                ai_summary = ai_summary.replace("**", "").replace("*", "")
+                if not ai_summary:
+                    ai_error = "AI summary could not be generated. Please try again."
+            except Exception as e:
+                ai_error = f"NVIDIA AI summary error: {str(e)}"
         else:
             try:
                 global ai_client
@@ -2047,7 +2105,7 @@ def admin_report_ai():
                 if not ai_summary:
                     ai_error = "AI summary could not be generated. Please try again."
             except Exception as e:
-                ai_error = f"AI summary error: {str(e)}"
+                ai_error = f"Gemini AI summary error: {str(e)}"
 
     conn.close()
 
