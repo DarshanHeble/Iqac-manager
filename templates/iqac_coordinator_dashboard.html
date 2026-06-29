@@ -181,76 +181,101 @@
 
         {% set already_submitted = submitted_reports | selectattr('reporting_month', 'equalto', reporting_month_str) |
         selectattr('status', 'in', ['uploaded', 'reviewed', 'pending']) | list | length > 0 %}
-        {% if upload_open %}
-        <div class="alert alert-success py-2 mb-3" style="font-size:0.9rem;">
-          <i class="bi bi-calendar-check me-1"></i> {{ window_msg }}
-        </div>
-        {% set current_month_report = submitted_reports | selectattr('reporting_month', 'equalto', reporting_month_str)
-        | first %}
-        {% if current_month_report and current_month_report.status == 'corrections_requested' %}
-        <div class="alert alert-danger d-flex align-items-start gap-3 mb-3">
-          <i class="bi bi-exclamation-triangle-fill fs-4 text-danger mt-1"></i>
-          <div>
-            <strong>Corrections Requested for {{ datetime.strptime(reporting_month_str, '%Y-%m').strftime('%B %Y')
-              }}</strong><br>
-            <span style="font-size:0.92rem;">Remarks: <strong>"{{ current_month_report.remarks }}"</strong></span><br>
-            <span class="text-muted small">Please click <strong>Generate Report</strong> to edit the details, download
-              the corrected PDF, and upload the new signed document.</span>
+        {% set corrections_reports = submitted_reports | selectattr('status', 'equalto', 'corrections_requested') | list %}
+        
+        {% if upload_open or corrections_reports | length > 0 %}
+          
+          {# Standard upload window info #}
+          {% if upload_open %}
+          <div class="alert alert-success py-2 mb-3" style="font-size:0.9rem;">
+            <i class="bi bi-calendar-check me-1"></i> {{ window_msg }}
           </div>
-        </div>
-        {% endif %}
-        {% if already_submitted %}
-        <div class="alert alert-info d-flex align-items-center gap-3 mb-0" style="font-size:0.95rem;">
-          <i class="bi bi-check-circle-fill fs-4 text-success"></i>
-          <div>
-            <strong>Report already submitted for {{ datetime.strptime(reporting_month_str, '%Y-%m').strftime('%B %Y')
-              }}.</strong><br>
-            <span class="text-muted small">You can submit your next report when the window opens next month.</span>
-          </div>
-        </div>
-        {% elif has_draft %}
-        <p class="text-muted small mb-3">After downloading, signing, and scanning your report, upload the signed copy
-          here.</p>
-        <form method="post" action="/iqac_upload_signed_report" enctype="multipart/form-data">
-          <div class="row g-3 align-items-end">
-            <div class="col-md-4">
-              <label class="form-label">Reporting Month</label>
-              <input type="hidden" name="reporting_month" value="{{ reporting_month_str }}">
-              <input type="text" class="form-control bg-light"
-                value="{{ datetime.strptime(reporting_month_str, '%Y-%m').strftime('%B %Y') }}" readonly
-                style="cursor:not-allowed; color:#555;">
-            </div>
-            <div class="col-md-5">
-              <label class="form-label">Signed Report File (PDF / Image)</label>
-              <input type="file" name="signed_report" class="form-control" accept=".pdf,.jpg,.jpeg,.png" required>
-            </div>
-            <div class="col-md-3">
-              <button type="submit" class="btn btn-primary w-100">
-                <i class="bi bi-upload me-1"></i> Upload
-              </button>
+          {% endif %}
+
+          {# 1. Show Correction Request Forms #}
+          {% for cr in corrections_reports %}
+          <div class="alert alert-danger d-flex align-items-start gap-3 mb-3">
+            <i class="bi bi-exclamation-triangle-fill fs-4 text-danger mt-1"></i>
+            <div>
+              <strong>Corrections Requested for {{ datetime.strptime(cr.reporting_month, '%Y-%m').strftime('%B %Y') }}</strong><br>
+              <span style="font-size:0.92rem;">Remarks: <strong>"{{ cr.remarks }}"</strong></span><br>
+              <span class="text-muted small">Please click <strong>Generate Report</strong> to edit the details, download the corrected PDF, and upload the new signed document below.</span>
             </div>
           </div>
-        </form>
-        {% else %}
-        <div class="alert alert-info d-flex align-items-start gap-3 mb-0"
-          style="font-size:0.95rem; border-left: 4px solid #0dcaf0;">
-          <i class="bi bi-info-circle-fill fs-4 text-info mt-1"></i>
-          <div>
-            <strong>Report Draft Required</strong><br>
-            Before you can upload the signed report for <strong>{{ reporting_month_display }}</strong>, you must first
-            generate the report. Please click the <strong>Generate Report</strong> button above, fill in the report
-            details, and download the PDF. This will auto-save the draft and enable the upload option.
+          <form method="post" action="/iqac_upload_signed_report" enctype="multipart/form-data" class="mb-4">
+            <div class="row g-3 align-items-end">
+              <div class="col-md-4">
+                <label class="form-label">Reporting Month</label>
+                <input type="hidden" name="reporting_month" value="{{ cr.reporting_month }}">
+                <input type="text" class="form-control bg-light"
+                  value="{{ datetime.strptime(cr.reporting_month, '%Y-%m').strftime('%B %Y') }}" readonly
+                  style="cursor:not-allowed; color:#555;">
+              </div>
+              <div class="col-md-5">
+                <label class="form-label">Signed Corrected Report File (PDF / Image)</label>
+                <input type="file" name="signed_report" class="form-control" accept=".pdf,.jpg,.jpeg,.png" required>
+              </div>
+              <div class="col-md-3">
+                <button type="submit" class="btn btn-danger w-100">
+                  <i class="bi bi-upload me-1"></i> Upload Corrected Report
+                </button>
+              </div>
+            </div>
+          </form>
+          {% endfor %}
+
+          {# 2. Standard Upload Form (only if window is open, no submission yet, and not showing correction for current month to avoid duplicate forms) #}
+          {% if upload_open and not already_submitted and not (corrections_reports | selectattr('reporting_month', 'equalto', reporting_month_str) | list | length > 0) %}
+            {% if has_draft %}
+            <p class="text-muted small mb-3">After downloading, signing, and scanning your report, upload the signed copy here.</p>
+            <form method="post" action="/iqac_upload_signed_report" enctype="multipart/form-data">
+              <div class="row g-3 align-items-end">
+                <div class="col-md-4">
+                  <label class="form-label">Reporting Month</label>
+                  <input type="hidden" name="reporting_month" value="{{ reporting_month_str }}">
+                  <input type="text" class="form-control bg-light"
+                    value="{{ datetime.strptime(reporting_month_str, '%Y-%m').strftime('%B %Y') }}" readonly
+                    style="cursor:not-allowed; color:#555;">
+                </div>
+                <div class="col-md-5">
+                  <label class="form-label">Signed Report File (PDF / Image)</label>
+                  <input type="file" name="signed_report" class="form-control" accept=".pdf,.jpg,.jpeg,.png" required>
+                </div>
+                <div class="col-md-3">
+                  <button type="submit" class="btn btn-primary w-100">
+                    <i class="bi bi-upload me-1"></i> Upload
+                  </button>
+                </div>
+              </div>
+            </form>
+            {% else %}
+            <div class="alert alert-info d-flex align-items-start gap-3 mb-0"
+              style="font-size:0.95rem; border-left: 4px solid #0dcaf0;">
+              <i class="bi bi-info-circle-fill fs-4 text-info mt-1"></i>
+              <div>
+                <strong>Report Draft Required</strong><br>
+                Before you can upload the signed report for <strong>{{ reporting_month_display }}</strong>, you must first
+                generate the report. Please click the <strong>Generate Report</strong> button above, fill in the report
+                details, and download the PDF. This will auto-save the draft and enable the upload option.
+              </div>
+            </div>
+            {% endif %}
+          {% elif upload_open and already_submitted and not (corrections_reports | selectattr('reporting_month', 'equalto', reporting_month_str) | list | length > 0) %}
+          <div class="alert alert-info d-flex align-items-center gap-3 mb-0" style="font-size:0.95rem;">
+            <i class="bi bi-check-circle-fill fs-4 text-success"></i>
+            <div>
+              <strong>Report already submitted for {{ datetime.strptime(reporting_month_str, '%Y-%m').strftime('%B %Y') }}.</strong><br>
+              <span class="text-muted small">You can submit your next report when the window opens next month.</span>
+            </div>
           </div>
-        </div>
-        {% endif %}
+          {% endif %}
+
         {% else %}
         <div class="alert alert-warning d-flex align-items-start gap-3 mb-0" style="font-size:0.95rem;">
           <i class="bi bi-lock-fill fs-4 mt-1 text-warning"></i>
           <div>
             <strong>Uploads are currently closed.</strong><br>
             {{ window_msg }}<br>
-            <!-- <span class="text-muted small">Submission window opens on the {{ open_day }}<sup>st</sup> and closes on the
-              {{ close_day }}<sup>th</sup> of each month.</span> -->
           </div>
         </div>
         {% endif %}

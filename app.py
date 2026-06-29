@@ -529,9 +529,15 @@ def check_submission_window():
     The window for last month's report opens on open_day and closes on close_day
     of the current month.
     """
+    import calendar
     open_day, close_day = get_submission_window()
     today = datetime.now().date()
     current_day = today.day
+
+    # Determine last day of the current month
+    last_day = calendar.monthrange(today.year, today.month)[1]
+    effective_open_day = min(open_day, last_day)
+    effective_close_day = min(close_day, last_day)
 
     # The report being submitted is always for the previous month
     if today.month == 1:
@@ -542,21 +548,27 @@ def check_submission_window():
     reporting_month_str = f"{report_year}-{report_month:02d}"
     month_name = datetime(report_year, report_month, 1).strftime("%m-%Y")
 
-    is_open = open_day <= current_day <= close_day
+    is_open = effective_open_day <= current_day <= effective_close_day
 
     if is_open:
-        close_date = today.replace(day=close_day).strftime("%d-%m-%Y")
+        close_date = today.replace(day=effective_close_day).strftime("%d-%m-%Y")
         window_msg = f"Submission window for {month_name} is open until {close_date}."
-    elif current_day < open_day:
-        open_date = today.replace(day=open_day).strftime("%d-%m-%Y")
+    elif current_day < effective_open_day:
+        open_date = today.replace(day=effective_open_day).strftime("%d-%m-%Y")
         window_msg = f"Submission window for {month_name} opens on {open_date}."
     else:
         # Past the close day — next window is next month
         if today.month == 12:
-            next_open = datetime(today.year + 1, 1, open_day).strftime("%d-%m-%Y")
+            next_year = today.year + 1
+            next_month = 1
         else:
-            next_open = datetime(today.year, today.month + 1, open_day).strftime("%d-%m-%Y")
-        close_date = today.replace(day=close_day).strftime("%d-%m-%Y")
+            next_year = today.year
+            next_month = today.month + 1
+            
+        next_month_last_day = calendar.monthrange(next_year, next_month)[1]
+        effective_next_open_day = min(open_day, next_month_last_day)
+        next_open = datetime(next_year, next_month, effective_next_open_day).strftime("%d-%m-%Y")
+        close_date = today.replace(day=effective_close_day).strftime("%d-%m-%Y")
         window_msg = (f"Submission window for {month_name} is closed. ")
 
         # window_msg = (f"Submission window for {month_name} closed on {close_date}. "
@@ -1424,13 +1436,13 @@ def admin_panel():
         new_close = request.form.get("submission_close_day", "5").strip()
         if new_close.isdigit():
             close_i = int(new_close)
-            if 1 <= close_i <= 28:
+            if 1 <= close_i <= 31:
                 cursor.execute("UPDATE app_settings SET value='1' WHERE key='submission_open_day'")
                 cursor.execute("UPDATE app_settings SET value=%s WHERE key='submission_close_day'", (new_close,))
                 conn.commit()
                 flash(f"Submission window updated: 1st to {close_i}th of each month.", "success")
             else:
-                flash("Invalid close day. Must be between 1 and 28.", "danger")
+                flash("Invalid close day. Must be between 1 and 31.", "danger")
         conn.close()
         return redirect("/admin")
 
@@ -3255,15 +3267,28 @@ def iqac_upload_signed_report():
         flash("Access denied.", "danger")
         return redirect("/login")
 
-    # Enforce submission window
+    reporting_month = request.form.get("reporting_month", "").strip()
+    uploaded_file = request.files.get("signed_report")
+
+    if not reporting_month:
+        flash("Please enter the reporting month.", "danger")
+        conn.close()
+        return redirect("/iqac_dashboard")
+
+    # Check if corrections were requested for this report
+    cursor.execute("""
+        SELECT status FROM signed_reports 
+        WHERE username = %s AND reporting_month = %s
+    """, (username, reporting_month))
+    report_row = cursor.fetchone()
+    is_correction_requested = report_row and report_row.get("status") == "corrections_requested"
+
+    # Enforce submission window only if NOT a requested correction
     is_open, _, _, _, window_msg = check_submission_window()
-    if not is_open:
+    if not is_open and not is_correction_requested:
         conn.close()
         flash("Upload window is currently closed. " + window_msg, "danger")
         return redirect("/iqac_dashboard")
-
-    reporting_month = request.form.get("reporting_month", "").strip()
-    uploaded_file = request.files.get("signed_report")
 
     if not reporting_month:
         flash("Please enter the reporting month.", "danger")
