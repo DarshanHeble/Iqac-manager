@@ -426,22 +426,18 @@ def send_29th_reminder():
         missing_dates = get_missing_entries(username, current_year, current_month)
         
         if missing_dates:
-            # Format missing dates grouped by month (Feb - 2, 3, 5)
-            sorted_dates = sorted(missing_dates)
-            dates_list = format_dates_by_month(sorted_dates)
+            month_display = datetime(current_year, current_month, 1).strftime('%B %Y')
             # Get deadline date (2nd of next month)
             if current_month == 12:
                 deadline_date = datetime(current_year + 1, 1, 2).date()
             else:
                 deadline_date = datetime(current_year, current_month + 1, 2).date()
             deadline_str = deadline_date.strftime('%d-%m-%Y')
-            
+
             subject = f"IQAC Connect Reminder - Missing Entries"
             body = f"""Dear {username},
 
-This is a kind reminder to complete and submit your work logs for the dates:
-
-{dates_list}
+This is a kind reminder to complete and submit your work logs for the month of {month_display}.
 
 The final date to submit your log is {deadline_str}. Please log in to the portal and complete the submission before the deadline.
 
@@ -484,17 +480,13 @@ def send_1st_deadline_reminder():
         missing_dates = get_missing_entries(username, prev_year, prev_month)
         
         if missing_dates:
-            # Format missing dates grouped by month (Feb - 2, 3, 5)
-            sorted_dates = sorted(missing_dates)
-            dates_list = format_dates_by_month(sorted_dates)
+            month_display = datetime(prev_year, prev_month, 1).strftime('%B %Y')
             deadline_str = today.strftime('%d-%m-%Y')
-            
+
             subject = f"URGENT: IQAC Connect Submission Deadline - TODAY"
             body = f"""Dear {username},
 
-This is a final reminder to complete and submit your work logs for the dates:
-
-{dates_list}
+This is a final reminder to complete and submit your work logs for the month of {month_display}.
 
 The deadline to submit your log is TODAY ({deadline_str}). Please log in to the portal and complete the submission immediately.
 
