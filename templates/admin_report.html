@@ -232,7 +232,7 @@
                   <div><strong>No. of Entries:</strong> {{ entries|length }}</div>
                 </div>
                 <table class="table table-bordered table-striped">
-                  <thead><tr><th style="width:12%;">Date</th><th>Category-wise Tasks</th><th style="width:15%;" class="no-print">Attachment</th></tr></thead>
+                  <thead><tr><th style="width:12%;">Date</th><th>Category-wise Tasks</th></tr></thead>
                   <tbody>
                     {% for log in entries %}
                       <tr>
@@ -247,25 +247,6 @@
                             {% endfor %}
                           {% else %}
                             <span class="text-muted">No tasks recorded</span>
-                          {% endif %}
-                          {% if log.get('attachment') %}
-                            <div class="attachment-print mt-1"><small><strong>Attachment:</strong> {{ log['attachment'].split('/')[-1] }}</small></div>
-                          {% endif %}
-                        </td>
-                        <td class="no-print">
-                          {% if log.get('attachment') %}
-                            {% set ext = log['attachment'].split('.')[-1].lower() %}
-                            {% if ext in ['jpg', 'jpeg', 'png'] %}
-                              <a href="/static/{{ log['attachment'] }}" target="_blank">
-                                <img src="/static/{{ log['attachment'] }}" style="max-height:60px;max-width:100px;" class="img-thumbnail">
-                              </a>
-                            {% else %}
-                              <a href="/static/{{ log['attachment'] }}" target="_blank" class="btn btn-sm btn-outline-secondary">
-                                <i class="bi bi-paperclip"></i> View
-                              </a>
-                            {% endif %}
-                          {% else %}
-                            <span class="text-muted">—</span>
                           {% endif %}
                         </td>
                       </tr>
@@ -301,7 +282,7 @@
                 <div><strong>No. of Entries:</strong> {{ logs|length }}</div>
               </div>
               <table class="table table-bordered table-striped">
-                <thead><tr><th style="width:12%;">Date</th><th>Category-wise Tasks</th><th style="width:15%;" class="no-print">Attachment</th></tr></thead>
+                <thead><tr><th style="width:12%;">Date</th><th>Category-wise Tasks</th></tr></thead>
                 <tbody>
                   {% for log in logs %}
                     <tr>
@@ -316,25 +297,6 @@
                           {% endfor %}
                         {% else %}
                           <span class="text-muted">No tasks recorded</span>
-                        {% endif %}
-                        {% if log.get('attachment') %}
-                          <div class="attachment-print mt-1"><small><strong>Attachment:</strong> {{ log['attachment'].split('/')[-1] }}</small></div>
-                        {% endif %}
-                      </td>
-                      <td class="no-print">
-                        {% if log.get('attachment') %}
-                          {% set ext = log['attachment'].split('.')[-1].lower() %}
-                          {% if ext in ['jpg', 'jpeg', 'png'] %}
-                            <a href="/static/{{ log['attachment'] }}" target="_blank">
-                              <img src="/static/{{ log['attachment'] }}" style="max-height:60px;max-width:100px;" class="img-thumbnail">
-                            </a>
-                          {% else %}
-                            <a href="/static/{{ log['attachment'] }}" target="_blank" class="btn btn-sm btn-outline-secondary">
-                              <i class="bi bi-paperclip"></i> View
-                            </a>
-                          {% endif %}
-                        {% else %}
-                          <span class="text-muted">—</span>
                         {% endif %}
                       </td>
                     </tr>
