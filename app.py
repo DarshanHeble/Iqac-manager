@@ -3194,6 +3194,16 @@ def admin_reject_report(id):
     if report.get("cloudinary_public_id"):
         universal_delete(report["cloudinary_public_id"])
 
+    # Fetch and delete all workshop attachments for this report from storage
+    cursor.execute("""
+        SELECT cloudinary_public_id FROM workshop_attachment_files
+        WHERE username = %s AND reporting_month = %s
+    """, (target_username, reporting_month))
+    attachments = cursor.fetchall()
+    for att in attachments:
+        if att.get("cloudinary_public_id"):
+            universal_delete(att["cloudinary_public_id"])
+
     remarks = request.form.get("remarks", "").strip()
 
     # Update status to 'corrections_requested' and save remarks, clearing the uploaded file path
@@ -3203,6 +3213,13 @@ def admin_reject_report(id):
             SET status = 'corrections_requested', remarks = %s, uploaded_file_path = NULL, uploaded_at = NULL, cloudinary_public_id = NULL
             WHERE id = %s
         """, (remarks, id))
+        
+        # Delete workshop attachments records from DB
+        cursor.execute("""
+            DELETE FROM workshop_attachment_files
+            WHERE username = %s AND reporting_month = %s
+        """, (target_username, reporting_month))
+        
         conn.commit()
 
         # Send email notification to the coordinator
