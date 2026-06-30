@@ -66,10 +66,10 @@ def inject_now():
 from db import get_db_connection, get_cursor
 
 # ------------------ EMAIL SETTINGS (Environment Variables) ------------------
-# SMTP_EMAIL = os.getenv("SMTP_EMAIL")      # SMTP fallback — replaced by Brevo
-# SMTP_PASSWORD = os.getenv("SMTP_PASSWORD")
-# SMTP_SERVER = "smtp.gmail.com"
-# SMTP_PORT = 587
+SMTP_EMAIL = os.getenv("SMTP_EMAIL")
+SMTP_PASSWORD = os.getenv("SMTP_PASSWORD")
+SMTP_SERVER = os.getenv("SMTP_SERVER", "smtp.gmail.com")
+SMTP_PORT = int(os.getenv("SMTP_PORT", "587"))
 
 # ------------------ AQAR COORDINATOR SETTINGS ------------------
 def _parse_csv_env(key):
@@ -86,58 +86,21 @@ def is_aqar_coordinator(user):
 
 # ------------------ EMAIL REMINDER FUNCTIONS ------------------
 def send_email(to_email, subject, body):
-    """Send email via Brevo Web API"""
-    brevo_api_key = os.getenv("BREVO_API_KEY")
-    sender_email = os.getenv("SENDER_EMAIL")
-    if not brevo_api_key or not sender_email:
-        raise Exception("BREVO_API_KEY and SENDER_EMAIL must be set in .env")
-
-    url = "https://api.brevo.com/v3/smtp/email"
-    headers = {
-        "accept": "application/json",
-        "api-key": brevo_api_key,
-        "content-type": "application/json"
-    }
-    payload = {
-        "sender": {"name": "IQAC Admin", "email": sender_email},
-        "to": [{"email": to_email}],
-        "subject": subject,
-        "textContent": body
-    }
-    try:
-        req = urllib.request.Request(
-            url,
-            data=json.dumps(payload).encode("utf-8"),
-            headers=headers,
-            method="POST"
-        )
-        with urllib.request.urlopen(req, timeout=10) as response:
-            res_data = response.read()
-            print(f"Brevo email sent successfully to {to_email}: {res_data}")
-            return True
-    except urllib.error.HTTPError as e:
-        err_msg = e.read().decode('utf-8')
-        print(f"HTTP Error sending Brevo email to {to_email}: {e.code} - {err_msg}")
-        raise Exception(f"Brevo API error: {e.code} - {err_msg}")
-    except Exception as e:
-        print(f"Failed to send Brevo email to {to_email}: {str(e)}")
-        raise e
-
-    # --- SMTP fallback (disabled — replaced by Brevo) ---
-    # SMTP_EMAIL = os.getenv("SMTP_EMAIL")
-    # SMTP_PASSWORD = os.getenv("SMTP_PASSWORD")
-    # if not SMTP_EMAIL or not SMTP_PASSWORD:
-    #     raise Exception("Neither BREVO_API_KEY nor SMTP credentials are set.")
-    # from email.mime.text import MIMEText
-    # import smtplib
-    # msg = MIMEText(body, 'plain', 'utf-8')
-    # msg['Subject'] = subject
-    # msg['From'] = SMTP_EMAIL
-    # msg['To'] = to_email
-    # with smtplib.SMTP("smtp.gmail.com", 587, timeout=10) as server:
-    #     server.starttls()
-    #     server.login(SMTP_EMAIL, SMTP_PASSWORD)
-    #     server.send_message(msg)
+    """Send email via college SMTP server"""
+    import smtplib
+    from email.mime.text import MIMEText
+    if not SMTP_EMAIL or not SMTP_PASSWORD:
+        raise Exception("SMTP_EMAIL and SMTP_PASSWORD must be set in .env")
+    msg = MIMEText(body, 'plain', 'utf-8')
+    msg['Subject'] = subject
+    msg['From'] = SMTP_EMAIL
+    msg['To'] = to_email
+    with smtplib.SMTP(SMTP_SERVER, SMTP_PORT, timeout=10) as server:
+        server.starttls()
+        server.login(SMTP_EMAIL, SMTP_PASSWORD)
+        server.send_message(msg)
+        print(f"SMTP email sent successfully to {to_email}")
+    return True
 
 def send_reminder_email(to_email, subject, body):
     """Send an email reminder"""
@@ -181,9 +144,10 @@ def notify_admins_and_secretaries(username, reporting_month):
     body = (
         f"Hello,\n\n"
         f"IQAC Coordinator '{username.title()}' has uploaded the signed monthly report for the month '{reporting_month}'.\n\n"
-        f"Please log in to the IQAC Portal to review and authorize this submission.\n\n"
+        f"Please log in to the IQAC Portal to review and authorise this submission.\n\n"
         f"Regards,\n"
-        f"IQAC System"
+        f"Internal Quality Assurance Cell (IQAC)\n"
+        f"CHRIST (Deemed to be University)"
     )
 
     for email in emails:
@@ -198,11 +162,13 @@ def notify_coordinator_of_rejection(username, reporting_month, remarks=""):
     conn = get_db_connection()
     cursor = get_cursor(conn)
     email = None
+    full_name = username.title()
     try:
-        cursor.execute("SELECT email FROM users WHERE username = %s", (username,))
+        cursor.execute("SELECT email, full_name FROM users WHERE username = %s", (username,))
         row = cursor.fetchone()
         if row:
             email = row.get("email")
+            full_name = (row.get("full_name") or username).strip().title()
     except Exception as e:
         print("Error fetching coordinator email:", str(e))
     finally:
@@ -212,17 +178,27 @@ def notify_coordinator_of_rejection(username, reporting_month, remarks=""):
         print(f"No email found for coordinator {username}")
         return
 
-    subject = f"IQAC Monthly Report Correction Required - ({reporting_month})"
+    try:
+        month_display = datetime.strptime(reporting_month, "%Y-%m").strftime("%B %Y")
+    except Exception:
+        month_display = reporting_month
+
+    subject = f"IQAC Monthly Report – Corrections Requested ({month_display})"
     body = (
-        f"Hello {username.title()},\n\n"
-        f"Your signed monthly report for the month '{reporting_month}' has been reviewed and correction has been requested.\n"
+        f"Dear {full_name},\n\n"
+        f"Your monthly IQAC report for {month_display} has been reviewed by the Director IQAC. "
+        f"Corrections have been requested on your submitted report.\n\n"
     )
     if remarks:
-        body += f"\nRemarks / Reason for correction:\n\"{remarks}\"\n\n"
+        body += f"Remarks / Reason for correction:\n\"{remarks}\"\n\n"
     body += (
-        f"Your report draft has been unlocked. Please log in to the IQAC Portal, edit the report details, download the corrected PDF, sign it, and upload the signed PDF again.\n\n"
+        f"Please note that your report has been unlocked and will remain open for corrections for 1 day only. "
+        f"Kindly log in to the IQAC Portal at the earliest, carry out the corrections requested, "
+        f"download the revised PDF, obtain the necessary signatures, and re-upload the signed report before the window closes.\n\n"
+        f"Portal Login: https://iqacworklog.christuniversity.in/login\n\n"
         f"Regards,\n"
-        f"IQAC System"
+        f"Internal Quality Assurance Cell (IQAC)\n"
+        f"CHRIST (Deemed to be University)"
     )
     try:
         send_email(email, subject, body)
@@ -351,7 +327,7 @@ def send_29th_reminder():
                 deadline_date = datetime(current_year, current_month + 1, 2).date()
             deadline_str = deadline_date.strftime('%d-%m-%Y')
             
-            subject = f"IQAC Worklog Reminder - Missing Entries"
+            subject = f"IQAC Connect Reminder - Missing Entries"
             body = f"""Dear {username},
 
 This is a kind reminder to complete and submit your work logs for the dates:
@@ -360,7 +336,11 @@ This is a kind reminder to complete and submit your work logs for the dates:
 
 The final date to submit your log is {deadline_str}. Please log in to the portal and complete the submission before the deadline.
 
-If you have already submitted the work logs kindly disregard this email.
+If you have already submitted the work logs, kindly disregard this email.
+
+Regards,
+Internal Quality Assurance Cell (IQAC)
+CHRIST (Deemed to be University)
 
 ---
 This is an auto-generated email. Please do not reply to this message.
@@ -400,16 +380,20 @@ def send_1st_deadline_reminder():
             dates_list = format_dates_by_month(sorted_dates)
             deadline_str = today.strftime('%d-%m-%Y')
             
-            subject = f"URGENT: IQAC Worklog Submission Deadline - TODAY"
+            subject = f"URGENT: IQAC Connect Submission Deadline - TODAY"
             body = f"""Dear {username},
 
-This is a kind reminder to complete and submit your work logs for the dates:
+This is a final reminder to complete and submit your work logs for the dates:
 
 {dates_list}
 
-The final date to submit your log is {deadline_str} (TODAY). Please log in to the portal and complete the submission before the deadline.
+The deadline to submit your log is TODAY ({deadline_str}). Please log in to the portal and complete the submission immediately.
 
-If you have already submitted the work logs kindly disregard this email.
+If you have already submitted the work logs, kindly disregard this email.
+
+Regards,
+Internal Quality Assurance Cell (IQAC)
+CHRIST (Deemed to be University)
 
 ---
 This is an auto-generated email. Please do not reply to this message.
@@ -1654,16 +1638,19 @@ def admin_add_user():
             try:
                 body = f"""Dear {username},
 
-Your IQAC Worklog account has been created.
+Your IQAC Connect account has been created. Please find your login credentials below.
 
 Username: {username}
 Password: {password}
 
 Login: https://iqacworklog.christuniversity.in/login
 
+Kindly change your password after your first login. If you have any issues, please contact the IQAC Admin.
+
 Regards,
-IQAC Admin"""
-                send_email(email, "IQAC Worklog Account Created", body)
+Internal Quality Assurance Cell (IQAC)
+CHRIST (Deemed to be University)"""
+                send_email(email, "IQAC Connect - Account Created", body)
                 flash("User added and credentials emailed.", "success")
 
             except Exception as e:
@@ -1703,19 +1690,20 @@ def forgot_password():
     try:
         body = f"""Dear {username},
 
-Your password for the IQAC Worklog account has been successfully reset. Please find your updated login credentials below:
+Your password for the IQAC Connect account has been successfully reset. Please find your updated login credentials below:
 
 Username: {username}
 New Password: {new_password}
 
 You may log in using the following link:
-https://iqacworklog.christuniversity.in
+https://iqacworklog.christuniversity.in/login
 
-If you did not request this reset or require any assistance, please contact the admin.
+If you did not request this reset or require any assistance, please contact the IQAC Admin.
 
 Regards,
-IQAC Admin"""
-        send_email(email, "IQAC Worklog Password Reset", body)
+Internal Quality Assurance Cell (IQAC)
+CHRIST (Deemed to be University)"""
+        send_email(email, "IQAC Connect - Password Reset", body)
         flash("New password emailed to you.", "success")
 
     except Exception as e:
@@ -2316,19 +2304,20 @@ def admin_reset_password(id):
     try:
         body = f"""Dear {user['username']},
 
-Your password for the IQAC Worklog account has been successfully reset. Please find your updated login credentials below:
+Your password for the IQAC Connect account has been successfully reset. Please find your updated login credentials below:
 
 Username: {user['username']}
 New Password: {new_password}
 
 You may log in using the following link:
-https://iqacworklog.christuniversity.in
+https://iqacworklog.christuniversity.in/login
 
-If you did not request this reset or require any assistance, please contact the admin.
+If you did not request this reset or require any assistance, please contact the IQAC Admin.
 
 Regards,
-IQAC Admin"""
-        send_email(user["email"], "IQAC Worklog - Password Reset", body)
+Internal Quality Assurance Cell (IQAC)
+CHRIST (Deemed to be University)"""
+        send_email(user["email"], "IQAC Connect - Password Reset", body)
         flash(f"Password reset for '{user['username']}' and emailed successfully!", "success")
 
     except Exception as e:
@@ -2405,6 +2394,10 @@ Portal: https://iqacworklog.christuniversity.in/login
 
 If you have already submitted, please disregard this message.
 
+Regards,
+Internal Quality Assurance Cell (IQAC)
+CHRIST (Deemed to be University)
+
 ---
 This is an automated reminder. Please do not reply.
 """
@@ -2418,6 +2411,10 @@ Please log in to the IQAC portal, fill in your monthly report, download the PDF,
 Portal: https://iqacworklog.christuniversity.in/login
 
 If you have already submitted, please disregard this message.
+
+Regards,
+Internal Quality Assurance Cell (IQAC)
+CHRIST (Deemed to be University)
 
 ---
 This is an automated reminder. Please do not reply.
@@ -3364,7 +3361,9 @@ def iqac_upload_signed_report():
             f"{username.title()} ({user.get('designation', '')}, {user.get('department', '')}) "
             f"has submitted their signed IQAC report for {reporting_month_display}.\n\n"
             f"Please log in to review and authorise the report.\n\n"
-            f"Regards,\nIQAC Worklog System"
+            f"Regards,\n"
+            f"Internal Quality Assurance Cell (IQAC)\n"
+            f"CHRIST (Deemed to be University)"
         )
         for r in recipients:
             try:
