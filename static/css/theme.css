@@ -31,6 +31,18 @@
   color: #f1f5f9 !important;
 }
 
+[data-theme="dark"] .text-dark {
+  color: #94a3b8 !important;
+}
+
+[data-theme="dark"] .nav-link {
+  color: #cbd5e1 !important;
+}
+
+[data-theme="dark"] .table th {
+  color: #e2e8f0 !important;
+}
+
 html, body {
   height: 100%;
   margin: 0;
