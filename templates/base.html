@@ -49,22 +49,22 @@
         </a>
         
         <!-- Manage Users -->
-        <a href="/admin/manage_users" class="nav-link {% if request.path.startswith('/admin/manage_users') %}active{% endif %}">
+        <a href="/admin_manage_users" class="nav-link {% if request.path.startswith('/admin_manage_users') or request.path.startswith('/admin_edit_user') or request.path.startswith('/admin_add_user') %}active{% endif %}">
           <i class="bi bi-people-fill"></i> Manage Users
         </a>
         
         <!-- View Reports -->
-        <a href="/admin/reports" class="nav-link {% if request.path == '/admin/reports' %}active{% endif %}">
+        <a href="/admin_report" class="nav-link {% if request.path == '/admin_report' %}active{% endif %}">
           <i class="bi bi-file-earmark-text-fill"></i> System Reports
         </a>
 
         <!-- Signed Reports -->
-        <a href="/admin/signed_reports" class="nav-link {% if request.path == '/admin/signed_reports' %}active{% endif %}">
+        <a href="/admin_signed_reports" class="nav-link {% if request.path == '/admin_signed_reports' %}active{% endif %}">
           <i class="bi bi-file-earmark-check-fill"></i> Signed Reports
         </a>
         
         <!-- Generate AI Report -->
-        <a href="/admin/report/ai" class="nav-link {% if request.path == '/admin/report/ai' %}active{% endif %}">
+        <a href="/admin_report_ai" class="nav-link {% if request.path == '/admin_report_ai' %}active{% endif %}">
           <i class="bi bi-robot"></i> AI Report
         </a>
       </nav>
