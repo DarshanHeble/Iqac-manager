@@ -43,6 +43,11 @@
   color: #e2e8f0 !important;
 }
 
+[data-theme="dark"] .table td, 
+[data-theme="dark"] .table th {
+  border-bottom-color: #475569 !important; /* slate-600 for better row separation */
+}
+
 html, body {
   height: 100%;
   margin: 0;
