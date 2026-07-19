@@ -9,80 +9,107 @@
 {% block content %}
 
 <style>
-/* Print Layout Match Styles */
-.print-banner {
-  background-color: #003366 !important;
-  color: #ffffff !important;
-  display: flex;
-  align-items: center;
-  padding: 1rem;
-  margin-bottom: 1.5rem;
+/* Exact Match Styles for IQAC Report */
+.report-card {
+  font-family: Arial, sans-serif;
+  font-size: 13px;
+  color: #333333;
 }
-.print-banner-logo-wrapper {
-  background-color: #ffffff !important;
-  padding: 0.5rem;
-  border-radius: 8px;
-  width: 160px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  margin-right: 2rem;
+.report-card h5.fw-bold {
+  color: #1F497D !important;
+  font-size: 18px;
+  margin-bottom: 4px;
 }
-.print-banner-logo {
-  max-width: 100%;
-  height: auto;
+.report-card h6.text-secondary {
+  color: #555555 !important;
+  font-size: 14px;
+  font-weight: normal !important;
+  margin-bottom: 8px;
 }
-.print-banner-text {
-  flex-grow: 1;
-  text-align: center;
+.report-card h6.fw-bold.text-primary {
+  color: #1F497D !important;
+  font-size: 14px;
 }
-.print-banner-title {
-  font-weight: bold;
-  margin-bottom: 0;
-  letter-spacing: 1px;
-  color: #ffffff !important;
-}
+
+/* Info Table */
 .info-table {
   width: 100%;
   border-collapse: collapse;
   margin-bottom: 1.5rem;
-  border: 1px solid #000;
+  border: 1px solid #d3d3d3;
 }
 .info-table td {
   padding: 8px 12px;
-  border: 1px solid #000;
+  border: 1px solid #d3d3d3;
+  font-size: 13px;
 }
 .info-table .info-label {
-  background-color: #b0c4de !important;
+  background-color: #cde0f5 !important; /* light blue */
   color: #1F497D !important;
   font-weight: bold;
   width: 25%;
 }
 .info-table .info-value {
   background-color: #ffffff !important;
-  color: #000000 !important;
+  color: #333333 !important;
   width: 25%;
 }
+
+/* Section Header */
 .section-header {
-  background-color: #b0c4de !important;
+  background-color: #cde0f5 !important;
   color: #1F497D !important;
-  border: 1px solid #1F497D !important;
+  border: 1px solid #aebfd4 !important;
   padding: 8px 12px;
   font-weight: bold;
+  font-size: 14px;
   margin-top: 1.5rem;
   margin-bottom: 1rem;
+  border-radius: 3px;
 }
+
 /* Sub-headers like (a) Meetings */
-h6.text-primary, .fw-bold.text-primary {
+.report-card h6.text-primary, 
+.report-card .fw-bold.text-primary {
   color: #1F497D !important;
+  font-size: 13px;
+  font-weight: bold;
+  margin-bottom: 8px;
 }
-.table thead th {
-  background-color: #b0c4de !important;
+
+/* Data Tables */
+.report-card .table {
+  border-collapse: collapse;
+  width: 100%;
+  border: 1px solid #d3d3d3 !important;
+  margin-bottom: 1.5rem;
+}
+.report-card .table th {
+  background-color: #cde0f5 !important;
   color: #1F497D !important;
-  border: 1px solid #000 !important;
+  border: 1px solid #aebfd4 !important;
+  font-size: 12px;
+  text-align: center;
+  vertical-align: middle;
+  padding: 8px;
 }
+.report-card .table td {
+  background-color: #f2f2f2 !important; /* slight gray background for rows */
+  border: 1px solid #d3d3d3 !important;
+  color: #333333 !important;
+  font-size: 12px;
+  padding: 8px;
+  vertical-align: top;
+}
+
 @media print {
-  .print-banner {
+  .report-card .info-label,
+  .report-card .section-header,
+  .report-card .table th {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  .report-card .table td {
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
   }
@@ -231,14 +258,7 @@ h6.text-primary, .fw-bold.text-primary {
           {% if submitted_reports|length > 0 %}
             {% for r in submitted_reports %}
               <div class="card mb-5 page-break report-card">
-                <div class="card-body">
-                  
-                  <!-- CHRIST Banner -->
-                  <div class="print-banner">
-                    <div class="print-banner-logo-wrapper">
-                      <img src="/static/christ_logo.png" alt="CHRIST Logo" class="print-banner-logo">
-                    </div>
-                    <div class="print-banner-text">
+                <div class="card-body"><div class="print-banner-text">
                       <h3 class="print-banner-title">INTERNAL QUALITY ASSURANCE CELL</h3>
                       <h4 class="print-banner-title mt-1">(IQAC)</h4>
                     </div>
@@ -533,14 +553,7 @@ h6.text-primary, .fw-bold.text-primary {
             {% endfor %}
             {% for uname, entries in grouped_logs.items() %}
               <div class="card mb-5 page-break">
-                <div class="card-body">
-                  
-                  <!-- CHRIST Banner -->
-                  <div class="print-banner">
-                    <div class="print-banner-logo-wrapper">
-                      <img src="/static/christ_logo.png" alt="CHRIST Logo" class="print-banner-logo">
-                    </div>
-                    <div class="print-banner-text">
+                <div class="card-body"><div class="print-banner-text">
                       <h3 class="print-banner-title">INTERNAL QUALITY ASSURANCE CELL</h3>
                       <h4 class="print-banner-title mt-1">(IQAC)</h4>
                     </div>
@@ -594,14 +607,7 @@ h6.text-primary, .fw-bold.text-primary {
             {% endfor %}
           {% else %}
             <div class="card mb-5">
-              <div class="card-body">
-                
-                  <!-- CHRIST Banner -->
-                  <div class="print-banner">
-                    <div class="print-banner-logo-wrapper">
-                      <img src="/static/christ_logo.png" alt="CHRIST Logo" class="print-banner-logo">
-                    </div>
-                    <div class="print-banner-text">
+              <div class="card-body"><div class="print-banner-text">
                       <h3 class="print-banner-title">INTERNAL QUALITY ASSURANCE CELL</h3>
                       <h4 class="print-banner-title mt-1">(IQAC)</h4>
                     </div>
