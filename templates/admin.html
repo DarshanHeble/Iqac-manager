@@ -78,10 +78,10 @@
       </div>
     </div>
 
-    <!-- Row 2: Submitted IQAC Reports card + Progress bar -->
-    <div class="row mb-4">
-      <!-- IQAC Report Submission Progress (width of 2 cards) -->
-      <div class="col-md-12 mb-3">
+        <!-- Row 2: Charts Grid -->
+    <div class="row mb-4 g-4">
+      <!-- Left Column: Report Submissions Donut -->
+      <div class="col-lg-4">
         <div class="card h-100">
           <div class="card-body d-flex flex-column justify-content-center">
             {% if total_coordinators > 0 %}
@@ -94,14 +94,15 @@
               </span>
             </div>
 
-            <div class="progress mb-3" style="height: 22px; border-radius: 8px;">
-              <div
-                class="progress-bar {% if submission_pct == 100 %}bg-success{% elif submission_pct >= 50 %}bg-warning{% else %}bg-danger{% endif %} fw-bold"
-                role="progressbar" style="width: {{ submission_pct }}%; font-size:0.85rem;"
-                aria-valuenow="{{ submission_pct }}" aria-valuemin="0" aria-valuemax="100">
-                {% if submission_pct > 10 %}{{ submission_pct }}%{% endif %}
+            
+            <div class="d-flex justify-content-center align-items-center mb-3 position-relative" style="height: 200px;">
+              <canvas id="submissionDonutChart"></canvas>
+              <div class="position-absolute d-flex flex-column align-items-center justify-content-center" style="top:0;left:0;right:0;bottom:0; pointer-events:none;">
+                <span class="fs-2 fw-bolder text-primary">{{ submission_pct }}%</span>
+                <span class="text-muted small fw-semibold">Submitted</span>
               </div>
             </div>
+
 
             <div class="row g-2 mt-1">
               {% if submitted_coordinator_names %}
@@ -155,110 +156,11 @@
           </div>
         </div>
       </div>
-    </div>
-
-    <!-- Quick Summary - IQAC Coordinators Monthly Reports -->
-    <div class="card mb-4">
-      <div class="card-body">
-        <h6 class="mb-3 text-primary">Quick Summary - IQAC Coordinators Monthly Reports</h6>
-        <form method="GET" class="row g-3 align-items-end mb-4">
-          <input type="hidden" name="coord_form" value="1">
-          <div class="col-md-3">
-            <label class="form-label">Coordinator</label>
-            <select name="coord_user" class="form-select">
-              <option value="All" {% if coord_user=='All' %}selected{% endif %}>All Coordinators</option>
-              {% for c in coordinators %}
-              <option value="{{ c['username'] }}" {% if coord_user==c['username'] %}selected{% endif %}>
-                {{ c['full_name'] or c['username'].title() }} ({{ c['role'] }})
-              </option>
-              {% endfor %}
-            </select>
-          </div>
-          <div class="col-md-2">
-            <label class="form-label">Report Type</label>
-            <select name="coord_report_type" id="coord_report_type" class="form-select">
-              <option value="monthly" {% if coord_report_type=='monthly' %}selected{% endif %}>Monthly-wise</option>
-              <option value="yearly" {% if coord_report_type=='yearly' %}selected{% endif %}>Yearly-wise</option>
-            </select>
-          </div>
-          <div id="coord_range_field" class="col-md-4"
-            style="display:{{ 'none' if coord_report_type == 'yearly' else 'block' }}">
-            <div class="d-flex gap-2 align-items-end">
-              <div class="flex-fill">
-                <label class="form-label">From Month</label>
-                <input type="month" name="coord_from_month" class="form-control" value="{{ coord_from_month or '' }}">
-              </div>
-              <div class="flex-fill">
-                <label class="form-label">To Month</label>
-                <input type="month" name="coord_to_month" class="form-control" value="{{ coord_to_month or '' }}">
-              </div>
-            </div>
-          </div>
-          <div id="coord_year_field" class="col-md-2"
-            style="display:{{ 'block' if coord_report_type == 'yearly' else 'none' }}">
-            <label class="form-label">Year</label>
-            <select name="coord_year" class="form-select">
-              {% for y in range(datetime.now().year, datetime.now().year - 4, -1) %}
-              <option value="{{ y }}" {% if coord_year==y|string %}selected{% endif %}>{{ y }}</option>
-              {% endfor %}
-            </select>
-          </div>
-          <div class="col-md-2">
-            <button type="submit" class="btn btn-primary w-100">View Summary</button>
-          </div>
-        </form>
-
-        {% if coord_reports is not none %}
-        {% if coord_reports %}
-        <div class="table-responsive">
-          <table class="table table-bordered align-middle" style="font-size:0.9rem;">
-            <thead>
-              <tr style="background-color:#003366; color:#fff;">
-                <th>#</th>
-                <th>Coordinator</th>
-                <th>Role</th>
-                <th>Reporting Month</th>
-                <th>Submitted On</th>
-                <th>Status</th>
-                <th>View</th>
-              </tr>
-            </thead>
-            <tbody>
-              {% for r in coord_reports %}
-              <tr>
-                <td>{{ loop.index }}</td>
-                <td>{{ r.full_name or r.username.title() }}</td>
-                <td><span class="badge" style="background-color:#003366; font-size:0.75rem;">{{ r.role }}</span></td>
-                <td>{{ r.reporting_month | datetimeformat }}</td>
-                <td>{{ r.uploaded_at|ist if r.uploaded_at else '—' }}</td>
-                <td>
-                  {% if r.status == 'reviewed' %}
-                  <span class="badge bg-success">Authorised</span>
-                  {% else %}
-                  <span class="badge" style="background-color:#ffc107; color:#000;">Pending Authorisation</span>
-                  {% endif %}
-                </td>
-                <td>
-                  <a href="/view_report/{{ r.id }}" target="_blank" class="btn btn-outline-primary btn-sm">
-                    <i class="bi bi-eye"></i>
-                  </a>
-                </td>
-              </tr>
-              {% endfor %}
-            </tbody>
-          </table>
-        </div>
-        <p class="text-muted small mb-0">{{ coord_reports | length }} report(s) found.</p>
-        {% else %}
-        <p class="text-muted mb-0">No reports submitted for the selected period.</p>
-        {% endif %}
-        {% endif %}
-      </div>
-    </div>
-
-    <!-- Month Selector and Quick Summary Chart -->
-    <div class="card mb-4">
-      <div class="card-body">
+      
+      <!-- Right Column: Worklog Entries Chart -->
+      <div class="col-lg-8">
+        <div class="card h-100">
+          <div class="card-body">
         <h6 class="mb-3 text-primary">Quick Summary - Worklog Entries</h6>
         <form method="GET" class="row g-3 align-items-end mb-4">
           <div class="col-md-2">
@@ -359,10 +261,111 @@
         {% else %}
         <p class="text-muted mb-0">No data available for the selected filters.</p>
         {% endif %}
+        </div>
       </div>
     </div>
-  </div>
 
+    <!-- Row 3: Coordinators Monthly Reports Table -->
+    <div class="row">
+      <div class="col-12">
+        <div class="card mb-4">
+          <div class="card-body">
+        <h6 class="mb-3 text-primary">Quick Summary - IQAC Coordinators Monthly Reports</h6>
+        <form method="GET" class="row g-3 align-items-end mb-4">
+          <input type="hidden" name="coord_form" value="1">
+          <div class="col-md-3">
+            <label class="form-label">Coordinator</label>
+            <select name="coord_user" class="form-select">
+              <option value="All" {% if coord_user=='All' %}selected{% endif %}>All Coordinators</option>
+              {% for c in coordinators %}
+              <option value="{{ c['username'] }}" {% if coord_user==c['username'] %}selected{% endif %}>
+                {{ c['full_name'] or c['username'].title() }} ({{ c['role'] }})
+              </option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="col-md-2">
+            <label class="form-label">Report Type</label>
+            <select name="coord_report_type" id="coord_report_type" class="form-select">
+              <option value="monthly" {% if coord_report_type=='monthly' %}selected{% endif %}>Monthly-wise</option>
+              <option value="yearly" {% if coord_report_type=='yearly' %}selected{% endif %}>Yearly-wise</option>
+            </select>
+          </div>
+          <div id="coord_range_field" class="col-md-4"
+            style="display:{{ 'none' if coord_report_type == 'yearly' else 'block' }}">
+            <div class="d-flex gap-2 align-items-end">
+              <div class="flex-fill">
+                <label class="form-label">From Month</label>
+                <input type="month" name="coord_from_month" class="form-control" value="{{ coord_from_month or '' }}">
+              </div>
+              <div class="flex-fill">
+                <label class="form-label">To Month</label>
+                <input type="month" name="coord_to_month" class="form-control" value="{{ coord_to_month or '' }}">
+              </div>
+            </div>
+          </div>
+          <div id="coord_year_field" class="col-md-2"
+            style="display:{{ 'block' if coord_report_type == 'yearly' else 'none' }}">
+            <label class="form-label">Year</label>
+            <select name="coord_year" class="form-select">
+              {% for y in range(datetime.now().year, datetime.now().year - 4, -1) %}
+              <option value="{{ y }}" {% if coord_year==y|string %}selected{% endif %}>{{ y }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="col-md-2">
+            <button type="submit" class="btn btn-primary w-100">View Summary</button>
+          </div>
+        </form>
+
+        {% if coord_reports is not none %}
+        {% if coord_reports %}
+        <div class="table-responsive">
+          <table class="table table-bordered align-middle" style="font-size:0.9rem;">
+            <thead>
+              <tr style="background-color:#003366; color:#fff;">
+                <th>#</th>
+                <th>Coordinator</th>
+                <th>Role</th>
+                <th>Reporting Month</th>
+                <th>Submitted On</th>
+                <th>Status</th>
+                <th>View</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for r in coord_reports %}
+              <tr>
+                <td>{{ loop.index }}</td>
+                <td>{{ r.full_name or r.username.title() }}</td>
+                <td><span class="badge" style="background-color:#003366; font-size:0.75rem;">{{ r.role }}</span></td>
+                <td>{{ r.reporting_month | datetimeformat }}</td>
+                <td>{{ r.uploaded_at|ist if r.uploaded_at else '—' }}</td>
+                <td>
+                  {% if r.status == 'reviewed' %}
+                  <span class="badge bg-success">Authorised</span>
+                  {% else %}
+                  <span class="badge" style="background-color:#ffc107; color:#000;">Pending Authorisation</span>
+                  {% endif %}
+                </td>
+                <td>
+                  <a href="/view_report/{{ r.id }}" target="_blank" class="btn btn-outline-primary btn-sm">
+                    <i class="bi bi-eye"></i>
+                  </a>
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        <p class="text-muted small mb-0">{{ coord_reports | length }} report(s) found.</p>
+        {% else %}
+        <p class="text-muted mb-0">No reports submitted for the selected period.</p>
+        {% endif %}
+        {% endif %}
+        </div>
+      </div>
+    </div>
 </div>
 {% endblock %}
 
@@ -395,6 +398,40 @@
 
     const themeTextColor = getComputedStyle(document.documentElement).getPropertyValue('--text-color').trim() || '#003366';
     const themeGridColor = getComputedStyle(document.documentElement).getPropertyValue('--border-color').trim() || '#dee2e6';
+
+    
+    // Donut Chart for Report Submissions
+    const donutCtx = document.getElementById('submissionDonutChart');
+    if(donutCtx) {
+      new Chart(donutCtx, {
+        type: 'doughnut',
+        data: {
+          labels: ['Submitted', 'Pending'],
+          datasets: [{
+            data: [{{ submitted_coordinators }}, {{ total_coordinators - submitted_coordinators }}],
+            backgroundColor: ['#10b981', '#ef4444'], // emerald-500 and red-500
+            borderWidth: 0,
+            hoverOffset: 4
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          cutout: '75%',
+          plugins: {
+            legend: { display: false },
+            datalabels: { display: false },
+            tooltip: {
+              callbacks: {
+                label: function(context) {
+                  return ' ' + context.label + ': ' + context.raw;
+                }
+              }
+            }
+          }
+        }
+      });
+    }
 
     const summaryChart = new Chart(ctx, {
       type: 'bar',
