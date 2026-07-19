@@ -7,6 +7,88 @@
 {% endblock %}
 
 {% block content %}
+
+<style>
+/* Print Layout Match Styles */
+.print-banner {
+  background-color: #003366 !important;
+  color: #ffffff !important;
+  display: flex;
+  align-items: center;
+  padding: 1rem;
+  margin-bottom: 1.5rem;
+}
+.print-banner-logo-wrapper {
+  background-color: #ffffff !important;
+  padding: 0.5rem;
+  border-radius: 8px;
+  width: 160px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-right: 2rem;
+}
+.print-banner-logo {
+  max-width: 100%;
+  height: auto;
+}
+.print-banner-text {
+  flex-grow: 1;
+  text-align: center;
+}
+.print-banner-title {
+  font-weight: bold;
+  margin-bottom: 0;
+  letter-spacing: 1px;
+  color: #ffffff !important;
+}
+.info-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: 1.5rem;
+  border: 1px solid #000;
+}
+.info-table td {
+  padding: 8px 12px;
+  border: 1px solid #000;
+}
+.info-table .info-label {
+  background-color: #b0c4de !important;
+  color: #1F497D !important;
+  font-weight: bold;
+  width: 25%;
+}
+.info-table .info-value {
+  background-color: #ffffff !important;
+  color: #000000 !important;
+  width: 25%;
+}
+.section-header {
+  background-color: #b0c4de !important;
+  color: #1F497D !important;
+  border: 1px solid #1F497D !important;
+  padding: 8px 12px;
+  font-weight: bold;
+  margin-top: 1.5rem;
+  margin-bottom: 1rem;
+}
+/* Sub-headers like (a) Meetings */
+h6.text-primary, .fw-bold.text-primary {
+  color: #1F497D !important;
+}
+.table thead th {
+  background-color: #b0c4de !important;
+  color: #1F497D !important;
+  border: 1px solid #000 !important;
+}
+@media print {
+  .print-banner {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+}
+</style>
+
 <div class="container-fluid py-2">
 <div class="card mb-4 no-print">
         <div class="card-body">
@@ -150,6 +232,17 @@
             {% for r in submitted_reports %}
               <div class="card mb-5 page-break report-card">
                 <div class="card-body">
+                  
+                  <!-- CHRIST Banner -->
+                  <div class="print-banner">
+                    <div class="print-banner-logo-wrapper">
+                      <img src="/static/christ_logo.png" alt="CHRIST Logo" class="print-banner-logo">
+                    </div>
+                    <div class="print-banner-text">
+                      <h3 class="print-banner-title">INTERNAL QUALITY ASSURANCE CELL</h3>
+                      <h4 class="print-banner-title mt-1">(IQAC)</h4>
+                    </div>
+                  </div>
                   <div class="text-center mb-4">
                     <h5 class="fw-bold" style="color: #1F497D;">CHRIST (Deemed to be University), Bengaluru</h5>
                     <h6 class="fw-semibold text-secondary">Internal Quality Assurance Cell (IQAC)</h6>
@@ -441,6 +534,17 @@
             {% for uname, entries in grouped_logs.items() %}
               <div class="card mb-5 page-break">
                 <div class="card-body">
+                  
+                  <!-- CHRIST Banner -->
+                  <div class="print-banner">
+                    <div class="print-banner-logo-wrapper">
+                      <img src="/static/christ_logo.png" alt="CHRIST Logo" class="print-banner-logo">
+                    </div>
+                    <div class="print-banner-text">
+                      <h3 class="print-banner-title">INTERNAL QUALITY ASSURANCE CELL</h3>
+                      <h4 class="print-banner-title mt-1">(IQAC)</h4>
+                    </div>
+                  </div>
                   <div class="text-center worklog-header mb-3">
                     <h5>CHRIST (Deemed to be University), Bengaluru</h5>
                     <h6>Internal Quality Assurance Cell (IQAC)</h6>
@@ -491,7 +595,18 @@
           {% else %}
             <div class="card mb-5">
               <div class="card-body">
-                <div class="text-center worklog-header mb-3">
+                
+                  <!-- CHRIST Banner -->
+                  <div class="print-banner">
+                    <div class="print-banner-logo-wrapper">
+                      <img src="/static/christ_logo.png" alt="CHRIST Logo" class="print-banner-logo">
+                    </div>
+                    <div class="print-banner-text">
+                      <h3 class="print-banner-title">INTERNAL QUALITY ASSURANCE CELL</h3>
+                      <h4 class="print-banner-title mt-1">(IQAC)</h4>
+                    </div>
+                  </div>
+                  <div class="text-center worklog-header mb-3">
                   <h5>CHRIST (Deemed to be University), Bengaluru</h5>
                   <h6>Internal Quality Assurance Cell (IQAC)</h6>
                   <h6 class="fw-bold text-primary mt-3">Worklog of {{ logs[0]['full_name'] or selected_user.title() }}</h6>
