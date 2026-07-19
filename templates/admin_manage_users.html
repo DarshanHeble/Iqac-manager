@@ -36,39 +36,39 @@
                 <tr style="cursor: pointer;" onclick="showUserDetailsModal(event, '{{ user.id }}')">
                   <td>{{ loop.index }}</td>
                   <td>
-                    <span class="table-primary-text">{{ user.username }}</span>
+                    <strong>{{ user.username }}</strong>
                     {% if user.full_name %}
-                      <span class="table-secondary-text">{{ user.full_name }}</span>
+                      <br><small class="text-muted">{{ user.full_name }}</small>
                     {% endif %}
                   </td>
-                  <td><span class="table-secondary-text">{{ user.email }}</span></td>
-                  <td><span class="table-secondary-text">{{ user.designation }}</span></td>
+                  <td>{{ user.email }}</td>
+                  <td>{{ user.designation }}</td>
                   <td>
                     {% for r in user.role.split(',') %}
                       {% set role_clean = r.strip() %}
                       {% if role_clean.lower() == 'admin' %}
-                        <span class="badge badge-soft-primary rounded-pill fw-normal px-2 py-1 d-inline-block mb-1">{{ role_clean }}</span>
+                        <span class="badge bg-primary rounded-pill fw-normal px-2 py-1 d-inline-block mb-1">{{ role_clean }}</span>
                       {% elif role_clean.lower() == 'school iqac coordinator' %}
-                        <span class="badge badge-soft-success rounded-pill fw-normal px-2 py-1 d-inline-block mb-1">School Coordinator</span>
+                        <span class="badge bg-success rounded-pill fw-normal px-2 py-1 d-inline-block mb-1">School Coordinator</span>
                       {% elif role_clean.lower() == 'campus iqac coordinator' %}
-                        <span class="badge badge-soft-info rounded-pill fw-normal px-2 py-1 d-inline-block mb-1">Campus Coordinator</span>
+                        <span class="badge bg-info text-dark rounded-pill fw-normal px-2 py-1 d-inline-block mb-1">Campus Coordinator</span>
                       {% elif role_clean.lower() == 'secretary' %}
-                        <span class="badge badge-soft-warning rounded-pill fw-normal px-2 py-1 d-inline-block mb-1">Secretary</span>
+                        <span class="badge bg-warning text-dark rounded-pill fw-normal px-2 py-1 d-inline-block mb-1">Secretary</span>
                       {% else %}
-                        <span class="badge badge-soft-secondary rounded-pill fw-normal px-2 py-1 d-inline-block mb-1">{{ role_clean }}</span>
+                        <span class="badge bg-secondary rounded-pill fw-normal px-2 py-1 d-inline-block mb-1">{{ role_clean }}</span>
                       {% endif %}
                     {% endfor %}
                   </td>
                   <td class="action-btns text-nowrap">
-                    <a href="/admin_edit_user/{{ user.id }}" class="btn btn-ghost-primary btn-sm me-1" title="Edit">
+                    <a href="/admin_edit_user/{{ user.id }}" class="btn btn-outline-primary btn-sm me-1" title="Edit">
                       <i class="bi bi-pencil"></i>
                     </a>
                     {% if user.username != 'admin' %}
-                    <button type="button" class="btn btn-ghost-warning btn-sm me-1" title="Reset Password" 
+                    <button type="button" class="btn btn-outline-warning btn-sm me-1" title="Reset Password" 
                             data-bs-toggle="modal" data-bs-target="#resetModal{{ user.id }}">
                       <i class="bi bi-key"></i>
                     </button>
-                    <button type="button" class="btn btn-ghost-danger btn-sm" title="Delete"
+                    <button type="button" class="btn btn-outline-danger btn-sm" title="Delete"
                             data-bs-toggle="modal" data-bs-target="#deleteModal{{ user.id }}">
                       <i class="bi bi-trash"></i>
                     </button>
