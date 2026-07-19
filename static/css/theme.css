@@ -27,6 +27,10 @@
   color-scheme: dark;
 }
 
+[data-theme="dark"] .brand-text {
+  color: #f1f5f9 !important;
+}
+
 html, body {
   height: 100%;
   margin: 0;
@@ -67,6 +71,10 @@ html, body {
 .sidebar-brand img {
   height: 40px;
   width: auto;
+}
+
+.brand-text {
+  color: var(--primary-color);
 }
 
 .sidebar-nav {
