@@ -352,6 +352,9 @@
     chartTitle += ' ({{ category_filter }})';
     {% endif %}
 
+    const themeTextColor = getComputedStyle(document.documentElement).getPropertyValue('--text-color').trim() || '#003366';
+    const themeGridColor = getComputedStyle(document.documentElement).getPropertyValue('--border-color').trim() || '#dee2e6';
+
     const summaryChart = new Chart(ctx, {
       type: 'bar',
       data: {
@@ -360,7 +363,7 @@
           label: '{% if category_filter and category_filter != "All" %}{{ category_filter }}{% else %}Worklog Entries{% endif %}',
           data: dataValues,
           backgroundColor: backgroundColors,
-          borderColor: '#003366',
+          borderColor: themeTextColor,
           borderWidth: 1,
           barThickness: labels.length > 10 ? 30 : 45
         }]
@@ -371,11 +374,14 @@
         scales: {
           y: {
             beginAtZero: true,
-            ticks: { stepSize: 1, precision: 0 },
-            title: { display: true, text: 'Number of Entries' }
+            grid: { color: themeGridColor },
+            ticks: { stepSize: 1, precision: 0, color: themeTextColor },
+            title: { display: true, text: 'Number of Entries', color: themeTextColor }
           },
           x: {
-            title: { display: true, text: 'Users' }
+            grid: { color: themeGridColor },
+            ticks: { color: themeTextColor },
+            title: { display: true, text: 'Users', color: themeTextColor }
           }
         },
         plugins: {
@@ -383,6 +389,7 @@
             display: labels.length <= 10,
             position: 'bottom',
             labels: {
+              color: themeTextColor,
               generateLabels: function (chart) {
                 return chart.data.labels.map((label, i) => ({
                   text: label + ' (' + chart.data.datasets[0].data[i] + ')',
@@ -395,10 +402,10 @@
             display: true,
             text: chartTitle,
             font: { size: 16, weight: 'bold' },
-            color: '#003366'
+            color: themeTextColor
           },
           datalabels: {
-            color: '#000',
+            color: '#ffffff',
             anchor: 'end',
             align: 'start',
             font: { weight: 'bold', size: 12 },

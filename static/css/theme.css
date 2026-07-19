@@ -48,6 +48,15 @@
   border-bottom-color: #475569 !important; /* slate-600 for better row separation */
 }
 
+[data-theme="dark"] .btn-primary {
+  color: #0f172a !important;
+  font-weight: 600;
+}
+
+[data-theme="dark"] .progress {
+  background-color: #334155 !important;
+}
+
 html, body {
   height: 100%;
   margin: 0;
