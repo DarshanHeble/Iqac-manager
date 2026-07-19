@@ -9,26 +9,62 @@
 {% block content %}
 
 <style>
-/* Exact Match Styles for IQAC Report */
+/* Exact Match Styles for IQAC Report PDF */
 .report-card {
   font-family: Arial, sans-serif;
   font-size: 13px;
   color: #333333;
 }
-.report-card h5.fw-bold {
+.report-card h5.fw-bold, .report-card h5 {
   color: #1F497D !important;
   font-size: 18px;
   margin-bottom: 4px;
+  font-weight: bold;
 }
-.report-card h6.text-secondary {
+.report-card h6.text-secondary, .report-card h6 {
   color: #555555 !important;
   font-size: 14px;
   font-weight: normal !important;
   margin-bottom: 8px;
 }
-.report-card h6.fw-bold.text-primary {
+.report-card h6.fw-bold.text-primary, .report-card .fw-bold.text-primary {
   color: #1F497D !important;
   font-size: 14px;
+  font-weight: bold;
+}
+
+/* Global Print Banner */
+.print-banner {
+  background-color: #003366 !important;
+  color: #ffffff !important;
+  display: flex;
+  align-items: center;
+  padding: 1rem;
+  margin-bottom: 1.5rem;
+}
+.print-banner-logo-wrapper {
+  background-color: #ffffff !important;
+  padding: 0.5rem;
+  border-radius: 8px;
+  width: 160px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-right: 2rem;
+}
+.print-banner-logo {
+  max-width: 100%;
+  height: auto;
+}
+.print-banner-text {
+  flex-grow: 1;
+  text-align: center;
+}
+.print-banner-title {
+  font-weight: bold;
+  margin-bottom: 0;
+  letter-spacing: 1px;
+  color: #ffffff !important;
 }
 
 /* Info Table */
@@ -36,15 +72,15 @@
   width: 100%;
   border-collapse: collapse;
   margin-bottom: 1.5rem;
-  border: 1px solid #d3d3d3;
+  border: 1px solid #333;
 }
 .info-table td {
   padding: 8px 12px;
-  border: 1px solid #d3d3d3;
+  border: 1px solid #333;
   font-size: 13px;
 }
 .info-table .info-label {
-  background-color: #cde0f5 !important; /* light blue */
+  background-color: #c2d6ed !important;
   color: #1F497D !important;
   font-weight: bold;
   width: 25%;
@@ -57,7 +93,7 @@
 
 /* Section Header */
 .section-header {
-  background-color: #cde0f5 !important;
+  background-color: #c2d6ed !important;
   color: #1F497D !important;
   border: 1px solid #aebfd4 !important;
   padding: 8px 12px;
@@ -81,21 +117,21 @@
 .report-card .table {
   border-collapse: collapse;
   width: 100%;
-  border: 1px solid #d3d3d3 !important;
+  border: 1px solid #333 !important;
   margin-bottom: 1.5rem;
 }
 .report-card .table th {
-  background-color: #cde0f5 !important;
+  background-color: #c2d6ed !important;
   color: #1F497D !important;
-  border: 1px solid #aebfd4 !important;
+  border: 1px solid #333 !important;
   font-size: 12px;
-  text-align: center;
+  text-align: left;
   vertical-align: middle;
   padding: 8px;
 }
 .report-card .table td {
-  background-color: #f2f2f2 !important; /* slight gray background for rows */
-  border: 1px solid #d3d3d3 !important;
+  background-color: #ffffff !important;
+  border: 1px solid #333 !important;
   color: #333333 !important;
   font-size: 12px;
   padding: 8px;
@@ -105,11 +141,9 @@
 @media print {
   .report-card .info-label,
   .report-card .section-header,
-  .report-card .table th {
-    -webkit-print-color-adjust: exact;
-    print-color-adjust: exact;
-  }
-  .report-card .table td {
+  .report-card .table th,
+  .print-banner,
+  .print-banner-logo-wrapper {
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
   }
@@ -192,6 +226,17 @@
         </div>
       </div>
 
+      
+      <!-- Global Print Banner (Only on first page) -->
+      <div class="print-banner d-none d-print-flex">
+        <div class="print-banner-logo-wrapper">
+          <img src="/static/christ_logo.png" alt="CHRIST Logo" class="print-banner-logo">
+        </div>
+        <div class="print-banner-text">
+          <h3 class="print-banner-title">INTERNAL QUALITY ASSURANCE CELL</h3>
+          <h4 class="print-banner-title mt-1">(IQAC)</h4>
+        </div>
+      </div>
       <!-- Generate Coordinator Report Card -->
       <div class="card mb-4 no-print shadow-sm">
         <div class="card-body">
