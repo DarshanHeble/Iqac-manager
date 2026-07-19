@@ -459,3 +459,71 @@ html, body {
   -webkit-box-shadow: 0 0 0px 1000px var(--card-bg) inset !important;
   transition: background-color 5000s ease-in-out 0s;
 }
+
+/* Print Styles */
+@media print {
+  /* Hide UI elements */
+  .app-sidebar,
+  .app-header,
+  .sidebar-overlay,
+  .no-print,
+  .btn {
+    display: none !important;
+  }
+
+  /* Reset layout constraints */
+  .app-main {
+    margin-left: 0 !important;
+    padding: 0 !important;
+  }
+  
+  .app-content {
+    padding: 0 !important;
+  }
+
+  /* Force Light Mode / High Contrast */
+  html, body, [data-theme="dark"] {
+    background-color: #ffffff !important;
+    color: #000000 !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  /* Clean up cards for printing */
+  .card {
+    border: none !important;
+    box-shadow: none !important;
+    background-color: #ffffff !important;
+  }
+
+  /* Text formatting */
+  .text-primary, .section-header {
+    color: #003366 !important;
+  }
+
+  /* Fix tables */
+  .table {
+    border: 1px solid #000 !important;
+    color: #000 !important;
+    margin-bottom: 2rem !important;
+  }
+
+  .table td, .table th {
+    border: 1px solid #000 !important;
+    color: #000 !important;
+    background-color: #ffffff !important;
+    padding: 0.4rem !important;
+  }
+
+  .table thead th {
+    background-color: #f8f9fa !important;
+    color: #000 !important;
+    font-weight: bold !important;
+  }
+
+  .badge {
+    border: 1px solid #000 !important;
+    color: #000 !important;
+    background: transparent !important;
+  }
+}
