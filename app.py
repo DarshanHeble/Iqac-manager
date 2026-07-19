@@ -1671,6 +1671,41 @@ def admin_panel():
 
 
 # ------------------ ADMIN: ADD USER ------------------
+@app.route("/admin_settings", methods=["GET", "POST"])
+def admin_settings():
+    if "username" not in session:
+        return redirect("/login")
+        
+    conn = get_db_connection()
+    cursor = get_cursor(conn)
+    
+    cursor.execute("SELECT * FROM users WHERE username=%s", (session["username"],))
+    admin = cursor.fetchone()
+    if not admin or admin["role"].lower() != "admin":
+        conn.close()
+        flash("Access denied.", "danger")
+        return redirect("/dashboard")
+    
+    if request.method == "POST" and "update_window" in request.form:
+        new_close = request.form.get("submission_close_day", "5").strip()
+        if new_close.isdigit():
+            close_i = int(new_close)
+            if 1 <= close_i <= 31:
+                cursor.execute("UPDATE app_settings SET value='1' WHERE key='submission_open_day'")
+                cursor.execute("UPDATE app_settings SET value=%s WHERE key='submission_close_day'", (new_close,))
+                conn.commit()
+                flash(f"Submission window updated: 1st to {close_i}th of each month.", "success")
+            else:
+                flash("Invalid close day. Must be between 1 and 31.", "danger")
+        return redirect("/admin_settings")
+
+    cursor.execute("SELECT value FROM app_settings WHERE key='submission_close_day'")
+    row = cursor.fetchone()
+    submission_close_day = int(row['value']) if row else 5
+    conn.close()
+    
+    return render_template("admin_settings.html", submission_close_day=submission_close_day)
+
 @app.route("/admin_add_user", methods=["GET", "POST"])
 def admin_add_user():
     if "username" not in session:
