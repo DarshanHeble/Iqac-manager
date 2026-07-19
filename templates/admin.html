@@ -8,56 +8,12 @@
 
 {% block content %}
 <div class="container-fluid py-2">
-    <!-- Action Cards -->
-    <div class="row mb-4">
-      <div class="col-md-4 mb-3">
-        <div class="card h-100">
-          <div class="card-body text-center">
-            <i class="bi bi-person-plus text-primary" style="font-size: 2.5rem;"></i>
-            <h6 class="text-primary mb-3 mt-2">Add New User</h6>
-            <p>Register a new faculty or staff account and send credentials via email.</p>
-            <a href="/admin_add_user" class="btn btn-primary">Add User</a>
-          </div>
-        </div>
-      </div>
-      <div class="col-md-4 mb-3">
-        <div class="card h-100">
-          <div class="card-body text-center">
-            <i class="bi bi-people text-primary" style="font-size: 2.5rem;"></i>
-            <h6 class="text-primary mb-3 mt-2">Manage Users</h6>
-            <p>View, edit, delete users and reset passwords for all accounts.</p>
-            <a href="/admin_manage_users" class="btn btn-primary">Manage Users</a>
-          </div>
-        </div>
-      </div>
-      <div class="col-md-4 mb-3">
-        <div class="card h-100">
-          <div class="card-body text-center">
-            <i class="bi bi-file-earmark-text text-primary" style="font-size: 2.5rem;"></i>
-            <h6 class="text-primary mb-3 mt-2">Generate Report</h6>
-            <p>View and print worklog reports filtered by date or month.</p>
-            <a href="/admin_report" class="btn btn-primary">Generate Report</a>
-          </div>
-        </div>
-      </div>
-    </div>
+
 
     <!-- Row 2: Submitted IQAC Reports card + Progress bar -->
     <div class="row mb-4">
-      <!-- Submitted IQAC Reports card (same width as one top card) -->
-      <div class="col-md-4 mb-3">
-        <div class="card h-100">
-          <div class="card-body text-center">
-            <i class="bi bi-file-earmark-check text-primary" style="font-size: 2.5rem;"></i>
-            <h6 class="text-primary mb-3 mt-2">IQAC Coordinators Monthly Reports</h6>
-            <p>View and review monthly reports submitted by IQAC Coordinators.</p>
-            <a href="/admin_signed_reports" class="btn btn-primary">View Submitted Reports</a>
-          </div>
-        </div>
-      </div>
-
       <!-- IQAC Report Submission Progress (width of 2 cards) -->
-      <div class="col-md-8 mb-3">
+      <div class="col-md-12 mb-3">
         <div class="card h-100">
           <div class="card-body d-flex flex-column justify-content-center">
             {% if total_coordinators > 0 %}
