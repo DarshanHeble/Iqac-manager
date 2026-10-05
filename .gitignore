@@ -22,4 +22,10 @@ __pycache__/
 venv
 seed_demo.py
 
+# Angular (frontend workspace at repo root)
+node_modules/
+dist/
+.angular/
+*.local
+
 AI_CONTEXT.md

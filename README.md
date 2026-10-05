@@ -143,10 +143,10 @@ source venv/bin/activate  # Linux/Mac
 
 3. **Install dependencies**:
 ```bash
-pip install -r requirements.txt
+pip install -r backend/requirements.txt
 ```
 
-4. **Configure environment variables** (`.env` file):
+4. **Configure environment variables** (`backend/.env` file):
 ```
 DATABASE_URL=postgresql://username:password@localhost:5432/iqac_worklog
 SECRET_KEY=your_secret_key_here
@@ -163,8 +163,14 @@ createdb iqac_worklog
 
 6. **Run the application**:
 ```bash
+cd backend
 python app.py
 ```
+
+> The backend must be run with `backend/` as the working directory, since the
+> application uses flat imports (`from db import ...`, `from routes.pdf import ...`,
+> and `from app import send_email` inside `routes/pdf.py`). For production, the
+> bundled `Procfile` handles this with `gunicorn --chdir backend app:app`.
 
 Access the application at: `https://iqacworklog.christuniversity.in`
 
@@ -338,24 +344,37 @@ The AI-powered summary feature:
 
 ### Project Structure
 ```
-iqac/
-├── app.py                 # Main Flask application
-├── requirements.txt       # Python dependencies
-├── .env                   # Environment variables (not in git)
-├── README.md             # This file
-├── SCHEDULER_SETUP.md    # Scheduler configuration guide
-├── templates/            # HTML templates
-│   ├── login.html
-│   ├── dashboard.html
-│   ├── admin_report.html
-│   ├── admin_report_ai.html
-│   ├── user_add_entry.html
-│   └── ...
-├── static/              # Static files
-│   ├── christ_logo.png
-│   └── select2.js
-└── logo/               # Logo files
+Iqac-manager/
+├── venv/                   # Python virtualenv (repo root, not in git)
+├── backend/                # Flask application (all server-side code)
+│   ├── app.py              # Main Flask application
+│   ├── db.py               # PostgreSQL connection helpers
+│   ├── migrate_to_postgres.py  # One-time SQLite -> PostgreSQL migration
+│   ├── requirements.txt    # Python dependencies
+│   ├── Procfile            # gunicorn --chdir backend app:app
+│   ├── .env                # Environment variables (not in git)
+│   ├── .env.example        # Environment template
+│   ├── templates/          # Jinja2 HTML templates
+│   │   ├── login.html
+│   │   ├── dashboard.html
+│   │   ├── admin_report.html
+│   │   ├── admin_report_ai.html
+│   │   ├── user_add_entry.html
+│   │   └── ...
+│   ├── routes/             # Flask blueprints
+│   │   └── pdf.py          # ReportLab PDF generation
+│   ├── static/             # Static files
+│   │   ├── christ_logo.png
+│   │   └── select2.js
+│   └── logo/               # Source logo files
+├── README.md               # This file
+├── AI_CONTEXT.md           # Architecture map for AI assistants
+└── TABLE_DESIGN_GUIDELINES.md
 ```
+
+Frontend migration note: an Angular workspace is intended to live at the repo
+root, with the Flask app under `backend/` acting as a JSON API. Run the backend
+from within `backend/` during development.
 
 ### Code Style
 - PEP 8 compliant Python
