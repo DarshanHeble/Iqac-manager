@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>IQAC Manager</title>
+    <base href="/" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="icon" type="image/x-icon" href="favicon.ico" />
+    <script>
+      // Apply the persisted theme before first paint to avoid a flash of the
+      // wrong theme. Must stay inline and blocking in <head>.
+      //
+      // `data-theme` drives this app's CSS custom properties (src/styles/theme.scss).
+      // `data-bs-theme` drives Bootstrap 5.3's own colour modes. Both are set from
+      // the same `theme` key that the legacy Jinja templates already use, so no
+      // migration of stored preferences is needed.
+      (function () {
+        var savedTheme = localStorage.getItem('theme') || 'light';
+        document.documentElement.setAttribute('data-theme', savedTheme);
+        document.documentElement.setAttribute('data-bs-theme', savedTheme);
+      })();
+    </script>
+  </head>
+  <body>
+    <app-root></app-root>
+  </body>
+</html>

@@ -1,0 +1,25 @@
+<main class="container py-5">
+  <div class="d-flex align-items-center gap-3 mb-4">
+    <img src="iqac_connect_logo.png" alt="IQAC Connect" height="40" />
+    <h1 class="h3 mb-0">IQAC Manager</h1>
+  </div>
+
+  <p class="text-body-secondary">
+    Angular workspace scaffolded and talking to the Flask backend in
+    <code>backend/</code>. Screens are migrated one at a time as vertical slices.
+  </p>
+
+  <div class="card mt-4">
+    <div class="card-body">
+      <h2 class="h6 card-title">Workspace status</h2>
+      <ul class="list-unstyled mb-0">
+        <li><code>ng serve</code> &rarr; <code>localhost:4200</code></li>
+        <li><code>/api/*</code> proxied to Flask on <code>localhost:5000</code></li>
+        <li>Bootstrap 5.3 + ng-bootstrap 21, Chart.js 4</li>
+        <li>Theme via <code>localStorage.theme</code> &rarr; <code>data-theme</code></li>
+      </ul>
+    </div>
+  </div>
+
+  <router-outlet />
+</main>

@@ -1,0 +1,14 @@
+/* Global styles entry point.
+ *
+ * Layering order is controlled in angular.json `build.options.styles`:
+ *   1. bootstrap.min.css        (Bootstrap 5.3 defaults)
+ *   2. bootstrap-icons.min.css  (icon font)
+ *   3. src/styles/_theme.scss   (this app's light/dark token layer + component styles)
+ *   4. src/styles.scss          (this file: cross-cutting overrides)
+ *
+ * The theme layer must come after Bootstrap so its CSS custom properties win.
+ */
+
+/* Bootstrap JS (collapse, dropdown, modal, offcanvas, tooltip, popover) needs
+   Popper. ng-bootstrap provides Angular-native equivalents instead — prefer
+   NgbModal / NgbDropdown / NgbOffcanvas over raw Bootstrap JS. */
