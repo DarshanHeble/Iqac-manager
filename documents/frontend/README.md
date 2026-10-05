@@ -22,7 +22,7 @@
 |---|---|---|
 | 01 | [01-architecture.md](01-architecture.md) | Standalone architecture, current file tree, providers, routing setup, the session-cookie strategy. **Start here for orientation.** |
 | 02 | [02-toolchain.md](02-toolchain.md) | Exact dependency versions, Node/npm, scripts, lint/format/test config, build budgets. |
-| 03 | [03-design-system.md](03-design-system.md) | Bootstrap + ng-bootstrap setup, the ported theme layer, the two-attribute contract, tokens. |
+| 03 | [03-design-system.md](03-design-system.md) | The token pipeline, the `data-theme` contract, typography roles, the `ui-*` component set, the styleguide. |
 | 04 | [04-conventions.md](04-conventions.md) | Naming, file layout, standalone rules, component/folder conventions to follow. |
 | 05 | [05-migration-plan.md](05-migration-plan.md) | Screen-by-screen port order and the API surface each step needs. |
 

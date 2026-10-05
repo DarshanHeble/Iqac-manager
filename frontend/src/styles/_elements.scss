@@ -1,0 +1,256 @@
+// =============================================================================
+// ELEMENT CSS SYSTEM
+//
+// The global layer. This is why changing one value here reaches every screen:
+// components inherit element defaults instead of restating them.
+//
+// Nothing in this file is component-specific.
+// =============================================================================
+
+@use 'typography' as t;
+
+// =============================================================================
+// HEADINGS — size, weight, family and colour all come from the type scale.
+// =============================================================================
+h1 {
+  @include t.heading(h1);
+}
+
+h2 {
+  @include t.heading(h2);
+}
+
+h3 {
+  @include t.heading(h3);
+}
+
+h4 {
+  @include t.heading(h4);
+}
+
+h5 {
+  @include t.heading(h5);
+}
+
+h6 {
+  @include t.heading(h5);
+}
+
+.display-lg {
+  @include t.heading(display-lg);
+}
+
+// =============================================================================
+// TEXT ROLES
+// =============================================================================
+p {
+  @include t.text-role(body);
+  margin: 0;
+  // Prose is held to a readable measure. Elements that need full width (ledger
+  // tables, record rows) opt out with .text-flow-full or their own class.
+  max-width: var(--ui-measure);
+  text-wrap: pretty;
+}
+
+.lead {
+  @include t.text-role(lead);
+  color: var(--ui-text-muted);
+  max-width: var(--ui-measure);
+}
+
+.caption {
+  @include t.text-role(caption);
+}
+
+.label {
+  @include t.text-role(label);
+}
+
+// overline — the only tracked-out step. Reserved for structural section labels
+// that tell you what a group of content *is*, never for decoration.
+.overline {
+  @include t.text-role(overline);
+  color: var(--ui-text-muted);
+  text-transform: none;
+}
+
+.quote {
+  @include t.text-role(quote);
+  border-inline-start: var(--ui-spine-width) solid var(--ui-primary);
+  padding-inline-start: var(--ui-space-4);
+  margin: 0;
+  max-width: var(--ui-measure);
+}
+
+// =============================================================================
+// LISTS
+// =============================================================================
+ul,
+ol {
+  margin: 0;
+  padding-inline-start: var(--ui-space-5);
+  max-width: var(--ui-measure);
+  @include t.text-role(body);
+}
+
+li {
+  margin-block: var(--ui-space-1);
+}
+
+li::marker {
+  color: var(--ui-text-muted);
+}
+
+// Definition lists appear in the user-management and profile screens.
+dl {
+  margin: 0;
+}
+
+dt {
+  @include t.text-role(label);
+  color: var(--ui-text-muted);
+}
+
+dd {
+  margin: 0 0 var(--ui-space-3);
+  @include t.text-role(body);
+}
+
+// =============================================================================
+// FIGURES
+//
+// figcaption is its own role, distinct from caption: it is legal/technical
+// metadata under an image, so it is always muted and always tight.
+// =============================================================================
+figure {
+  margin: 0;
+}
+
+figcaption {
+  @include t.text-role(caption);
+  color: var(--ui-text-muted);
+  margin-block-start: var(--ui-space-2);
+  max-width: var(--ui-measure);
+}
+
+// =============================================================================
+// CODE
+// =============================================================================
+code,
+kbd,
+samp,
+pre {
+  font-family: var(--ui-font-mono);
+  @include t.text-role(code);
+}
+
+code {
+  background: var(--ui-surface-sunken);
+  border: var(--ui-rule-width) solid var(--ui-border);
+  border-radius: var(--ui-radius-xs);
+  padding: 0.1em 0.35em;
+}
+
+pre {
+  background: var(--ui-surface-sunken);
+  border: var(--ui-rule-width) solid var(--ui-border);
+  border-radius: var(--ui-radius-sm);
+  padding: var(--ui-space-4);
+  overflow-x: auto;
+  max-width: min(var(--ui-measure), 100%);
+
+  code {
+    background: none;
+    border: none;
+    padding: 0;
+  }
+}
+
+kbd {
+  border: var(--ui-rule-width) solid var(--ui-border-strong);
+  border-block-end-width: 2px;
+  border-radius: var(--ui-radius-xs);
+  padding: 0.1em 0.4em;
+  background: var(--ui-surface-raised);
+}
+
+// =============================================================================
+// TABLES
+//
+// The ledger is the primary container in this design, not a card grid, so the
+// global table treatment is a ruled register rather than a Material table.
+// =============================================================================
+thead th {
+  @include t.text-role(label);
+  color: var(--ui-on-primary);
+  background: var(--ui-primary);
+  text-align: start;
+  padding: var(--ui-space-3) var(--ui-space-4);
+  white-space: nowrap;
+}
+
+tbody td {
+  @include t.text-role(body-sm);
+  padding: var(--ui-space-3) var(--ui-space-4);
+  border-block-end: var(--ui-rule-width) solid var(--ui-border);
+  vertical-align: top;
+}
+
+tbody tr:nth-child(even) {
+  background: var(--ui-surface-sunken);
+}
+
+// =============================================================================
+// HORIZONTAL RULE — used as a structural divider, not decoration.
+// =============================================================================
+hr {
+  border: none;
+  border-block-start: var(--ui-rule-width) solid var(--ui-border);
+  margin-block: var(--ui-space-6);
+}
+
+// =============================================================================
+// INLINE SEMANTICS
+// =============================================================================
+strong,
+b {
+  font-weight: 600;
+}
+
+em,
+i {
+  font-style: italic;
+}
+
+small {
+  @include t.text-role(caption);
+}
+
+abbr[title] {
+  text-decoration: underline dotted;
+  cursor: help;
+}
+
+mark {
+  background: var(--ui-primary-container);
+  color: var(--ui-on-primary-container);
+  padding: 0.1em 0.3em;
+  border-radius: var(--ui-radius-xs);
+}
+
+// =============================================================================
+// NUMERALS
+//
+// Figures inside data should align in columns. Tabular numerals stop numbers
+// from shifting as values change, which matters on a dashboard that refreshes.
+// =============================================================================
+.num,
+time,
+data {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum' 1;
+}
+
+.numeral {
+  @include t.heading(numeral);
+}

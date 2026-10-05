@@ -1,0 +1,66 @@
+// =============================================================================
+// APP SHELL
+//
+// Only what the shell needs that the global layout layer cannot provide.
+// Positioning, spacing, and colour all come from _layout.scss and the --ui-*
+// tokens; this file is the rail's internal navigation and the theme control.
+// =============================================================================
+
+@use 'typography' as type;
+
+// -----------------------------------------------------------------------------
+// RAIL NAVIGATION
+//
+// A flat list of labels with icons. No pills, no fills — the active item is
+// marked by a navy rule on the leading edge, matching the record-row language so
+// "this is the current thing" looks the same everywhere in the app.
+// -----------------------------------------------------------------------------
+.rail__group {
+  padding-inline: var(--ui-space-3);
+  margin-block-end: var(--ui-space-2);
+}
+
+.rail__link {
+  display: flex;
+  align-items: center;
+  gap: var(--ui-space-3);
+  padding-block: var(--ui-space-2);
+  padding-inline: var(--ui-space-3);
+  border-radius: var(--ui-radius-sm);
+  font: var(--ui-text-label-weight) var(--ui-text-label-size) / var(--ui-text-label-line)
+    var(--ui-text-label-family);
+  letter-spacing: var(--ui-text-label-tracking);
+  color: var(--ui-text-muted);
+  text-decoration: none;
+  /* Reserve the leading edge so marking the active item does not shift text. */
+  border-inline-start: var(--ui-spine-width) solid transparent;
+  transition:
+    background-color var(--ui-duration-fast) var(--ui-ease-standard),
+    color var(--ui-duration-fast) var(--ui-ease-standard);
+
+  &:hover {
+    background: var(--ui-surface-muted);
+    color: var(--ui-text);
+  }
+
+  mat-icon {
+    font-size: var(--ui-icon-md);
+    inline-size: var(--ui-icon-md);
+    block-size: var(--ui-icon-md);
+    flex-shrink: 0;
+  }
+}
+
+.rail__link--active {
+  color: var(--ui-primary);
+  border-inline-start-color: var(--ui-primary);
+  background: var(--ui-surface-sunken);
+
+  &:hover {
+    color: var(--ui-primary);
+  }
+}
+
+.rail__theme {
+  color: var(--ui-text-muted);
+}

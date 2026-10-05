@@ -1,0 +1,173 @@
+// =============================================================================
+// RESET
+//
+// Minimal, opinionated reset. Deliberately not a blanket `* { all: unset }` —
+// that destroys form controls and focus behaviour, both of which this app needs.
+//
+// Focus is never removed, only restyled, because a records system is used
+// heavily by keyboard and the legacy app has almost no visible focus rings.
+// =============================================================================
+
+@use 'typography' as t;
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+  scroll-behavior: smooth;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+body {
+  margin: 0;
+  min-height: 100dvh;
+  background: var(--ui-bg);
+  @include t.apply-element-typography;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+// ---- Headings -----------------------------------------------------------------
+// Every heading is reset to margin:0 so vertical rhythm comes from spacing
+// utilities, not from user-agent defaults. Margins are re-applied per role in
+// _typography's element layer.
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  @include t.heading(h4);
+  margin: 0;
+  overflow-wrap: break-word;
+}
+
+// ---- Media --------------------------------------------------------------------
+img,
+picture,
+svg,
+video,
+canvas {
+  display: block;
+  max-width: 100%;
+  height: auto;
+}
+
+svg {
+  fill: currentColor;
+}
+
+// ---- Links --------------------------------------------------------------------
+// Underlined by default: these are records and forms, and colour alone is not a
+// sufficient affordance.
+a {
+  color: var(--ui-primary);
+  text-decoration-thickness: 1px;
+  text-underline-offset: 0.15em;
+  transition: color var(--ui-duration-fast) var(--ui-ease-standard);
+
+  &:hover {
+    color: var(--ui-primary-hover);
+  }
+}
+
+// ---- Forms --------------------------------------------------------------------
+button,
+input,
+optgroup,
+select,
+textarea {
+  font: inherit;
+  color: inherit;
+  margin: 0;
+}
+
+button {
+  background: none;
+  border: none;
+  cursor: pointer;
+}
+
+button:disabled {
+  cursor: not-allowed;
+}
+
+textarea {
+  resize: vertical;
+}
+
+// ---- Tables -------------------------------------------------------------------
+table {
+  border-collapse: collapse;
+  border-spacing: 0;
+  width: 100%;
+}
+
+// ---- Selection ----------------------------------------------------------------
+::selection {
+  background: var(--ui-primary-container);
+  color: var(--ui-on-primary-container);
+}
+
+// ---- Focus --------------------------------------------------------------------
+// One focus treatment for the whole app. Uses :focus-visible so a mouse click
+// does not leave a ring, but keyboard users always get one.
+:focus-visible {
+  outline: var(--ui-focus-width) solid var(--ui-focus-ring);
+  outline-offset: var(--ui-focus-offset);
+  border-radius: var(--ui-radius-xs);
+}
+
+// Remove the default only where the custom ring is not appropriate.
+:focus:not(:focus-visible) {
+  outline: none;
+}
+
+// ---- Accessibility helpers -----------------------------------------------------
+.visually-hidden:not(:focus):not(:active) {
+  clip-path: inset(50%);
+  height: 1px;
+  overflow: hidden;
+  position: absolute;
+  white-space: nowrap;
+  width: 1px;
+}
+
+// Skip link — first tab stop on every page.
+.skip-link {
+  position: absolute;
+  top: var(--ui-space-2);
+  left: var(--ui-space-2);
+  z-index: calc(var(--ui-z-toast) + 1);
+  padding: var(--ui-space-2) var(--ui-space-4);
+  background: var(--ui-primary);
+  color: var(--ui-on-primary);
+  border-radius: var(--ui-radius-sm);
+  font: var(--ui-text-label-weight) var(--ui-text-label-size) / 1 var(--ui-font-ui);
+  transform: translateY(-200%);
+  transition: transform var(--ui-duration-fast) var(--ui-ease-standard);
+
+  &:focus {
+    transform: translateY(0);
+    color: var(--ui-on-primary);
+  }
+}

@@ -24,7 +24,32 @@ Two consequences worth stating up front:
 
 ---
 
-## 2. Prerequisites (backend)
+## 2. ✅ Done — the design system
+
+The foundation is in place and no screen depends on it yet, which is the right
+order: this is the part that is expensive to change once 22 screens depend on it.
+
+| Delivered | Where |
+|---|---|
+| Token pipeline, one hex source | `src/styles/_palette.scss` → `_semantic.scss` → `_tokens.scss` |
+| Material M3 theme from the same maps | `src/styles/_material.scss` |
+| Global CSS system | `src/styles/_reset.scss`, `_elements.scss`, `_layout.scss`, `_utilities.scss` |
+| Theme service + pre-paint script | `core/theme/theme.service.ts`, `index.html` |
+| `ui-*` components (10) | `src/app/ui/` |
+| App shell (rail + top bar) | `app.html` / `app.scss` |
+| Styleguide proving both themes | `/styleguide` |
+| Style-discipline tests | `ui/ui.spec.ts`, `core/theme/theme.service.spec.ts` |
+
+Before starting step 1, **look at `/styleguide` in both themes.** If any token or
+component looks wrong, that is the moment to change it — every later screen is
+built on top of it.
+
+Bootstrap was removed as part of this work. If a ported screen appears to need a
+Bootstrap class, it needs a `ui-*` component.
+
+---
+
+## 3. Prerequisites (backend)
 
 Do these before step 1.
 
@@ -39,7 +64,7 @@ Do these before step 1.
 
 ---
 
-## 3. Port order
+## 4. Port order
 
 Dependency-ordered: auth first (proves the session story), then the employee
 surface, then coordinator, then admin and secretary dashboards.
@@ -121,7 +146,7 @@ before shipping the screen, or you are reproducing the bug.
 
 ---
 
-## 4. API surface to build
+## 5. API surface to build
 
 Derived from the screens. Grouped, not exhaustive — the authoritative list is
 [../backend/data/routes.json](../backend/data/routes.json) plus whatever new
@@ -145,7 +170,7 @@ Naming: `/api/…` plural nouns, `PATCH` for updates. The legacy app mixes verbs
 
 ---
 
-## 5. Risks
+## 6. Risks
 
 | Risk | Mitigation |
 |---|---|
@@ -161,7 +186,7 @@ Naming: `/api/…` plural nouns, `PATCH` for updates. The legacy app mixes verbs
 
 ---
 
-## 6. Definition of done per screen
+## 7. Definition of done per screen
 
 - [ ] Component is standalone, lazily loaded, and named per
       [04-conventions.md](04-conventions.md) §2

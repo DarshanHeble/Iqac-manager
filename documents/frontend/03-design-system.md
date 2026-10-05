@@ -1,149 +1,197 @@
 # Frontend — Design System
 
-Bootstrap 5.3 + ng-bootstrap 21, with the legacy theme ported to SCSS.
+Angular Material 22 (M3 token system) on top of a single-source SCSS token layer.
+Nothing is styled with a literal value; everything resolves through a token.
 
-- **Theme source:** `backend/static/css/theme.css` → `frontend/src/styles/_theme.scss`
-- **Icons:** `bootstrap-icons@1.13.1`
-- **Charts:** `chart.js@4.5.1` — **no `ng2-charts` wrapper installed**
+- **Tokens:** `frontend/src/styles/_palette.scss` → `_semantic.scss` → `_tokens.scss`
+- **Material:** `@angular/material@22.2.1` + `@angular/cdk@22.2.1`, fed by `_material.scss`
+- **Components:** `frontend/src/app/ui/` — standalone, no `NgModule`
+- **Reference:** `/styleguide` renders every token and component in the live theme
+- **Icons:** Material Symbols Rounded, loaded in `index.html`
 
 ---
 
-## 1. ⚠ The two-attribute theme contract
+## 1. The token pipeline
 
-The legacy toggle wrote **two** attributes to `<html>`:
+Four files, one direction. This is the core of the design system: change a value
+at the top and it reaches both our components and every Angular Material
+component.
 
-```js
-document.documentElement.setAttribute('data-theme', theme);
-document.documentElement.setAttribute('data-bs-theme', theme);
+```
+_palette.scss      raw ramps + scales        #003366 lives here, and nowhere else
+     ↓ p.scale('brand', 700), p.layout('rail-width')
+_semantic.scss     role per theme            primary, surface-container-low, outline-variant…
+     ↓
+_tokens.scss       → --ui-* custom properties
+_material.scss     → --mat-sys-* tokens       mat.theme-overrides(semantic.$light)
+
+_reset.scss        element normalisation
+_elements.scss     the global CSS system     what h1–h6, p, caption, figcaption mean
+_layout.scss       app shell + flow          .rail, .topbar, .content, .flow, .cluster
+_utilities.scss    single-purpose helpers    .mt-4, .text-muted, .spine
 ```
 
-and persisted to `localStorage.theme`.
+`_material.scss` receives **the same `semantic.$light` / `semantic.$dark` maps**
+that `_tokens.scss` uses. A Material select cannot end up navy while our button
+ends up somewhere else, because there is only one place either colour is decided.
 
-**Both are required:**
+### Accessing maps from Sass
 
-| Attribute | Consumer |
+Map keys contain dashes, so `p.$layout.rail-width` is a parse error (Sass reads it
+as subtraction). Use the accessors in `_palette.scss`:
+
+| Call | Returns |
 |---|---|
-| `data-bs-theme` | Bootstrap 5.3's own dark-mode support, including every ng-bootstrap component |
-| `data-theme` | The ported legacy rules in `_theme.scss` |
+| `p.scale('brand', 700)` | raw ramp value |
+| `p.status('success', 'base')` | status value |
+| `p.layout('rail-width')` | layout dimension |
+| `p.space(4)`, `p.radius('sm')`, `p.icon('sm')` | scale steps |
+| `p.shadow(3)`, `p.shape('lg')` | elevation, Material corners |
 
-Setting only one produces a **partially themed UI** — Bootstrap components flip
-while custom components do not, or the reverse. This is the single most likely
-source of "the dark mode looks broken" reports.
+Two other constraints worth knowing before editing these files:
 
-Contract to preserve:
+- **No dotted map access.** `$t.family` is a parse error in the pinned Sass
+  (1.104.1). Use `map.get($t, family)`.
+- **No `if()`.** Deprecated in favour of `@if` / `@else`. Values are assigned to a
+  variable first, then interpolated.
+
+---
+
+## 2. ⚠ The theme contract
+
+The legacy toggle wrote **two** attributes, but only one was ever consumed:
+
+| Attribute | Written by legacy? | Consumed by |
+|---|---|---|
+| `data-theme` | yes | the legacy rules in `theme.css` |
+| `data-bs-theme` | yes | **nothing** — no template or stylesheet reads it |
+
+Earlier revisions of this document claimed `data-bs-theme` was required for
+Bootstrap's native dark mode. That is wrong for this codebase: the templates load
+Bootstrap for layout and components but never theme it, so setting
+`data-bs-theme` had no effect. Verified against all 22 templates.
+
+The Angular app keeps writing both, for compatibility rather than necessity:
 
 ```
 localStorage key : "theme"
 values           : "light" | "dark"
-attributes       : data-theme AND data-bs-theme, both on <html>
+attributes       : data-theme  (authoritative — scopes every --ui-* and --mat-sys-*)
+                   data-bs-theme (written, not depended on)
 ```
 
-Implemented in `ThemeService`. Keep this behaviour in any new theming code.
+`data-theme` is the authority: `_tokens.scss` scopes every colour token to
+`[data-theme='light']` / `[data-theme='dark']`, and `_material.scss` scopes the
+Material theme the same way. One attribute change re-themes the whole app.
+
+`index.html` applies the stored theme in an inline script before first paint, so a
+dark-mode user never sees a white flash. `ThemeService` keeps the DOM in sync
+afterwards. If you replace that inline script, you have to replace it with
+something that still runs before paint.
 
 ---
 
-## 2. Theme values
+## 3. Typography
 
-`/admin/settings` is the only screen that genuinely uses `base.html` blocks — 40
-lines, the smallest template in the corpus — and it is where submission window
-settings live.
+Two families, and where the family changes is the single biggest lever
+separating this from a templated look:
 
-For the Angular app the theme should be a **user preference**, not an admin-only
-setting, unless the requirement is explicitly institution-wide. If it stays
-admin-only, make sure the preference is stored server-side rather than only in
-`localStorage`; the legacy implementation has no persistence beyond the browser.
+| Role | Family | Size |
+|---|---|---|
+| `display-lg` … `h3` | Source Serif 4 | 2.75rem → 1.375rem |
+| `h4` … `h6`, all body, UI | Inter | 1.125rem → 0.8125rem |
+| `code` | JetBrains Mono | 0.875rem |
 
----
+The serif/sans crossing sits between `h3` and `h4`: that is where a heading stops
+being a title and starts labelling content.
 
-## 3. SCSS structure
+Both webfonts have a full system-stack fallback, so the app renders correctly with
+no network access to Google Fonts.
 
-```
-frontend/src/
-├── styles.scss          entry: imports theme, sets globals
-└── styles/
-    └── _theme.scss      ported from backend/static/css/theme.css
-```
-
-Legacy templates each carried their own inline `<style>` block. Those **must not**
-be moved into component `styleUrls` verbatim — see
-[02-toolchain.md](02-toolchain.md) §7 for the 4 kB `anyComponentStyle` budget.
-
-Rules of thumb:
-
-- Shared patterns (cards, tables, badges, nav, flash styling) → `src/styles/`.
-- Layout only (grid, spacing within one screen) → the component's own styles.
-- Bootstrap variables → override in `styles.scss` **before** the Bootstrap import.
-
----
-
-## 4. Bootstrap setup
+**Roles, not sizes.** A component never writes `font-size`; it selects a role:
 
 ```scss
-/* styles.scss — order matters */
-@import 'bootstrap/scss/functions';
-// variable overrides here
-@import 'bootstrap/scss/bootstrap';
-@import 'styles/theme';
+@include type.heading(h4);      // in a component stylesheet
+// or, from the global classes in _elements.scss:
+<h3>…</h3>  <p class="caption">…</p>  <span class="label">…</span>
 ```
 
-### ⚠ Bootstrap JS is not loaded
+`figcaption` is deliberately separate from `caption` — it is legal/technical
+metadata under a figure, so it is always muted and always tight.
 
-Only `bootstrap-icons` is imported for assets. Bootstrap's **JavaScript bundle is
-deliberately not used** — all interactive behaviour goes through **ng-bootstrap**
-components (`NgbDropdown`, `NgbModal`, `NgbNav`, `NgbDatepicker`, …). That is
-why `@popperjs/core` is present: ng-bootstrap needs the positioning engine.
-
-Do not add `data-bs-toggle` attributes expecting them to work. They will not.
-Use the ng-bootstrap directive on the element instead.
+Component stylesheets can `@use 'typography' as type;` because `angular.json`
+sets `stylePreprocessorOptions.includePaths` to `src/styles`.
 
 ---
 
-## 5. ng-bootstrap 21
+## 4. Components
 
-Angular 22 standalone integration — import the component, no `NgbModule`.
+`frontend/src/app/ui/`, all standalone, all `OnPush`, all exported from
+`ui/index.ts`.
 
-```ts
-@Component({
-  selector: 'app-shell',
-  imports: [NgbDropdownModule, NgbNavModule],
-})
-export class Shell {}
-```
-
-Common needs for this app:
-
-| Legacy pattern | ng-bootstrap replacement |
+| Component | Purpose |
 |---|---|
-| Role switcher dropdown | `NgbDropdown` |
-| Review action modals | `NgbModal` |
-| Month picker (emits `YYYY-MM`) | `NgbDatepicker` with `ngbDatepicker` |
-| Tabbed report sections | `NgbNav` |
-| Confirmations before delete | `NgbModal` |
+| `ui-badge` | status pill; the one fully-round element, because a pill reads as a marker not a container |
+| `ui-button` | wraps `matButton`; variants are intent (`primary`/`secondary`/`ghost`/`danger`), never colour |
+| `ui-card` | flat panel — hairline border, no shadow by default |
+| `ui-field` | wraps `mat-form-field`; label, hint, and error are separate inputs |
+| `ui-page-header` | overline + h1 + description + actions, the top of every screen |
+| `ui-section` | titled content grouping; not boxed |
+| `ui-stat` | one figure, tabular numerals, optional trend |
+| `ui-empty-state` | what is missing, why, and what to do |
+| `ui-record-row` | entity + status, with the signature 3px leading rule |
+| `ui-card-footer` etc. | projection-slot markers (see below) |
 
-Import the specific component or `NgModule` wrapper per component — not the whole
-library into the root.
+### Wrapping Material, not forking it
+
+`ui-button` and `ui-field` wrap Material and override appearance only. That keeps
+ripples, focus management, form participation, and disabled semantics. A
+hand-rolled `<button>` would have to re-add all of it.
+
+### Projection slots
+
+Angular has no built-in "was anything projected here" check, so each optional slot
+is a zero-template attribute component queried with `contentChild()`:
+
+```html
+<ui-card heading="Summary">
+  <button ui-card-actions>View report</button>
+</ui-card>
+```
+
+If nothing matches, the slot is not rendered at all. The `recordTitle`,
+`recordMeta`, and `recordDetail` slots are plain attributes — they are always
+present together, so they need no detection.
 
 ---
 
-## 6. ⚠ Charts — decision required
+## 5. The styleguide is the test
 
-`chart.js` is installed; **`ng2-charts` is not**. Chart.js has no Angular
-integration of its own.
+`/styleguide` renders every token and component in the live theme. It exists
+because a token table in a document proves nothing: seeing the same page in light
+and dark, at real sizes, is the only way to catch a token that was never wired up
+or a contrast pair that fails in one theme.
 
-Only `backend/templates/admin.html` uses charts, driven by
-`/admin/analytics_data`, which already returns JSON.
+Switch the theme and everything must change together. **Anything that stays put is
+a bug in `_semantic.scss`.**
 
-**Recommended: `npm i ng2-charts`.** It wraps Chart.js, registers standalone
-components, and handles the destroy lifecycle. The alternative is owning
-`new Chart()` in `afterNextRender` plus `chart.destroy()` in `ngOnDestroy` for
-every host component.
+`src/app/ui/ui.spec.ts` additionally asserts mechanically that no component style
+contains a raw hex or a literal `font-size`.
 
-Either way:
+---
 
-- **Lazy load** the chart route. Chart.js will breach the 500 kB initial budget
-  in the eager bundle.
-- Register Chart.js components explicitly (`Chart.register(BarController, …)`);
-  the tree-shakeable build does not auto-register.
+## 6. Charts — decision still required
+
+`chart.js` is installed; **no Angular wrapper is.** Chart.js has no integration of
+its own, and only `backend/templates/admin.html` uses charts (via
+`/admin/analytics_data`).
+
+Either install `ng2-charts`, or own `new Chart()` in `afterNextRender` plus
+`chart.destroy()` in `ngOnDestroy` per host component.
+
+- **Lazy load the chart route.** Chart.js breaches the 500 kB initial budget.
+- Register controllers explicitly (`Chart.register(BarController, …)`); the
+  tree-shakeable build does not auto-register.
 - Apply the `Others`-prefix filter rule from
   [../backend/05-worklog.md](../backend/05-worklog.md) §1, or chart counts will
   not match the legacy dashboard.
@@ -153,40 +201,40 @@ Either way:
 ## 7. Icons
 
 ```html
-<i class="bi bi-plus-lg"></i>
+<mat-icon aria-hidden="true">download</mat-icon>
 ```
 
-`bootstrap-icons` is copied into the build via `angular.json` assets. Do not add
-a second icon set.
+Material Symbols Rounded, linked in `index.html`. Always `aria-hidden` when
+adjacent to a text label — the glyph is decoration, the label is the meaning.
+Icon sizes come from `--ui-icon-*` (a `$icon` scale in `_palette.scss`), because a
+Material icon is a font glyph and its size is a `font-size`.
+
+Do not add a second icon set.
 
 ---
 
-## 8. Shared UI to extract
+## 8. Legacy aliases
 
-From [data/screen-map.json](data/screen-map.json) → `shared_ui_to_extract`:
-
-| Component | Replaces | Notes |
-|---|---|---|
-| `ShellComponent` | inline navbar + sidebar in **14** templates | Role-conditional links |
-| `ThemeToggleComponent` | duplicated toggle scripts | Owns the two-attribute contract |
-| `RoleSwitcherComponent` | duplicated dropdown in **6** templates | Calls `POST /api/active-role` |
-| `ToastContainer` | flash messages in **22** templates | Backed by a `ToastService` |
-| `CategoryTaskFieldComponent` | category select + task textarea, **3** templates | Enforces the `Others` sub-description rule |
-| `MonthPickerComponent` | month inputs in **9** templates | Emits `YYYY-MM` strings, never `Date` |
-
-The counts matter: `ShellComponent` alone touches 14 templates and
-`ToastContainer` all 22. Extracting these first is what makes the port tractable.
+`_tokens.scss` still emits `--bg-color`, `--card-bg`, `--border-color`,
+`--primary-color`, `--text-color`, `--sidebar-width`, `--navbar-height` as aliases
+onto the `--ui-*` values. This keeps any screen still served by Flask agreeing
+exactly with an Angular screen. Delete the aliases once migration completes.
 
 ---
 
 ## 9. Accessibility
 
-The legacy markup has inconsistent semantics. While porting:
+Enforced in the components, not left to each screen:
 
-- Real `<button>` elements for actions — not `<div onclick>`.
-- `<label for>` on every form control; the legacy forms frequently omit it.
-- `aria-current="page"` on the active nav item.
-- Modals need focus management and `Escape` handling — ng-bootstrap provides
-  this; do not reimplement.
-- Contrast: verify the ported theme meets WCAG AA in both light and dark before
-  shipping, since the legacy palette was not audited.
+- One `h1` per screen (`ui-page-header`); the shell uses `h2` so routed screens own
+  the `h1`.
+- `ui-section` sets `aria-labelledby` to its real heading.
+- `ui-field` renders a real `<label>` via Material. Never substitute a placeholder.
+- A skip link as the first tab stop, targeting `#main-content`.
+- One `:focus-visible` treatment app-wide — a ring, never `outline: none` alone.
+- `prefers-reduced-motion` disables transitions, smooth scroll, and the button
+  spinner.
+- `.visually-hidden` for content that is read but not shown.
+
+Still to verify before shipping a screen: WCAG AA contrast in both themes. The
+palette was carried over from the legacy stylesheet, which was never audited.

@@ -16,8 +16,7 @@ bootstraps with `bootstrapApplication()` and each component declares its own
 follows the standalone model.
 
 Do not introduce an NgModule. If a third-party integration documents one, take
-the `provideX()` provider form instead (as already done for Bootstrap and
-ng-bootstrap).
+the standalone component and the `provideX()` provider form instead.
 
 ---
 
@@ -34,20 +33,39 @@ frontend/
 └── src/
     ├── index.html
     ├── main.ts                  bootstrapApplication
-    ├── styles.scss              global entry
-    ├── styles/
-    │   └── _theme.scss          ported from backend/static/css/theme.css
+    ├── styles.scss              global entry — @use's the partials below
+    ├── styles/                  design-system layers, in load order
+    │   ├── _palette.scss        raw ramps + scales; the only hex values in the app
+    │   ├── _semantic.scss       role per theme, keyed by Material's token names
+    │   ├── _tokens.scss         emits --ui-* custom properties
+    │   ├── _material.scss       emits --mat-sys-* from the same maps
+    │   ├── _reset.scss          element normalisation
+    │   ├── _elements.scss       global CSS system (h1–h6, p, caption, lists, tables)
+    │   ├── _layout.scss         app shell + flow primitives
+    │   └── _utilities.scss      single-purpose helpers
+    ├── test-setup.ts            in-memory localStorage for jsdom
     └── app/
-        ├── app.ts               root component (class name: App)
-        ├── app.html
-        ├── app.scss
+        ├── app.ts               root component (class name: App) — the shell
+        ├── app.html             rail + top bar + outlet
+        ├── app.scss             rail navigation only; structure comes from _layout.scss
         ├── app.config.ts        ApplicationConfig providers
-        ├── app.routes.ts        routes: Routes = []   ← EMPTY
+        ├── app.routes.ts        styleguide route; every feature added here
         ├── app.spec.ts
-        └── core/
-            └── api/
-                ├── api-base-url.ts        API_BASE_URL token + apiUrl()
-                └── session.interceptor.ts cookie-session bridge
+        ├── core/
+        │   ├── api/
+        │   │   ├── api-base-url.ts        API_BASE_URL token + apiUrl()
+        │   │   └── session.interceptor.ts cookie-session bridge
+        │   └── theme/
+        │       ├── theme.service.ts       data-theme + localStorage.theme
+        │       └── theme.service.spec.ts
+        ├── ui/                  design system — standalone, exported from index.ts
+        │   ├── badge.ts   button.ts   card.ts      empty-state.ts
+        │   ├── field.ts   page-header.ts  record-row.ts
+        │   ├── section.ts stat.ts    index.ts
+        │   └── ui.spec.ts
+        └── features/
+            └── styleguide/      the design system, rendered
+                ├── styleguide.ts / .html / .scss
 ```
 
 Naming note: the root component class is **`App`**, not `AppComponent`
@@ -222,14 +240,15 @@ This is exactly `session` in the Flask app, and it mirrors
 
 | Item | Status |
 |---|---|
-| `routes` | empty |
-| Feature components | none |
+| `routes` | `/styleguide` only |
+| Design system (`ui-*`) | **done** — 10 components, [03-design-system.md](03-design-system.md) |
+| App shell (rail + top bar) | **done**, unpopulated |
+| Feature components | none beyond the styleguide |
 | `AuthService` / session state | none |
 | Route guards | none |
-| Shared UI components | none |
 | Toast/flash service | none |
 | `GET /api/me` | backend side missing |
 | CSRF token plumbing | missing |
 | `ng2-charts` | **not installed** — `chart.js` alone is present |
 
-Build order: [05-migration-plan.md](05-migration-plan.md) §3.
+Build order: [05-migration-plan.md](05-migration-plan.md) §4.

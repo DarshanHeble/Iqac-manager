@@ -3,7 +3,7 @@
   "description": "Machine index. Query this first to decide which files to load; do not read the whole corpus.",
   "project": {
     "backend": "Flask 3.0.0 + PostgreSQL (psycopg 3.3.4) + ReportLab 4.2.5 + Cloudinary + APScheduler 3.10.4",
-    "frontend": "Angular 22.1.2 standalone + Bootstrap 5.3.8 + ng-bootstrap 21 + Chart.js 4.5.1",
+    "frontend": "Angular 22.1.2 standalone + Angular Material 22.2.1 + CDK 22.2.1 + Chart.js 4.5.1 (no wrapper installed)",
     "backend_lines": {
       "backend/app.py": 3915,
       "backend/routes/pdf.py": "~1200"
@@ -88,8 +88,8 @@
     },
     {
       "id": "GC-09",
-      "summary": "The theme toggle must write BOTH data-theme and data-bs-theme to <html> and persist to localStorage.theme.",
-      "file": "frontend/src/styles/_theme.scss",
+      "summary": "data-theme is the only attribute the theme toggle needs; data-bs-theme is written for compatibility but nothing reads it. All --ui-* and --mat-sys-* tokens are scoped to data-theme.",
+      "file": "frontend/src/styles/_tokens.scss",
       "read": "documents/frontend/03-design-system.md"
     },
     {
@@ -106,8 +106,8 @@
       "kind": "router",
       "scope": "top",
       "purpose": "Entry point. Orient the repo, then jump to the backend or frontend router.",
-      "bytes": 6074,
-      "lines": 117,
+      "bytes": 6198,
+      "lines": 119,
       "is_router": true
     },
     {
@@ -115,7 +115,7 @@
       "kind": "reference",
       "scope": "backend",
       "purpose": "Boot sequence, request lifecycle, submission window, report lifecycle, role routing. Orientation doc.",
-      "bytes": 10502,
+      "bytes": 10488,
       "lines": 224
     },
     {
@@ -123,7 +123,7 @@
       "kind": "reference",
       "scope": "backend",
       "purpose": "Route groups by role, JSON response contract, template-referenced routes that do not exist, endpoint groups the Angular app needs.",
-      "bytes": 18954,
+      "bytes": 18914,
       "lines": 181
     },
     {
@@ -131,7 +131,7 @@
       "kind": "reference",
       "scope": "backend",
       "purpose": "HIGHEST RISK. Sessions, the psycopg fetchone monkeypatch, 4 role-matching strategies, all 41 inline auth checks, password handling.",
-      "bytes": 16260,
+      "bytes": 16244,
       "lines": 362
     },
     {
@@ -139,7 +139,7 @@
       "kind": "reference",
       "scope": "backend",
       "purpose": "Narrative schema, per-table read/write sites, index gaps, db.py connection behaviour, migrate_to_postgres.py analysis, recommendations.",
-      "bytes": 18878,
+      "bytes": 18866,
       "lines": 481
     },
     {
@@ -179,8 +179,8 @@
       "kind": "domain",
       "scope": "backend",
       "purpose": "The 22 Jinja templates, layout duplication, what to extract vs discard, port order.",
-      "bytes": 6967,
-      "lines": 192
+      "bytes": 7488,
+      "lines": 201
     },
     {
       "path": "documents/backend/10-gotchas.md",
@@ -211,48 +211,48 @@
       "path": "documents/frontend/01-architecture.md",
       "kind": "reference",
       "scope": "frontend",
-      "purpose": "Standalone architecture, file tree, providers, session-cookie strategy, API access, routing, missing GET /api/me.",
-      "bytes": 7854,
-      "lines": 235
+      "purpose": "Standalone-only rationale, the current file tree, providers, routing, and the design-system/shared-UI boundary.",
+      "bytes": 9464,
+      "lines": 254
     },
     {
       "path": "documents/frontend/02-toolchain.md",
       "kind": "reference",
       "scope": "frontend",
-      "purpose": "Exact dependency versions, Node/npm, scripts, strict TS flags, ESLint/Prettier, angular.json budgets.",
-      "bytes": 5598,
-      "lines": 182
+      "purpose": "Pinned dependency versions, angular.json settings, budgets, and why Bootstrap was removed.",
+      "bytes": 6139,
+      "lines": 192
     },
     {
       "path": "documents/frontend/03-design-system.md",
       "kind": "reference",
       "scope": "frontend",
-      "purpose": "Bootstrap + ng-bootstrap setup, ported theme layer, the two-attribute data-theme/data-bs-theme contract, charts, shared UI to extract.",
-      "bytes": 6314,
-      "lines": 192
+      "purpose": "The token pipeline, the corrected data-theme contract, typography roles, the ui-* component set, and the styleguide as a test.",
+      "bytes": 9489,
+      "lines": 240
     },
     {
       "path": "documents/frontend/04-conventions.md",
       "kind": "reference",
       "scope": "frontend",
-      "purpose": "Naming, folder layout, signals, routing, API calls, types, forms, lint rules that fail the build.",
-      "bytes": 7068,
-      "lines": 243
+      "purpose": "Naming, component structure, and the token-only styling rule every screen must follow.",
+      "bytes": 9706,
+      "lines": 307
     },
     {
       "path": "documents/frontend/05-migration-plan.md",
       "kind": "plan",
       "scope": "frontend",
-      "purpose": "Prerequisites, 5-step port order, API surface to build, risks, per-screen definition of done.",
-      "bytes": 8176,
-      "lines": 179
+      "purpose": "Screen-by-screen port order, backend prerequisites, and the definition of done per screen.",
+      "bytes": 9318,
+      "lines": 204
     },
     {
       "path": "documents/frontend/README.md",
       "kind": "router",
       "scope": "frontend",
       "purpose": "Frontend router. Commands, current state, task-to-file table.",
-      "bytes": 3684,
+      "bytes": 3699,
       "lines": 83,
       "is_router": true
     },
@@ -281,7 +281,8 @@
         "hardcoded_secrets_and_pii",
         "dev_only",
         "not_used_but_assumed"
-      ]
+      ],
+      "lines": 140
     },
     {
       "path": "documents/backend/data/permissions.json",
@@ -304,7 +305,8 @@
         "endpoint_grants",
         "privilege_escalation_candidates",
         "migration_guidance"
-      ]
+      ],
+      "lines": 175
     },
     {
       "path": "documents/backend/data/routes.json",
@@ -322,7 +324,8 @@
         "auth_gate_legend",
         "known_anomalies",
         "routes"
-      ]
+      ],
+      "lines": 557
     },
     {
       "path": "documents/backend/data/schema.json",
@@ -340,7 +343,8 @@
         "tables",
         "enums",
         "recommended_indexes"
-      ]
+      ],
+      "lines": 164
     },
     {
       "path": "documents/frontend/data/screen-map.json",
@@ -360,7 +364,8 @@
         "client_side_fetch_calls",
         "server_rendered_form_actions",
         "shared_ui_to_extract"
-      ]
+      ],
+      "lines": 70
     }
   ],
   "verification": {

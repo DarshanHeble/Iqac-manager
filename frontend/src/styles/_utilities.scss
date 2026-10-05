@@ -1,0 +1,387 @@
+// =============================================================================
+// UTILITIES
+//
+// Single-purpose classes generated from tokens. These exist so a layout
+// adjustment does not require writing a component, and so spacing values are
+// never typed by hand in a template.
+//
+// Naming: utility-value (e.g. .mt-4, .text-muted, .w-full). Always one
+// property, so they stay predictable and safe to combine.
+// =============================================================================
+
+// -----------------------------------------------------------------------------
+// SPACING
+// -----------------------------------------------------------------------------
+$space-steps: (0, 1, 2, 3, 4, 5, 6, 7, 8, 10, 12, 14, 16, 20, 24);
+
+@each $step in $space-steps {
+  .mt-#{$step} {
+    margin-block-start: var(--ui-space-#{$step});
+  }
+  .mb-#{$step} {
+    margin-block-end: var(--ui-space-#{$step});
+  }
+  .ms-#{$step} {
+    margin-inline-start: var(--ui-space-#{$step});
+  }
+  .me-#{$step} {
+    margin-inline-end: var(--ui-space-#{$step});
+  }
+  .mx-#{$step} {
+    margin-inline: var(--ui-space-#{$step});
+  }
+  .my-#{$step} {
+    margin-block: var(--ui-space-#{$step});
+  }
+
+  .pt-#{$step} {
+    padding-block-start: var(--ui-space-#{$step});
+  }
+  .pb-#{$step} {
+    padding-block-end: var(--ui-space-#{$step});
+  }
+  .ps-#{$step} {
+    padding-inline-start: var(--ui-space-#{$step});
+  }
+  .pe-#{$step} {
+    padding-inline-end: var(--ui-space-#{$step});
+  }
+  .px-#{$step} {
+    padding-inline: var(--ui-space-#{$step});
+  }
+  .py-#{$step} {
+    padding-block: var(--ui-space-#{$step});
+  }
+
+  .gap-#{$step} {
+    gap: var(--ui-space-#{$step});
+  }
+}
+
+// -----------------------------------------------------------------------------
+// TEXT
+// -----------------------------------------------------------------------------
+.text-muted {
+  color: var(--ui-text-muted);
+}
+.text-primary {
+  color: var(--ui-primary);
+}
+.text-danger {
+  color: var(--ui-danger);
+}
+.text-success {
+  color: var(--ui-status-success);
+}
+.text-warning {
+  color: var(--ui-status-warning);
+}
+.text-inverted {
+  color: var(--ui-text-inverted);
+}
+
+.text-display-lg {
+  font: var(--ui-text-display-lg-weight) var(--ui-text-display-lg-size) /
+    var(--ui-text-display-lg-line) var(--ui-text-display-lg-family);
+}
+.text-h1 {
+  font: var(--ui-text-h1-weight) var(--ui-text-h1-size) / var(--ui-text-h1-line)
+    var(--ui-text-h1-family);
+}
+.text-h2 {
+  font: var(--ui-text-h2-weight) var(--ui-text-h2-size) / var(--ui-text-h2-line)
+    var(--ui-text-h2-family);
+}
+.text-h3 {
+  font: var(--ui-text-h3-weight) var(--ui-text-h3-size) / var(--ui-text-h3-line)
+    var(--ui-text-h3-family);
+}
+.text-h4 {
+  font: var(--ui-text-h4-weight) var(--ui-text-h4-size) / var(--ui-text-h4-line)
+    var(--ui-text-h4-family);
+}
+.text-h5 {
+  font: var(--ui-text-h5-weight) var(--ui-text-h5-size) / var(--ui-text-h5-line)
+    var(--ui-text-h5-family);
+}
+.text-h6 {
+  font: var(--ui-text-h6-weight) var(--ui-text-h6-size) / var(--ui-text-h6-line)
+    var(--ui-text-h6-family);
+}
+.text-lead {
+  font: var(--ui-text-lead-weight) var(--ui-text-lead-size) / var(--ui-text-lead-line)
+    var(--ui-text-lead-family);
+}
+.text-body {
+  font: var(--ui-text-body-weight) var(--ui-text-body-size) / var(--ui-text-body-line)
+    var(--ui-text-body-family);
+}
+.text-body-sm {
+  font: var(--ui-text-body-sm-weight) var(--ui-text-body-sm-size) / var(--ui-text-body-sm-line)
+    var(--ui-text-body-sm-family);
+}
+.text-caption {
+  font: var(--ui-text-caption-weight) var(--ui-text-caption-size) / var(--ui-text-caption-line)
+    var(--ui-text-caption-family);
+}
+.text-label {
+  font: var(--ui-text-label-weight) var(--ui-text-label-size) / var(--ui-text-label-line)
+    var(--ui-text-label-family);
+}
+.text-overline {
+  font: var(--ui-text-overline-weight) var(--ui-text-overline-size) / var(--ui-text-overline-line)
+    var(--ui-text-overline-family);
+}
+.text-numeral {
+  font: var(--ui-text-numeral-weight) var(--ui-text-numeral-size) / var(--ui-text-numeral-line)
+    var(--ui-text-numeral-family);
+}
+
+.text-start {
+  text-align: start;
+}
+.text-center {
+  text-align: center;
+}
+.text-end {
+  text-align: end;
+}
+
+// Escape the measure for full-width data surfaces.
+.text-flow-full {
+  max-inline-size: none;
+}
+.text-measure {
+  max-inline-size: var(--ui-measure);
+}
+
+.text-balance {
+  text-wrap: balance;
+}
+.text-pretty {
+  text-wrap: pretty;
+}
+.text-nowrap {
+  white-space: nowrap;
+}
+.text-truncate {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.text-tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+.visually-hidden:not(:focus):not(:active) {
+  clip-path: inset(50%);
+  block-size: 1px;
+  overflow: hidden;
+  position: absolute;
+  white-space: nowrap;
+  inline-size: 1px;
+}
+
+// -----------------------------------------------------------------------------
+// SURFACE
+// -----------------------------------------------------------------------------
+.bg-raised {
+  background: var(--ui-surface-raised);
+}
+.bg-sunken {
+  background: var(--ui-surface-sunken);
+}
+.bg-muted {
+  background: var(--ui-surface-muted);
+}
+.bg-primary {
+  background: var(--ui-primary);
+  color: var(--ui-on-primary);
+}
+.bg-transparent {
+  background: transparent;
+}
+
+// -----------------------------------------------------------------------------
+// BORDER
+// -----------------------------------------------------------------------------
+.border {
+  border: var(--ui-rule);
+}
+.border-t {
+  border-block-start: var(--ui-rule-width) solid var(--ui-border);
+}
+.border-b {
+  border-block-end: var(--ui-rule-width) solid var(--ui-border);
+}
+.border-s {
+  border-inline-start: var(--ui-rule-width) solid var(--ui-border);
+}
+.border-e {
+  border-inline-end: var(--ui-rule-width) solid var(--ui-border);
+}
+
+// The signature rule: a mark of emphasis on the leading edge.
+.spine {
+  border-inline-start: var(--ui-spine-width) solid var(--ui-primary);
+  padding-inline-start: var(--ui-space-4);
+}
+
+.spine-danger {
+  border-inline-start-color: var(--ui-danger);
+}
+.spine-warning {
+  border-inline-start-color: var(--ui-status-warning);
+}
+.spine-success {
+  border-inline-start-color: var(--ui-status-success);
+}
+.spine-muted {
+  border-inline-start-color: var(--ui-border-strong);
+}
+
+// -----------------------------------------------------------------------------
+// RADIUS
+// -----------------------------------------------------------------------------
+.rounded-none {
+  border-radius: var(--ui-radius-none);
+}
+.rounded-sm {
+  border-radius: var(--ui-radius-sm);
+}
+.rounded-md {
+  border-radius: var(--ui-radius-md);
+}
+.rounded-lg {
+  border-radius: var(--ui-radius-lg);
+}
+.rounded-pill {
+  border-radius: var(--ui-radius-pill);
+}
+
+// -----------------------------------------------------------------------------
+// SIZE
+// -----------------------------------------------------------------------------
+.w-full {
+  inline-size: 100%;
+}
+.w-auto {
+  inline-size: auto;
+}
+.h-full {
+  block-size: 100%;
+}
+
+// -----------------------------------------------------------------------------
+// ELEVATION — only for things that genuinely float.
+// -----------------------------------------------------------------------------
+.shadow-0 {
+  box-shadow: var(--ui-shadow-0);
+}
+.shadow-1 {
+  box-shadow: var(--ui-shadow-1);
+}
+.shadow-2 {
+  box-shadow: var(--ui-shadow-2);
+}
+.shadow-3 {
+  box-shadow: var(--ui-shadow-3);
+}
+.shadow-4 {
+  box-shadow: var(--ui-shadow-4);
+}
+.shadow-5 {
+  box-shadow: var(--ui-shadow-5);
+}
+.shadow-none {
+  box-shadow: none;
+}
+
+// -----------------------------------------------------------------------------
+// OVERFLOW & SCROLL
+// -----------------------------------------------------------------------------
+.overflow-auto {
+  overflow: auto;
+}
+.overflow-hidden {
+  overflow: hidden;
+}
+.scroll-x {
+  overflow-x: auto;
+}
+
+// -----------------------------------------------------------------------------
+// FLEX
+// -----------------------------------------------------------------------------
+.flex {
+  display: flex;
+}
+.inline-flex {
+  display: inline-flex;
+}
+.flex-1 {
+  flex: 1;
+}
+.flex-col {
+  flex-direction: column;
+}
+.items-center {
+  align-items: center;
+}
+.items-start {
+  align-items: start;
+}
+.items-end {
+  align-items: end;
+}
+.justify-center {
+  justify-content: center;
+}
+.justify-between {
+  justify-content: space-between;
+}
+.justify-end {
+  justify-content: flex-end;
+}
+
+// -----------------------------------------------------------------------------
+// POSITION
+// -----------------------------------------------------------------------------
+.relative {
+  position: relative;
+}
+.absolute {
+  position: absolute;
+}
+.sticky-top {
+  position: sticky;
+  inset-block-start: 0;
+  z-index: var(--ui-z-sticky);
+}
+
+// -----------------------------------------------------------------------------
+// CURSOR
+// -----------------------------------------------------------------------------
+.cursor-pointer {
+  cursor: pointer;
+}
+.cursor-default {
+  cursor: default;
+}
+
+// -----------------------------------------------------------------------------
+// MOTION
+// -----------------------------------------------------------------------------
+.transition {
+  transition:
+    color var(--ui-duration-fast) var(--ui-ease-standard),
+    background-color var(--ui-duration-fast) var(--ui-ease-standard),
+    border-color var(--ui-duration-fast) var(--ui-ease-standard),
+    box-shadow var(--ui-duration-fast) var(--ui-ease-standard);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .transition {
+    transition: none;
+  }
+}

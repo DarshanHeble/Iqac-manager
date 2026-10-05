@@ -1,0 +1,298 @@
+// =============================================================================
+// PALETTE — the single source of truth for every colour in the app.
+//
+// There are no raw hex values anywhere else in the codebase. Change a value
+// here and it propagates to:
+//   - the --ui-* custom properties  (via _tokens.scss)  -> our components
+//   - the --mat-sys-* system tokens (via _material.scss) -> Angular Material
+//
+// The brand navy #003366 and the slate ramp are inherited from the legacy
+// stylesheet (backend/static/css/theme.css) so the Angular app keeps the
+// identity the institution already had.
+// =============================================================================
+
+@use 'sass:map';
+
+// -----------------------------------------------------------------------------
+// Brand — deep institutional navy. From --primary-color: #003366 in theme.css.
+// -----------------------------------------------------------------------------
+$brand: (
+  50: #eff4fa,
+  100: #dce6f2,
+  200: #b6cce3,
+  300: #7a9fcc,
+  400: #3d71af,
+  500: #0f4e8f,
+  600: #004080,
+  // --primary-hover: #004080 in theme.css
+  700: #003366,
+  // --primary-color: #003366 in theme.css  <- the brand
+  800: #00264d,
+  900: #001a33,
+);
+
+// -----------------------------------------------------------------------------
+// Accent — cool sky, bridges navy in light mode and leads in dark mode.
+// From --primary-color: #38bdf8 in the [data-theme="dark"] block of theme.css.
+// -----------------------------------------------------------------------------
+$accent: (
+  50: #f0f9ff,
+  100: #e0f2fe,
+  200: #bae6fd,
+  300: #7dd3fc,
+  // --primary-hover in theme.css dark
+  400: #38bdf8,
+  // --primary-color in theme.css dark
+  500: #0ea5e9,
+  600: #0284c7,
+  700: #0369a1,
+  800: #075985,
+  900: #0c4a6e,
+);
+
+// -----------------------------------------------------------------------------
+// Neutral — slate ramp, carried over verbatim from theme.css so text greys and
+// hairlines match what staff already read daily.
+// -----------------------------------------------------------------------------
+$neutral: (
+  50: #f8fafc,
+  // --bg-color
+  100: #f1f5f9,
+  // --table-striped-bg
+  200: #e2e8f0,
+  // --border-color
+  300: #cbd5e1,
+  400: #94a3b8,
+  // --text-muted (dark)
+  500: #64748b,
+  // --text-muted
+  600: #475569,
+  700: #334155,
+  // --border-color (dark)
+  800: #1e293b,
+  // --card-bg (dark) / --text-color
+  900: #0f172a, // --bg-color (dark)
+);
+
+// -----------------------------------------------------------------------------
+// Status. Base colours are the ones already in theme.css (#10b981, #f59e0b).
+// `dark` is the accessible text/edge variant for each theme; `soft` is the
+// tinted background used behind badges and record rules.
+// -----------------------------------------------------------------------------
+$success: (
+  base: #10b981,
+  dark: #047857,
+  soft: #ecfdf5,
+  soft-dark: #06281d,
+  on-soft: #065f46,
+  on-soft-dark: #6ee7b7,
+);
+$warning: (
+  base: #f59e0b,
+  dark: #b45309,
+  soft: #fffbeb,
+  soft-dark: #2c2208,
+  on-soft: #92400e,
+  on-soft-dark: #fcd34d,
+);
+$danger: (
+  base: #dc2626,
+  dark: #991b1b,
+  soft: #fef2f2,
+  soft-dark: #2c0d0d,
+  on-soft: #991b1b,
+  on-soft-dark: #fca5a5,
+);
+$info: (
+  base: #0284c7,
+  dark: #075985,
+  soft: #f0f9ff,
+  soft-dark: #082f49,
+  on-soft: #075985,
+  on-soft-dark: #7dd3fc,
+);
+
+$status: (
+  success: $success,
+  warning: $warning,
+  danger: $danger,
+  info: $info,
+);
+
+// -----------------------------------------------------------------------------
+// Typefaces. Names only, no sizes — the size scale lives in _typography.scss.
+//
+// display  Transitional serif. Institutional and academic, so headings read as
+//          an official record rather than a SaaS dashboard. This is the single
+//          biggest lever separating the UI from a templated look.
+// ui       Humanist sans for interface text, data, and numerals.
+// mono     Fixed-pitch for identifiers and figures inside tables.
+//
+// Every stack ends in a generic family so the app still renders correctly with
+// no network access to the webfonts.
+// -----------------------------------------------------------------------------
+$display_stack:
+  'Source Serif 4', 'Iowan Old Style', 'Charter', Charter, Georgia, 'Times New Roman', serif;
+$ui_stack:
+  'Inter',
+  -apple-system,
+  BlinkMacSystemFont,
+  'Segoe UI',
+  Roboto,
+  'Helvetica Neue',
+  Arial,
+  sans-serif;
+$mono_stack: 'JetBrains Mono', 'SF Mono', 'Roboto Mono', Menlo, Consolas, monospace;
+
+// -----------------------------------------------------------------------------
+// Shape. Deliberately restrained: this is a records system, and rounded cards
+// with one soft shadow is the generic SaaS look we are avoiding. Panels stay
+// near-square; only pills and badges are fully round.
+// -----------------------------------------------------------------------------
+$radius: (
+  none: 0,
+  xs: 2px,
+  sm: 3px,
+  md: 4px,
+  lg: 6px,
+  xl: 8px,
+  pill: 999px,
+);
+
+$shape: (
+  none: 0px,
+  xs: 2px,
+  sm: 3px,
+  md: 4px,
+  lg: 6px,
+  xl: 8px,
+  full: 999px,
+);
+
+// -----------------------------------------------------------------------------
+// Elevation. Flat by default; shadow is reserved for genuinely floating things
+// (rail, overlays, toasts). Panels use a hairline border, not a shadow.
+//
+// Values are quoted CSS strings, not Sass lists, so they emit to a custom
+// property verbatim. Unquoted they would be split on their internal commas.
+$shadow: (
+  0: 'none',
+  1: '0 1px 2px 0 rgb(15 23 42 / 0.06), 0 1px 3px 1px rgb(15 23 42 / 0.04)',
+  2: '0 2px 4px -1px rgb(15 23 42 / 0.08), 0 2px 6px 0 rgb(15 23 42 / 0.04)',
+  3: '0 6px 12px -2px rgb(15 23 42 / 0.10), 0 3px 6px -2px rgb(15 23 42 / 0.05)',
+  4: '0 12px 24px -4px rgb(15 23 42 / 0.12), 0 6px 10px -4px rgb(15 23 42 / 0.06)',
+  5: '0 20px 40px -8px rgb(15 23 42 / 0.16), 0 10px 16px -6px rgb(15 23 42 / 0.08)',
+);
+
+// -----------------------------------------------------------------------------
+// Icon sizes. Material's <mat-icon> is a font glyph, so its size is a font-size.
+// Naming them here keeps that fact in one place instead of leaking literal px
+// into component styles.
+// -----------------------------------------------------------------------------
+$icon: (
+  xs: 14px,
+  sm: 16px,
+  md: 20px,
+  lg: 24px,
+  xl: 40px,
+);
+
+// -----------------------------------------------------------------------------
+// Space — 4px base grid.
+// -----------------------------------------------------------------------------
+$space: (
+  0: 0,
+  1: 0.25rem,
+  2: 0.5rem,
+  3: 0.75rem,
+  4: 1rem,
+  5: 1.25rem,
+  6: 1.5rem,
+  7: 1.75rem,
+  8: 2rem,
+  10: 2.5rem,
+  12: 3rem,
+  14: 3.5rem,
+  16: 4rem,
+  20: 5rem,
+  24: 6rem,
+);
+
+// -----------------------------------------------------------------------------
+// Layout — the legacy sidebar/navbar dimensions are kept so muscle memory
+// carries over from the Flask app.
+// -----------------------------------------------------------------------------
+$layout: (
+  rail-width: 264px,
+  // legacy --sidebar-width: 260px, +4 for the navy spine
+  rail-width-collapsed: 72px,
+  topbar-height: 64px,
+  // legacy --navbar-height
+  content-max: 1440px,
+  measure: 68ch,
+  // prose line length for document-style reading
+  rule-weight: 1px,
+  spine-weight: 3px, // the signature record/rail rule
+);
+
+// -----------------------------------------------------------------------------
+// PALETTE ACCESS HELPERS
+//
+// Always use these instead of reaching into a map directly. The map keys
+// contain dashes, so `p.$layout.rail-width` is a Sass parse error (it parses as
+// subtraction). These functions keep every lookup explicit and safe:
+//
+//   p.scale('brand', 700)      p.layout('rail-width')
+//   p.status('success', 'base') p.space(4)   p.radius('sm')   p.shadow(3)
+// -----------------------------------------------------------------------------
+
+$scale: (
+  brand: $brand,
+  accent: $accent,
+  neutral: $neutral,
+);
+
+/// Raw ramp value: p.scale('brand', 700)
+@function scale($name, $shade) {
+  @return map.get(map.get($scale, $name), $shade);
+}
+
+/// Whole ramp: p.all('brand')
+@function all($name) {
+  @return map.get($scale, $name);
+}
+
+/// Status value: p.status('success', 'base')
+@function status($name, $key) {
+  @return map.get(map.get($status, $name), $key);
+}
+
+/// Space step: p.space(4)
+@function space($key) {
+  @return map.get($space, $key);
+}
+
+/// Icon glyph size: p.icon('sm')
+@function icon($key) {
+  @return map.get($icon, $key);
+}
+
+/// Radius: p.radius('sm')
+@function radius($key) {
+  @return map.get($radius, $key);
+}
+
+/// Elevation: p.shadow(3)
+@function shadow($key) {
+  @return map.get($shadow, $key);
+}
+
+/// Material corner scale: p.shape('lg')
+@function shape($key) {
+  @return map.get($shape, $key);
+}
+
+/// Layout dimension: p.layout('rail-width')
+@function layout($key) {
+  @return map.get($layout, $key);
+}

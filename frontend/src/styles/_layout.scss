@@ -1,0 +1,194 @@
+// =============================================================================
+// LAYOUT
+//
+// Two content modes, because this app is two things at once:
+//
+//   prose    Documents people read — worklog narrative, report sections,
+//            remarks. Held to --ui-measure so lines stay under ~80 characters.
+//
+//   register Data people scan — ledger tables, record rows, user lists.
+//            Full width, ruled, no measure.
+//
+// The app shell is a left rail plus a top bar, keeping the legacy dimensions so
+// the muscle memory from the Flask app survives the port.
+// =============================================================================
+
+@use 'typography' as t;
+
+// -----------------------------------------------------------------------------
+// RAIL — the nav. Navy spine down the leading edge; the single bold element.
+// -----------------------------------------------------------------------------
+.rail {
+  position: fixed;
+  inset-block: 0;
+  inset-inline-start: 0;
+  z-index: var(--ui-z-rail);
+  inline-size: var(--ui-rail-width);
+  display: flex;
+  flex-direction: column;
+  background: var(--ui-surface);
+  border-inline-end: var(--ui-rule-width) solid var(--ui-border);
+
+  // The spine.
+  &::before {
+    content: '';
+    position: absolute;
+    inset-block: 0;
+    inset-inline-start: 0;
+    inline-size: var(--ui-spine-width);
+    background: var(--ui-primary);
+  }
+
+  &__header {
+    display: flex;
+    align-items: center;
+    gap: var(--ui-space-3);
+    block-size: var(--ui-topbar-height);
+    padding-inline: calc(var(--ui-space-5) + var(--ui-spine-width)) var(--ui-space-5);
+    border-block-end: var(--ui-rule-width) solid var(--ui-border);
+    flex-shrink: 0;
+  }
+
+  &__mark {
+    block-size: 28px;
+    inline-size: auto;
+    object-fit: contain;
+    filter: none;
+  }
+
+  &__nav {
+    flex: 1;
+    overflow-y: auto;
+    padding-block: var(--ui-space-4);
+    // Grouping needs a label, not a bigger gap.
+    padding-inline: calc(var(--ui-space-3) + var(--ui-spine-width)) var(--ui-space-3);
+  }
+
+  &__footer {
+    padding: var(--ui-space-3);
+    padding-inline-start: calc(var(--ui-space-3) + var(--ui-spine-width));
+    border-block-start: var(--ui-rule-width) solid var(--ui-border);
+    flex-shrink: 0;
+  }
+
+  @media (width <= 960px) {
+    inline-size: var(--ui-rail-width-collapsed);
+
+    &__header span,
+    &__nav a span,
+    &__footer {
+      display: none;
+    }
+  }
+}
+
+// -----------------------------------------------------------------------------
+// TOP BAR
+// -----------------------------------------------------------------------------
+.topbar {
+  position: sticky;
+  inset-block-start: 0;
+  z-index: var(--ui-z-topbar);
+  block-size: var(--ui-topbar-height);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--ui-space-4);
+  padding-inline: var(--ui-space-6);
+  background: var(--ui-surface-raised);
+  border-block-end: var(--ui-rule-width) solid var(--ui-border);
+
+  &__title {
+    @include t.heading(h6);
+  }
+}
+
+// -----------------------------------------------------------------------------
+// CONTENT
+// -----------------------------------------------------------------------------
+.content {
+  margin-inline-start: var(--ui-rail-width);
+  min-block-size: 100dvh;
+  display: flex;
+  flex-direction: column;
+
+  @media (width <= 960px) {
+    margin-inline-start: var(--ui-rail-width-collapsed);
+  }
+}
+
+.content__main {
+  flex: 1;
+  inline-size: 100%;
+  max-inline-size: var(--ui-content-max);
+  margin-inline: auto;
+  padding: var(--ui-space-8) var(--ui-space-6) var(--ui-space-16);
+}
+
+// -----------------------------------------------------------------------------
+// FLOW — vertical rhythm for stacked content.
+// Usage: <div class="flow"><h2>..</h2><p>..</p></div>
+// -----------------------------------------------------------------------------
+.flow > * + * {
+  margin-block-start: var(--ui-space-4);
+}
+
+.flow-tight > * + * {
+  margin-block-start: var(--ui-space-2);
+}
+
+.flow-loose > * + * {
+  margin-block-start: var(--ui-space-8);
+}
+
+// -----------------------------------------------------------------------------
+// CLUSTERS — horizontal groups that align and wrap.
+// Usage: <div class="cluster"><button>..</button><button>..</button></div>
+// -----------------------------------------------------------------------------
+.cluster {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--ui-space-3);
+}
+
+.cluster-tight {
+  gap: var(--ui-space-2);
+}
+
+.cluster-end {
+  justify-content: flex-end;
+}
+
+.cluster-between {
+  justify-content: space-between;
+}
+
+// -----------------------------------------------------------------------------
+// GRID
+// -----------------------------------------------------------------------------
+.grid {
+  display: grid;
+  gap: var(--ui-space-4);
+}
+
+.grid-2 {
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+}
+
+.grid-3 {
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+}
+
+.grid-4 {
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+}
+
+// -----------------------------------------------------------------------------
+// STACK — vertical group with a gap.
+// -----------------------------------------------------------------------------
+.stack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ui-space-4);
+}

@@ -1,0 +1,464 @@
+<ui-page-header
+  overline="Design System"
+  title="Style Guide"
+  description="Every token and component in the IQAC interface, rendered in the live theme. Switch the theme and watch the whole page change together — anything that does not is a bug."
+  badge="v1"
+  tone="primary"
+  [actions]="[
+    {
+      label: 'Toggle theme',
+      icon: theme.isDark() ? 'light_mode' : 'dark_mode',
+      variant: 'primary',
+    },
+  ]"
+>
+  <button
+    matButton
+    class="theme-toggle"
+    [attr.data-variant]="theme.isDark() ? 'primary' : 'secondary'"
+    (click)="theme.toggle()"
+  >
+    <mat-icon aria-hidden="true">{{ theme.isDark() ? 'light_mode' : 'dark_mode' }}</mat-icon>
+    {{ theme.isDark() ? 'Light theme' : 'Dark theme' }}
+  </button>
+</ui-page-header>
+
+<!-- ============================================================================
+     COLOUR ROLES
+     A swatch shows the resolved value of a token in the active theme, so a role
+     that fails in dark is visible immediately.
+     ========================================================================= -->
+<ui-section
+  label="Colour"
+  title="Colour roles"
+  description="Role-based, never raw hex. Each role resolves to a different value per theme."
+>
+  <ui-card [flush]="true">
+    <div class="swatches">
+      @for (role of colorRoles; track role.token) {
+        <div class="swatch">
+          <div class="swatch__chip" [style.background]="'var(' + role.token + ')'"></div>
+          <div class="swatch__text">
+            <code class="swatch__token">{{ role.token }}</code>
+            <span class="swatch__use">{{ role.use }}</span>
+          </div>
+        </div>
+      }
+    </div>
+  </ui-card>
+</ui-section>
+
+<!-- ============================================================================
+     TYPOGRAPHY
+     ========================================================================= -->
+<ui-section
+  label="Type"
+  title="Typography"
+  description="Two families: a transitional serif for display and headings, a humanist sans for everything that functions as interface text. Roles, not sizes — a component never sets a font-size."
+>
+  <ui-card heading="Type scale">
+    <div class="type-list">
+      @for (row of typeRoles; track row.role) {
+        <div class="type-row">
+          <div class="type-row__meta">
+            <code class="type-row__role">{{ row.role }}</code>
+            @switch (row.role) {
+              @case ('quote') {
+                <blockquote class="quote type-row__sample">{{ row.sample }}</blockquote>
+              }
+              @case ('code') {
+                <code class="type-row__sample">{{ row.sample }}</code>
+              }
+              @default {
+                <span class="type-row__sample" [class]="'type-row__sample text-' + row.role">
+                  {{ row.sample }}
+                </span>
+              }
+            }
+          </div>
+        </div>
+      }
+    </div>
+  </ui-card>
+
+  <ui-card heading="Utility classes" class="mt-4">
+    <div class="type-utilities">
+      @for (cls of typeClasses; track cls) {
+        <span class="type-utilities__sample" [class]="'text-' + cls">{{ cls }}</span>
+      }
+    </div>
+  </ui-card>
+</ui-section>
+
+<!-- ============================================================================
+     BUTTONS
+     ========================================================================= -->
+<ui-section
+  label="Actions"
+  title="Buttons"
+  description="Variants express intent, not colour. One primary action per screen."
+>
+  <ui-card heading="Variants">
+    <div class="cluster">
+      <ui-button variant="primary" icon="add">Add entry</ui-button>
+      <ui-button variant="secondary" icon="download">Export CSV</ui-button>
+      <ui-button variant="ghost">Cancel</ui-button>
+      <ui-button variant="danger" icon="delete">Delete</ui-button>
+      <ui-button variant="primary" [loading]="true">Saving</ui-button>
+      <ui-button variant="secondary" [disabled]="true">Disabled</ui-button>
+    </div>
+  </ui-card>
+
+  <ui-card heading="Material components" class="mt-4">
+    <div class="cluster">
+      <button matButton="filled">Filled</button>
+      <button matButton="outlined">Outlined</button>
+      <button matButton="tonal">Tonal</button>
+      <button matButton="elevated">Elevated</button>
+      <button matIconButton aria-label="More options">
+        <mat-icon>more_vert</mat-icon>
+      </button>
+      <button matIconButton="outlined" aria-label="Search">
+        <mat-icon>search</mat-icon>
+      </button>
+    </div>
+  </ui-card>
+</ui-section>
+
+<!-- ============================================================================
+     FORM CONTROLS
+     ========================================================================= -->
+<ui-section
+  label="Input"
+  title="Form controls"
+  description="Material's field appearance, aligned to the app's type and hairline treatment."
+>
+  <ui-card heading="Fields">
+    <div class="form-grid">
+      <ui-field label="Name of the faculty member">
+        <input matInput [(ngModel)]="sampleName" />
+      </ui-field>
+
+      <ui-field label="Academic year" hint="Format: 2025–26">
+        <input matInput value="2025–26" />
+      </ui-field>
+
+      <ui-field label="Department">
+        <mat-select [(ngModel)]="selectedDept">
+          @for (dept of departments; track dept) {
+            <mat-option [value]="dept">{{ dept }}</mat-option>
+          }
+        </mat-select>
+      </ui-field>
+
+      <ui-field label="Institute reference number" error="Reference number is required.">
+        <input matInput value="" />
+      </ui-field>
+
+      <ui-field label="Remarks" appearance="fill">
+        <textarea matInput rows="3"></textarea>
+      </ui-field>
+
+      <div class="form-grid__toggles">
+        <mat-slide-toggle>Include archived entries</mat-slide-toggle>
+        <mat-checkbox [checked]="true">Notify the department</mat-checkbox>
+      </div>
+    </div>
+  </ui-card>
+</ui-section>
+
+<!-- ============================================================================
+     STATUS
+     ========================================================================= -->
+<ui-section
+  label="Status"
+  title="Badges and record rows"
+  description="Status is carried by the leading rule on a record row, so a column of records can be scanned without reading them."
+>
+  <ui-card heading="Badge tones">
+    <div class="cluster">
+      @for (tone of statusTones; track tone) {
+        <ui-badge [tone]="tone" [dot]="tone === 'success' || tone === 'danger'">{{
+          tone
+        }}</ui-badge>
+      }
+      <ui-badge tone="warning">pending review</ui-badge>
+      <ui-badge tone="neutral">draft</ui-badge>
+    </div>
+  </ui-card>
+
+  <div class="records mt-4">
+    <ui-record-row status="Approved" tone="success">
+      <span recordTitle>Curriculum Development Workshop</span>
+      <span recordMeta>12 March 2026 · Computer Applications</span>
+      <p recordDetail>
+        Two-day workshop on outcome-based education for the 2025–26 cycle, conducted with external
+        resource persons.
+      </p>
+      <div ui-record-trailing>
+        <ui-button variant="ghost" icon="open_in_new" iconPosition="trailing">Open</ui-button>
+      </div>
+    </ui-record-row>
+
+    <ui-record-row status="Pending review" tone="warning">
+      <span recordTitle>Student Mentoring Activity</span>
+      <span recordMeta>08 March 2026 · Mathematics</span>
+      <p recordDetail>Mentored 24 first-year students on remedial mathematics.</p>
+      <div ui-record-trailing>
+        <ui-button variant="secondary" icon="rate_review">Review</ui-button>
+      </div>
+    </ui-record-row>
+
+    <ui-record-row status="Rejected" tone="danger">
+      <span recordTitle>Laboratory Equipment Purchase</span>
+      <span recordMeta>02 March 2026 · Physics</span>
+      <p recordDetail>Rejected: the supporting quotation is missing.</p>
+    </ui-record-row>
+
+    <ui-record-row status="Not submitted" tone="info">
+      <span recordTitle>Library Committee Report</span>
+      <span recordMeta>— · Library Science</span>
+    </ui-record-row>
+
+    <ui-record-row tone="neutral">
+      <span recordTitle>Annual Examination Schedule</span>
+      <span recordMeta>28 February 2026 · Computer Applications</span>
+    </ui-record-row>
+  </div>
+</ui-section>
+
+<!-- ============================================================================
+     DATA
+     ========================================================================= -->
+<ui-section
+  label="Data"
+  title="Summary and register"
+  description="Stats are a ruled strip, not a row of cards. Tables run full width because they are scanned, not read."
+>
+  <ui-card heading="Summary" [flush]="true">
+    <button ui-card-actions matButton class="inline-action">
+      <mat-icon aria-hidden="true">summarize</mat-icon>
+      View report
+    </button>
+    <div class="stats">
+      <ui-stat
+        label="Total entries"
+        value="247"
+        hint="Since 1 April 2025"
+        trend="+18%"
+        trendDirection="up"
+        trendLabel="vs last cycle"
+      />
+      <ui-stat
+        label="Pending review"
+        value="12"
+        tone="warning"
+        trend="4 new"
+        trendDirection="flat"
+        trendLabel="this week"
+      />
+      <ui-stat
+        label="Rejections"
+        value="3"
+        tone="danger"
+        trend="-2"
+        trendDirection="down"
+        trendLabel="vs last cycle"
+      />
+      <ui-stat label="Departments reporting" value="7 of 9" tone="success" />
+    </div>
+  </ui-card>
+
+  <ui-card heading="Submission register" class="mt-4" [flush]="true">
+    <div class="table-scroll">
+      <table class="ledger">
+        <caption class="visually-hidden:not(:focus):not(:active)">
+          Submission register by department for the 2025–26 cycle
+        </caption>
+        <thead>
+          <tr>
+            <th scope="col">Department</th>
+            <th scope="col">Coordinator</th>
+            <th scope="col">Entries</th>
+            <th scope="col">Last activity</th>
+            <th scope="col">Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <th scope="row" class="ledger__rowhead">Computer Applications</th>
+            <td>{{ sampleName }}</td>
+            <td class="num">86</td>
+            <td>12 March 2026</td>
+            <td><ui-badge tone="success">Approved</ui-badge></td>
+          </tr>
+          <tr>
+            <th scope="row" class="ledger__rowhead">Mathematics</th>
+            <td>Dr. B. Nair</td>
+            <td class="num">54</td>
+            <td>08 March 2026</td>
+            <td><ui-badge tone="warning">Pending</ui-badge></td>
+          </tr>
+          <tr>
+            <th scope="row" class="ledger__rowhead">Physics</th>
+            <td>Dr. S. Iyer</td>
+            <td class="num">41</td>
+            <td>02 March 2026</td>
+            <td><ui-badge tone="danger">Rejected</ui-badge></td>
+          </tr>
+          <tr>
+            <th scope="row" class="ledger__rowhead">Library Science</th>
+            <td>—</td>
+            <td class="num">0</td>
+            <td>—</td>
+            <td><ui-badge tone="info">Not submitted</ui-badge></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </ui-card>
+</ui-section>
+
+<!-- ============================================================================
+     EMPTY STATE
+     ========================================================================= -->
+<ui-section label="Empty" title="Empty state">
+  <ui-card>
+    <ui-empty-state
+      icon="edit_document"
+      title="No entries for this cycle"
+      description="Nothing has been recorded under the 2025–26 academic year yet. Add the first entry to begin the department's worklog."
+    >
+      <ui-button emptyAction variant="primary" icon="add">Add the first entry</ui-button>
+      <span ui-empty-secondary>Entries can be added individually or imported from a CSV file.</span>
+    </ui-empty-state>
+  </ui-card>
+</ui-section>
+
+<!-- ============================================================================
+     INLINE ELEMENTS
+     Proves the global CSS system: these are plain tags with no component
+     wrappers, styled entirely by _elements.scss.
+     ========================================================================= -->
+<ui-section
+  label="Content"
+  title="Inline elements"
+  description="Styled globally from the element CSS system — no wrapper classes needed."
+>
+  <ui-card heading="Prose">
+    <span ui-card-footer>
+      <mat-icon aria-hidden="true">info</mat-icon>
+      Reviewed by the IQAC coordinator before the department's consolidated report is submitted.
+    </span>
+    <p>
+      The worklog records faculty activity across the academic year. Entries are grouped by
+      <strong>activity type</strong> and reviewed by the <em>IQAC coordinator</em>
+      before the department's consolidated report is submitted.
+    </p>
+    <p class="lead mt-4">
+      Each department reports against a fixed set of criterion numbers, so entries from different
+      years can be compared directly.
+    </p>
+
+    <blockquote class="quote mt-6">
+      Quality assurance is a continuous process, not an annual exercise.
+    </blockquote>
+
+    <h3 class="mt-8">Lists</h3>
+    <ul>
+      <li>Curriculum development</li>
+      <li>Student mentoring and support</li>
+      <li>Research and publications</li>
+    </ul>
+
+    <h3 class="mt-8">Definitions</h3>
+    <dl>
+      <dt>Academic Year</dt>
+      <dd>The period from 1 June to 31 May, matching the university calendar.</dd>
+      <dt>Cycle</dt>
+      <dd>The academic year an entry belongs to. Entries cannot be moved between cycles.</dd>
+    </dl>
+
+    <h3 class="mt-8">Code</h3>
+    <p>
+      The API is reached at <code>/api</code> using the signed session cookie. A typical request is
+      <code>GET /api/entries?cycle=2025-26</code>, and a full listing uses:
+    </p>
+    <pre><code>{{ '{' }}
+  "entries": 247,
+  "cycle": "2025-26",
+  "pending": 12
+{{ '}' }}</code></pre>
+
+    <h3 class="mt-8">Figures</h3>
+    <figure>
+      <p class="numeral">247</p>
+      <figcaption>
+        Total entries recorded across all departments for the 2025–26 cycle, as of 12 March 2026.
+      </figcaption>
+    </figure>
+
+    <hr />
+
+    <h3 class="mt-8">Prose measure</h3>
+    <p>
+      Prose stops at a comfortable line length rather than running the full width of the content
+      area. Long lines make the eye lose its place returning to the left margin, which is why this
+      paragraph wraps well before the edge of the panel. Data surfaces such as the register above do
+      the opposite and run full width, because scanning a row does not depend on line length.
+    </p>
+  </ui-card>
+</ui-section>
+
+<!-- ============================================================================
+     SPACING & UTILITIES
+     ========================================================================= -->
+<ui-section
+  label="Scale"
+  title="Spacing and utilities"
+  description="A 4px base grid. Utilities exist so a layout adjustment never requires writing a component."
+>
+  <ui-card heading="Space scale">
+    <div class="space-scale">
+      @for (step of [0, 1, 2, 3, 4, 5, 6, 7, 8, 10, 12, 14, 16]; track step) {
+        <div class="space-scale__row">
+          <code class="space-scale__token">--ui-space-{{ step }}</code>
+          <div class="space-scale__bar" [style.inline-size]="'var(--ui-space-' + step + ')'"></div>
+        </div>
+      }
+    </div>
+  </ui-card>
+
+  <ui-card heading="Radius and spine" class="mt-4">
+    <div class="cluster">
+      @for (r of ['none', 'sm', 'md', 'lg', 'pill']; track r) {
+        <span class="swatch-token" [class]="'rounded-box rounded-' + r">{{ r }}</span>
+      }
+      <span class="spine spine-danger">spine</span>
+      <span class="spine spine-warning">spine</span>
+      <span class="spine spine-success">spine</span>
+    </div>
+  </ui-card>
+
+  <ui-card heading="Text utilities" class="mt-4">
+    <div class="cluster">
+      <span class="text-primary text-body">text-primary</span>
+      <span class="text-muted text-body">text-muted</span>
+      <span class="text-danger text-body">text-danger</span>
+      <span class="text-success text-body">text-success</span>
+      <span class="text-warning text-body">text-warning</span>
+      <span class="text-tabular text-body">text-tabular 1,234</span>
+      <span class="text-truncate text-body" style="max-width: 12ch">text-truncate</span>
+    </div>
+  </ui-card>
+
+  <ui-card heading="Surfaces and elevation" class="mt-4">
+    <div class="cluster">
+      <span class="elev elev--0 shadow-0">shadow-0</span>
+      <span class="elev elev--1 shadow-1">shadow-1</span>
+      <span class="elev elev--2 shadow-2">shadow-2</span>
+      <span class="elev elev--3 shadow-3">shadow-3</span>
+      <span class="elev elev--4 shadow-4">shadow-4</span>
+    </div>
+  </ui-card>
+</ui-section>

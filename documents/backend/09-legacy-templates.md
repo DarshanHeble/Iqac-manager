@@ -57,23 +57,32 @@ the pattern to follow.
 | Inline `<script>` blocks (106 of them) | Becomes component logic |
 | Jinja `if` loops for rendering tables | Becomes `@for` / `*ngFor` |
 | `url_for('static', …)` calls | Becomes Angular asset paths or an API URL |
-| Bootstrap 4/5 markup rewritten per screen | Use ng-bootstrap components |
+| Bootstrap 4/5 markup rewritten per screen | Use `ui-*` components over Angular Material |
 | Per-screen duplicated `<head>` | One `index.html` |
 
-### The theme contract must survive
+### ⚠ The two-attribute theme claim is wrong — only one attribute matters
 
-Legacy markup sets **two** attributes from one toggle:
+Legacy markup writes **two** attributes from one toggle:
 
 ```js
 document.documentElement.setAttribute('data-theme', theme);
 document.documentElement.setAttribute('data-bs-theme', theme);
 ```
 
-and persists to `localStorage.theme`. `frontend/src/styles/_theme.scss` is the
-ported version. **Keep writing both attributes** — Bootstrap 5.3 components
-require `data-bs-theme`; the legacy CSS uses `data-theme`. Diverging them breaks
-the UI in subtle, per-component ways. Already implemented in the Angular
-`ThemeService`.
+and persists to `localStorage.theme`.
+
+**Correction:** `data-bs-theme` is dead. No stylesheet in this repo reads it and
+no template depends on it — verified across all 22 templates. The templates load
+Bootstrap from a CDN for layout and components, but never theme it, so Bootstrap's
+own `data-bs-theme` dark-mode support was never actually switched on. An earlier
+revision of this document claimed Bootstrap required it; that is incorrect.
+
+`data-theme` is the only attribute that does anything. The Angular app scopes
+every `--ui-*` and `--mat-sys-*` token to it, and keeps writing `data-bs-theme`
+for compatibility rather than necessity.
+
+Do not reintroduce a dependency on `data-bs-theme` while migrating. See
+[../frontend/03-design-system.md](../frontend/03-design-system.md) §2.
 
 ---
 

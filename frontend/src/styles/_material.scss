@@ -1,0 +1,148 @@
+// =============================================================================
+// MATERIAL THEME
+//
+// Angular Material 22 uses the M3 token system: `mat.theme()` emits
+// --mat-sys-* variables and `mat.theme-overrides()` replaces individual ones.
+//
+// The colour overrides come from _semantic.scss, which is the same source
+// _tokens.scss uses. Consequence: our components and Material components are
+// driven by one set of colour roles. Change a role once and both move
+// together — a Material select cannot end up navy while our button ends up
+// somewhere else.
+//
+// Two explicit themes (light and dark) rather than `color-scheme`, because the
+// app's theme is chosen by the user and stored in localStorage.theme. The
+// selector is [data-theme], which is what the legacy templates already write.
+//
+// Why shape, typography and elevation are applied *inside* each theme block:
+// mat.theme() emits its defaults into the same selector, so anything we want to
+// beat has to come after it in source order at equal-or-higher specificity. An
+// unscoped include would land on :root and lose to html { }.
+// =============================================================================
+
+@use '@angular/material' as mat;
+@use 'palette' as p;
+@use 'semantic';
+
+$font-display: #{p.$display_stack};
+$font-ui: #{p.$ui_stack};
+
+// -----------------------------------------------------------------------------
+// THEME-INDEPENDENT OVERRIDES
+//
+// Applied within every theme block. These describe the design, not the theme:
+// shape, type family and depth do not change when the palette does.
+// -----------------------------------------------------------------------------
+@mixin design-overrides {
+  // Restrained corners, matching the records aesthetic. Material's defaults are
+  // rounder than this design wants — fully rounded cards are the generic SaaS
+  // look we are avoiding.
+  @include mat.theme-overrides(
+    (
+      corner-none: 0px,
+      corner-extra-small: 2px,
+      corner-small: 3px,
+      corner-medium: 4px,
+      corner-large: 6px,
+      corner-extra-large: 8px,
+      corner-full: 999px,
+    )
+  );
+
+  // Material has its own --mat-sys-* type tokens. Mapping our roles onto them
+  // keeps Material components (which only read their own tokens) in the same
+  // rhythm as our hand-built headings: serif through the large sizes, sans for
+  // everything that functions as interface text.
+  @include mat.theme-overrides(
+    (
+      display-large-font: $font-display,
+      display-medium-font: $font-display,
+      display-small-font: $font-display,
+      headline-large-font: $font-display,
+      headline-medium-font: $font-display,
+      headline-small-font: $font-display,
+      title-large-font: $font-display,
+      title-medium-font: $font-ui,
+      title-small-font: $font-ui,
+      body-large-font: $font-ui,
+      body-medium-font: $font-ui,
+      body-small-font: $font-ui,
+      label-large-font: $font-ui,
+      label-medium-font: $font-ui,
+      label-small-font: $font-ui,
+    )
+  );
+
+  // Elevation mapped to our own shadow scale, so Material overlays and the rail
+  // share one depth language with the rest of the app.
+  @include mat.theme-overrides(
+    (
+      level0: p.shadow(0),
+      level1: p.shadow(1),
+      level2: p.shadow(2),
+      level3: p.shadow(3),
+      level4: p.shadow(4),
+      level5: p.shadow(5),
+    )
+  );
+}
+
+// -----------------------------------------------------------------------------
+// LIGHT — default. Selected when data-theme is absent or "light".
+// -----------------------------------------------------------------------------
+html {
+  @include mat.theme(
+    (
+      color: (
+        primary: mat.$azure-palette,
+        tertiary: mat.$cyan-palette,
+        theme-type: light,
+      ),
+      typography: (
+        plain-family: $font-ui,
+        brand-family: $font-display,
+        regular-weight: 400,
+        medium-weight: 500,
+        bold-weight: 600,
+      ),
+      density: (
+        scale: -1,
+      ),
+    )
+  );
+
+  // Replace Material's stock colours with our brand roles.
+  @include mat.theme-overrides(semantic.$light);
+  @include design-overrides;
+}
+
+// -----------------------------------------------------------------------------
+// DARK
+//
+// Sky blue leads here rather than navy: #38bdf8 on a dark ground is the legacy
+// dark palette and reads as the primary action colour. Navy would disappear.
+// -----------------------------------------------------------------------------
+[data-theme='dark'] {
+  @include mat.theme(
+    (
+      color: (
+        primary: mat.$azure-palette,
+        tertiary: mat.$cyan-palette,
+        theme-type: dark,
+      ),
+      typography: (
+        plain-family: $font-ui,
+        brand-family: $font-display,
+        regular-weight: 400,
+        medium-weight: 500,
+        bold-weight: 600,
+      ),
+      density: (
+        scale: -1,
+      ),
+    )
+  );
+
+  @include mat.theme-overrides(semantic.$dark);
+  @include design-overrides;
+}

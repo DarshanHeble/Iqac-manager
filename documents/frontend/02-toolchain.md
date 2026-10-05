@@ -27,10 +27,8 @@ Requires Node 20.19+ or 22.12+ per Angular 22, so Node 26 is fine.
   "@angular/localize":     "^22.2.1",
   "@angular/platform-browser": "^22.1.0",
   "@angular/router":       "^22.1.0",
-  "@ng-bootstrap/ng-bootstrap": "^21.0.0",
-  "@popperjs/core":        "^2.11.8",
-  "bootstrap":            "^5.3.8",
-  "bootstrap-icons":      "^1.13.1",
+  "@angular/cdk":         "22.2.1",
+  "@angular/material":    "22.2.1",
   "chart.js":             "^4.5.1",
   "rxjs":                  "~7.8.0",
   "tslib":                 "^2.3.0",
@@ -54,8 +52,19 @@ See [03-design-system.md](03-design-system.md) §6.
 
 ### `@angular/localize`
 
-Present because ng-bootstrap pulls it in. Add `angular localize` to
-`angular.json` only if `$localize` is actually used in templates.
+Pulled in by Angular Material. Add `angular localize` to `angular.json` only if
+`$localize` is actually used in templates.
+
+### Bootstrap is gone
+
+`bootstrap`, `bootstrap-icons`, `@ng-bootstrap/ng-bootstrap`, and `@popperjs/core`
+were removed. The legacy Flask templates load Bootstrap themselves from a CDN, so
+the Angular app never needed it globally — and removing it deletes the
+`data-bs-theme` ambiguity described in
+[03-design-system.md](03-design-system.md) §2.
+
+If a ported screen seems to need a Bootstrap class, it needs a `ui-*` component
+instead. Adding the packages back is a regression.
 
 ---
 
@@ -145,7 +154,8 @@ noise.
 |---|---|
 | Output path | `dist/frontend` |
 | Builder | `@angular/build:application` (esbuild-based) |
-| Styles | `src/styles.scss`, `src/styles/_theme.scss` |
+| Styles | `src/styles.scss` only — it `@use`s the partials in `src/styles/` |
+| `stylePreprocessorOptions.includePaths` | `["src/styles"]`, so a component stylesheet can write `@use 'typography' as type;` |
 | Assets | `public/` copied verbatim; `src/favicon.ico`, `src/assets/` |
 | Polyfills | `zone.js` |
 | Dev proxy | `proxy.conf.json` |

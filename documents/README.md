@@ -62,7 +62,7 @@ mechanically generated or verified against source.
 |---|---|
 | Backend | Flask 3.0.0, PostgreSQL via `psycopg` 3.3.4, ReportLab 4.2.5, Cloudinary, APScheduler 3.10.4 |
 | Backend size | `app.py` 3,915 lines · `routes/pdf.py` ~1,200 lines |
-| Frontend | Angular 22.1.2, standalone only, Bootstrap 5.3.8, ng-bootstrap 21, Chart.js 4.5.1 |
+| Frontend | Angular 22.1.2, standalone only, Angular Material 22.2.1 + CDK, Chart.js 4.5.1 (no wrapper) |
 | Frontend state | Scaffold only — `routes: Routes = []`, no feature screens |
 | Backend size | 39 routes, 7 tables, 22 templates (12,162 lines) |
 | Auth | Flask signed session cookie + the global `psycopg` fetchone monkeypatch |

@@ -1,0 +1,288 @@
+// =============================================================================
+// STYLEGUIDE
+//
+// The page's own layout. Deliberately thin: everything visual here comes from the
+// global CSS system or a ui-* component, which is the point. If this file needed
+// a colour or a size, that would mean the system is missing something.
+// =============================================================================
+
+// -----------------------------------------------------------------------------
+// HEADER THEME TOGGLE
+//
+// The styleguide overrides ui-page-header's default action styling because this
+// control must work identically in both themes, and a header action is
+// deliberately muted. One exception, scoped to this page.
+// -----------------------------------------------------------------------------
+:host ::ng-deep .theme-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--ui-space-2);
+  min-block-size: var(--ui-control-height);
+  padding-inline: var(--ui-control-padding-inline);
+  border-radius: var(--ui-radius-sm);
+  font: var(--ui-text-label-weight) var(--ui-text-label-size) / var(--ui-text-label-line)
+    var(--ui-text-label-family);
+  color: var(--ui-text);
+  box-shadow: inset 0 0 0 1px var(--ui-border-strong);
+}
+
+:host ::ng-deep .theme-toggle[data-variant='primary'] {
+  background: var(--ui-primary);
+  color: var(--ui-on-primary);
+  box-shadow: inset 0 0 0 1px var(--ui-primary);
+}
+
+// -----------------------------------------------------------------------------
+// COLOUR SWATCHES
+// -----------------------------------------------------------------------------
+.swatches {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+}
+
+.swatch {
+  display: flex;
+  align-items: center;
+  gap: var(--ui-space-3);
+  padding: var(--ui-space-3) var(--ui-space-5);
+  border-block-end: var(--ui-rule-width) solid var(--ui-border);
+  min-inline-size: 0;
+}
+
+.swatch__chip {
+  inline-size: 40px;
+  block-size: 40px;
+  border-radius: var(--ui-radius-sm);
+  /* A hairline so a white or near-white swatch is still visible against the
+     panel it sits on. */
+  box-shadow: inset 0 0 0 1px var(--ui-border-strong);
+  flex-shrink: 0;
+}
+
+.swatch__text {
+  min-inline-size: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--ui-space-1);
+}
+
+.swatch__token {
+  font-family: var(--ui-font-mono);
+  font-size: var(--ui-text-caption-size);
+  color: var(--ui-text);
+}
+
+.swatch__use {
+  font: var(--ui-text-caption-weight) var(--ui-text-caption-size) / var(--ui-text-caption-line)
+    var(--ui-text-caption-family);
+  color: var(--ui-text-muted);
+}
+
+// -----------------------------------------------------------------------------
+// TYPE SCALE
+// -----------------------------------------------------------------------------
+.type-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.type-row {
+  padding-block: var(--ui-space-4);
+  border-block-end: var(--ui-rule-width) solid var(--ui-border);
+}
+
+.type-row:last-child {
+  border-block-end: none;
+}
+
+.type-row__meta {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ui-space-2);
+  min-inline-size: 0;
+}
+
+.type-row__role {
+  align-self: flex-start;
+  background: var(--ui-surface-sunken);
+  border: var(--ui-rule-width) solid var(--ui-border);
+  border-radius: var(--ui-radius-xs);
+  padding: 0.1em 0.4em;
+  color: var(--ui-text-muted);
+}
+
+.type-row__sample {
+  min-inline-size: 0;
+  overflow-wrap: break-word;
+}
+
+.type-utilities {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--ui-space-4) var(--ui-space-5);
+}
+
+.type-utilities__sample {
+  min-inline-size: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+// -----------------------------------------------------------------------------
+// FORMS
+// -----------------------------------------------------------------------------
+.form-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: var(--ui-space-5) var(--ui-space-4);
+}
+
+.form-grid__toggles {
+  display: flex;
+  align-items: center;
+  gap: var(--ui-space-5);
+  flex-wrap: wrap;
+  grid-column: 1 / -1;
+}
+
+// -----------------------------------------------------------------------------
+// RECORDS
+// -----------------------------------------------------------------------------
+.records {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ui-space-3);
+}
+
+// -----------------------------------------------------------------------------
+// STATS
+// -----------------------------------------------------------------------------
+.stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: var(--ui-space-5);
+  padding: var(--ui-space-5);
+}
+
+// -----------------------------------------------------------------------------
+// LEDGER TABLE
+// -----------------------------------------------------------------------------
+.table-scroll {
+  overflow-x: auto;
+}
+
+.ledger {
+  margin: 0;
+  max-inline-size: none;
+  white-space: nowrap;
+}
+
+.ledger th,
+.ledger td {
+  text-align: start;
+}
+
+.ledger__rowhead {
+  font-weight: 600;
+  color: var(--ui-text);
+}
+
+// -----------------------------------------------------------------------------
+// SPACE SCALE
+// -----------------------------------------------------------------------------
+.space-scale {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ui-space-2);
+}
+
+.space-scale__row {
+  display: flex;
+  align-items: center;
+  gap: var(--ui-space-4);
+}
+
+.space-scale__token {
+  inline-size: 11ch;
+  flex-shrink: 0;
+  color: var(--ui-text-muted);
+}
+
+.space-scale__bar {
+  block-size: 12px;
+  background: var(--ui-primary);
+  border-radius: var(--ui-radius-xs);
+  /* Keep a hairline visible even at --ui-space-0. */
+  min-inline-size: 1px;
+}
+
+// -----------------------------------------------------------------------------
+// MISC VISUAL AIDS
+// -----------------------------------------------------------------------------
+.swatch-token {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-inline-size: 64px;
+  min-block-size: 40px;
+  padding-inline: var(--ui-space-3);
+  background: var(--ui-surface-sunken);
+  border: var(--ui-rule-width) solid var(--ui-border-strong);
+  font: var(--ui-text-caption-weight) var(--ui-text-caption-size) / var(--ui-text-caption-line)
+    var(--ui-text-caption-family);
+  color: var(--ui-text-muted);
+}
+
+.rounded-box {
+  border-radius: var(--ui-radius-sm);
+}
+
+.elev {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-inline-size: 72px;
+  min-block-size: 44px;
+  padding-inline: var(--ui-space-3);
+  background: var(--ui-surface-raised);
+  border-radius: var(--ui-radius-sm);
+  font: var(--ui-text-caption-weight) var(--ui-text-caption-size) / var(--ui-text-caption-line)
+    var(--ui-text-caption-family);
+  color: var(--ui-text-muted);
+}
+
+// -----------------------------------------------------------------------------
+// INLINE SLOT CONTENT
+//
+// The card action/footer and section action slots are plain projected content,
+// so their styling lives here rather than in the components.
+// -----------------------------------------------------------------------------
+.inline-action {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--ui-space-2);
+  min-block-size: var(--ui-control-height);
+  padding-inline: var(--ui-control-padding-inline);
+  border-radius: var(--ui-radius-sm);
+  font: var(--ui-text-label-weight) var(--ui-text-label-size) / var(--ui-text-label-line)
+    var(--ui-text-label-family);
+  color: var(--ui-text);
+  box-shadow: inset 0 0 0 1px var(--ui-border-strong);
+}
+
+.inline-action:hover {
+  background: var(--ui-surface-muted);
+}
+
+:host ::ng-deep [ui-card-footer] {
+  display: flex;
+  align-items: center;
+  gap: var(--ui-space-2);
+}
+
+:host ::ng-deep [ui-card-footer] mat-icon {
+  font-size: var(--ui-icon-sm);
+  inline-size: var(--ui-icon-sm);
+  block-size: var(--ui-icon-sm);
+}

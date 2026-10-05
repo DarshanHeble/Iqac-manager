@@ -1,25 +1,43 @@
-<main class="container py-5">
-  <div class="d-flex align-items-center gap-3 mb-4">
-    <img src="iqac_connect_logo.png" alt="IQAC Connect" height="40" />
-    <h1 class="h3 mb-0">IQAC Manager</h1>
+<a class="skip-link" href="#main-content">Skip to main content</a>
+
+<nav class="rail" aria-label="Main">
+  <div class="rail__header">
+    <img class="rail__mark" src="crest_logo.png" alt="" />
+    <span class="text-label">IQAC</span>
   </div>
 
-  <p class="text-body-secondary">
-    Angular workspace scaffolded and talking to the Flask backend in
-    <code>backend/</code>. Screens are migrated one at a time as vertical slices.
-  </p>
-
-  <div class="card mt-4">
-    <div class="card-body">
-      <h2 class="h6 card-title">Workspace status</h2>
-      <ul class="list-unstyled mb-0">
-        <li><code>ng serve</code> &rarr; <code>localhost:4200</code></li>
-        <li><code>/api/*</code> proxied to Flask on <code>localhost:5000</code></li>
-        <li>Bootstrap 5.3 + ng-bootstrap 21, Chart.js 4</li>
-        <li>Theme via <code>localStorage.theme</code> &rarr; <code>data-theme</code></li>
-      </ul>
-    </div>
+  <div class="rail__nav">
+    <p class="overline rail__group">Records</p>
+    <a class="rail__link" routerLink="/styleguide" routerLinkActive="rail__link--active">
+      <mat-icon aria-hidden="true">dashboard</mat-icon>
+      <span>Overview</span>
+    </a>
+    <a class="rail__link" href="/">
+      <mat-icon aria-hidden="true">edit_document</mat-icon>
+      <span>Worklog</span>
+    </a>
   </div>
 
-  <router-outlet />
-</main>
+  <div class="rail__footer">
+    <button
+      matIconButton
+      class="rail__theme"
+      [attr.aria-label]="theme.isDark() ? 'Switch to light theme' : 'Switch to dark theme'"
+      (click)="theme.toggle()"
+    >
+      <mat-icon aria-hidden="true">{{ theme.isDark() ? 'light_mode' : 'dark_mode' }}</mat-icon>
+    </button>
+  </div>
+</nav>
+
+<div class="content">
+  <header class="topbar">
+    <h2 class="topbar__title">Internal Quality Assurance Cell</h2>
+
+    <ui-badge tone="primary">2025–26</ui-badge>
+  </header>
+
+  <main class="content__main" id="main-content" tabindex="-1">
+    <router-outlet />
+  </main>
+</div>

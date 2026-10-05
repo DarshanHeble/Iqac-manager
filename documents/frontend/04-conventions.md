@@ -54,14 +54,14 @@ not `AppComponent` (`src/app/app.ts`).
 ```
 src/app/
 ├── core/                 app-wide singletons; inject here, never re-provide
-│   ├── api/
+│   ├── api/              apiUrl() token + session interceptor
+│   ├── theme/            ThemeService — data-theme + localStorage
 │   ├── guards/
-│   ├── models/
-│   └── services/
-├── shared/               presentational, no business rules
-│   ├── components/
-│   ├── pipes/
-│   └── directives/
+│   └── models/
+├── ui/                    the design system; never put business logic here
+│   ├── badge.ts button.ts card.ts empty-state.ts field.ts
+│   ├── page-header.ts record-row.ts section.ts stat.ts
+│   └── index.ts          the only import surface
 └── features/             one folder per legacy area
     ├── auth/
     ├── employee/
@@ -70,11 +70,24 @@ src/app/
     └── secretary/
 ```
 
-Rule of thumb: `core` has one instance and knows about the app; `shared` is
-reusable and knows nothing; `features` owns a screen's behaviour.
+Rule of thumb: `core` has one instance and knows about the app; `ui` is
+reusable presentation with no knowledge of IQAC business rules; `features` owns a
+screen's behaviour.
 
-The current tree already has `core/api/` with `api-base-url.ts` and
-`session.interceptor.ts`.
+There is deliberately **no `shared/` directory.** Presentation that is specific
+to one feature belongs in that feature; presentation reused across features
+belongs in `ui/` and gets a `ui-` prefixed selector. That distinction is the
+whole point — a `ui-*` component is a promise that it works for any screen.
+
+Import from `ui/index.ts`, never from a component file directly:
+
+```ts
+import { UiCard, UiBadge } from '../ui';   // ✓
+import { UiCard } from '../ui/card';        // ✗
+```
+
+A screen reaching past the barrel is how a design system turns into a pile of
+files nobody is willing to change.
 
 ---
 
@@ -215,22 +228,73 @@ Otherwise the new client shows nothing where the legacy UI showed a flash. See
 
 ---
 
-## 11. Lint rules that will fail the build
+## 11. Styling: tokens only
+
+**No component may contain a raw hex, a literal `font-size`, or a magic spacing
+value.** This is the rule the whole design system rests on, and it is enforced
+mechanically by `ui/ui.spec.ts`, which fails the test run if any component style
+violates it.
+
+```scss
+// ✗ hardcoded — stops responding to the theme
+color: #003366;
+font-size: 14px;
+padding: 12px;
+
+// ✓ token-driven — follows both themes automatically
+color: var(--ui-primary);
+@include type.text-role(caption);
+padding: var(--ui-space-3);
+```
+
+In component stylesheets, `@use 'typography' as type;` gives you the type
+mixins. Prefer them over hand-writing the font shorthand.
+
+### Which layer does this belong in?
+
+| Change | Put it in |
+|---|---|
+| A new colour, size, or spacing value | `src/styles/_tokens.scss` (and the scale in `_palette.scss`) |
+| What an element like `<p>` or `<figcaption>` means | `src/styles/_elements.scss` |
+| App shell or page flow | `src/styles/_layout.scss` |
+| One screen's arrangement | that feature's component styles |
+
+If you catch yourself adding a value to three components, it belongs in the
+global layer instead.
+
+### Tone, never colour
+
+`ui-badge`, `ui-stat`, and `ui-record-row` take `tone="success | warning | …"`,
+never a colour. Tones resolve to a different foreground, background, and rule per
+theme automatically; a colour would not. If a screen needs a status the four tones
+do not cover, that means the status model should grow — not that a hex should be
+passed in.
+
+### Check both themes
+
+Toggle the theme on `/styleguide` after any styling change. **Anything that does
+not change with the theme is a bug in `_semantic.scss`.**
+
+---
+
+## 12. Lint rules that will fail the build
 
 | Rule | Failure | Instead |
 |---|---|---|
 | `@typescript-eslint/no-explicit-any` | `any` | a real interface, or `unknown` + narrowing |
 | `no-empty-lifecycle-method` | empty `ngOnInit` | delete it |
-| `component-selector` | non-`app-` prefix | rename the selector |
+| `component-selector` (features) | non-`app-` prefix | rename the selector |
+| `component-selector` (`ui/`) | non-`ui-` prefix, or not kebab-case | rename the selector |
 | `@angular-eslint/prefer-standalone` | non-standalone component | add `standalone: true` |
 | `template/…` rules | template issues | fix the template, not the rule |
+| `consistent-type-definitions` | `type X = {…}` | use `interface X {…}` |
 
 Prettier owns formatting. Run `npm run format` before `npm run lint` so you only
 see real problems.
 
 ---
 
-## 12. Before you commit
+## 13. Before you commit
 
 ```bash
 npm run format

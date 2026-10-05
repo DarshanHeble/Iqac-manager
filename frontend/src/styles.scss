@@ -1,14 +1,25 @@
-/* Global styles entry point.
- *
- * Layering order is controlled in angular.json `build.options.styles`:
- *   1. bootstrap.min.css        (Bootstrap 5.3 defaults)
- *   2. bootstrap-icons.min.css  (icon font)
- *   3. src/styles/_theme.scss   (this app's light/dark token layer + component styles)
- *   4. src/styles.scss          (this file: cross-cutting overrides)
- *
- * The theme layer must come after Bootstrap so its CSS custom properties win.
- */
+// =============================================================================
+// GLOBAL STYLES — entry point.
+//
+// Load order matters and is enforced here:
+//
+//   1 _palette / _semantic / _tokens   values first, everything else reads them
+//   2 _material                        Angular Material system tokens, generated
+//                                      from the same maps so Material and our
+//                                      components cannot drift apart
+//   3 _reset                           element normalisation
+//   4 _elements                        the global CSS system: what h1-h6, p,
+//                                      caption, figcaption, lists, tables mean
+//   5 _layout                          app shell and flow primitives
+//   6 _utilities                       single-purpose helpers
+//
+// Nothing below this file may contain a raw hex value, a literal font-size, or
+// a magic spacing number. Add it to _tokens.scss instead.
+// =============================================================================
 
-/* Bootstrap JS (collapse, dropdown, modal, offcanvas, tooltip, popover) needs
-   Popper. ng-bootstrap provides Angular-native equivalents instead — prefer
-   NgbModal / NgbDropdown / NgbOffcanvas over raw Bootstrap JS. */
+@use 'styles/tokens';
+@use 'styles/material';
+@use 'styles/reset';
+@use 'styles/elements';
+@use 'styles/layout';
+@use 'styles/utilities';

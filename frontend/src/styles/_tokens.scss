@@ -1,0 +1,217 @@
+// =============================================================================
+// TOKENS — emits every --ui-* custom property.
+//
+// Components consume these and nothing else. No component may contain a raw
+// hex, px font-size, or magic spacing value; if a component needs a value that
+// is not here, the value is added here first.
+//
+// Read paths:
+//   our components      var(--ui-*)          e.g. var(--ui-text-h1-size)
+//   Material components var(--mat-sys-*)     fed by _material.scss from the
+//                                             same maps in _palette.scss
+// =============================================================================
+
+@use 'palette' as p;
+@use 'semantic';
+@use 'typography' as t;
+
+// -----------------------------------------------------------------------------
+// COLOUR ROLES
+//
+// Names are role-first ("what is this for"), not appearance-first, so a theme
+// change never invalidates a name.
+// -----------------------------------------------------------------------------
+@mixin emit-color-tokens($theme) {
+  --ui-primary: #{semantic.get($theme, primary)};
+  --ui-on-primary: #{semantic.get($theme, on-primary)};
+  --ui-primary-container: #{semantic.get($theme, primary-container)};
+  --ui-on-primary-container: #{semantic.get($theme, on-primary-container)};
+  // Hover steps toward the accent in light mode and toward white in dark, so the
+  // primary fill always visibly responds without shifting hue.
+  $hover: p.scale('brand', 600);
+  @if $theme == semantic.$dark {
+    $hover: p.scale('accent', 300);
+  }
+  --ui-primary-hover: #{$hover};
+
+  --ui-accent: #{semantic.get($theme, tertiary)};
+  --ui-on-accent: #{semantic.get($theme, on-tertiary)};
+  --ui-accent-container: #{semantic.get($theme, tertiary-container)};
+  --ui-on-accent-container: #{semantic.get($theme, on-tertiary-container)};
+
+  --ui-bg: #{semantic.get($theme, background)};
+  --ui-surface: #{semantic.get($theme, surface)};
+  --ui-surface-raised: #{semantic.get($theme, surface-container-lowest)};
+  --ui-surface-sunken: #{semantic.get($theme, surface-container)};
+  --ui-surface-muted: #{semantic.get($theme, surface-container-high)};
+  --ui-surface-overlay: #{semantic.get($theme, surface-container-high)};
+
+  --ui-text: #{semantic.get($theme, on-surface)};
+  --ui-text-muted: #{semantic.get($theme, on-surface-variant)};
+  --ui-text-inverted: #{semantic.get($theme, inverse-on-surface)};
+  --ui-surface-inverted: #{semantic.get($theme, inverse-surface)};
+
+  --ui-border: #{semantic.get($theme, outline-variant)};
+  --ui-border-strong: #{semantic.get($theme, outline)};
+
+  --ui-danger: #{semantic.get($theme, error)};
+  --ui-on-danger: #{semantic.get($theme, on-error)};
+  --ui-danger-container: #{semantic.get($theme, error-container)};
+  --ui-on-danger-container: #{semantic.get($theme, on-error-container)};
+
+  --ui-shadow-color: #{semantic.get($theme, shadow)};
+  --ui-scrim: #{semantic.get($theme, scrim)};
+
+  --ui-focus-ring: #{semantic.get($theme, primary)};
+}
+
+// -----------------------------------------------------------------------------
+// STATUS ROLES
+//
+// These back badges, record-row rules, and status text. Four tokens each so a
+// consumer never has to know which theme it is in.
+// -----------------------------------------------------------------------------
+@mixin emit-status-tokens($theme, $dark: false) {
+  @each $name in (success, warning, danger, info) {
+    // In dark mode the tint and its foreground both invert: a pale wash behind
+    // text would be unreadable on a dark ground.
+    $soft: p.status($name, 'soft');
+    $on-soft: p.status($name, 'on-soft');
+    $base: base;
+    $edge: p.status($name, 'dark');
+
+    @if $dark {
+      $soft: p.status($name, 'soft-dark');
+      $on-soft: p.status($name, 'on-soft-dark');
+      $base: dark;
+      // The dark foreground doubles as the rule colour; the light-theme edge
+      // would be too dark to see against a dark surface.
+      $edge: $on-soft;
+    }
+
+    --ui-status-#{$name}: #{p.status($name, $base)};
+    --ui-status-#{$name}-soft: #{$soft};
+    --ui-status-#{$name}-on-soft: #{$on-soft};
+    --ui-status-#{$name}-border: #{$edge};
+  }
+}
+
+// -----------------------------------------------------------------------------
+// THEME-SCOPED VARIABLES THAT DO NOT DEPEND ON COLOUR
+// -----------------------------------------------------------------------------
+@mixin emit-structural-tokens {
+  // space — 4px grid
+  @each $step, $value in p.$space {
+    --ui-space-#{$step}: #{$value};
+  }
+
+  // icon glyph sizes
+  @each $name, $value in p.$icon {
+    --ui-icon-#{$name}: #{$value};
+  }
+
+  // radius
+  @each $name, $value in p.$radius {
+    --ui-radius-#{$name}: #{$value};
+  }
+
+  // elevation — level 0 is the flat default; panels use a hairline instead
+  @each $level, $value in p.$shadow {
+    --ui-shadow-#{$level}: #{$value};
+  }
+
+  // layout
+  --ui-rail-width: #{p.layout('rail-width')};
+  --ui-rail-width-collapsed: #{p.layout('rail-width-collapsed')};
+  --ui-topbar-height: #{p.layout('topbar-height')};
+  --ui-content-max: #{p.layout('content-max')};
+
+  // The two rule weights. --ui-rule-width is a hairline for borders and
+  // dividers; --ui-spine-width is the signature weight for the nav rail, record
+  // rows, and other marks of emphasis.
+  --ui-rule-width: #{p.layout('rule-weight')};
+  --ui-spine-width: #{p.layout('spine-weight')};
+  --ui-rule: var(--ui-rule-width) solid var(--ui-border);
+
+  // motion
+  --ui-duration-instant: 80ms;
+  --ui-duration-fast: 140ms;
+  --ui-duration-base: 220ms;
+  --ui-duration-slow: 320ms;
+  --ui-ease-standard: cubic-bezier(0.2, 0, 0, 1);
+  --ui-ease-entrance: cubic-bezier(0, 0, 0.2, 1);
+  --ui-ease-exit: cubic-bezier(0.4, 0, 1, 1);
+
+  // z-index
+  --ui-z-base: 0;
+  --ui-z-sticky: 100;
+  --ui-z-rail: 200;
+  --ui-z-topbar: 210;
+  --ui-z-overlay: 900;
+  --ui-z-toast: 1000;
+
+  // control sizing, shared by button / field / select
+  --ui-control-height-sm: 28px;
+  --ui-control-height: 36px;
+  --ui-control-height-lg: 44px;
+  --ui-control-padding-inline: 14px;
+  --ui-focus-width: 2px;
+  --ui-focus-offset: 2px;
+}
+
+// =============================================================================
+// EMISSION
+// =============================================================================
+
+:root,
+[data-theme='light'] {
+  color-scheme: light;
+  @include emit-color-tokens(semantic.$light);
+  @include emit-status-tokens(semantic.$light);
+}
+
+[data-theme='dark'] {
+  color-scheme: dark;
+  @include emit-color-tokens(semantic.$dark);
+  @include emit-status-tokens(semantic.$dark, $dark: true);
+}
+
+:root {
+  @include emit-structural-tokens;
+  @include t.emit-type-tokens(semantic.$light);
+}
+
+// -----------------------------------------------------------------------------
+// LEGACY TOKEN ALIASES
+//
+// The Flask templates read --primary-color and friends from
+// backend/static/css/theme.css. Aliasing them to the same values means any
+// screen that is still server-rendered and any Angular screen agree exactly,
+// and the old names can be deleted once migration completes.
+// -----------------------------------------------------------------------------
+:root,
+[data-theme='light'],
+[data-theme='dark'] {
+  --bg-color: var(--ui-bg);
+  --card-bg: var(--ui-surface-raised);
+  --border-color: var(--ui-border);
+  --table-striped-bg: var(--ui-surface-sunken);
+  --sidebar-bg: var(--ui-surface);
+  --sidebar-width: var(--ui-rail-width);
+  --navbar-height: var(--ui-topbar-height);
+}
+
+:root,
+[data-theme='light'] {
+  --text-color: var(--ui-text);
+  --text-muted: var(--ui-text-muted);
+  --primary-color: var(--ui-primary);
+  --primary-hover: var(--ui-primary-hover);
+}
+
+[data-theme='dark'] {
+  --text-color: var(--ui-text);
+  --text-muted: var(--ui-text-muted);
+  --primary-color: var(--ui-primary);
+  --primary-hover: var(--ui-primary-hover);
+}
