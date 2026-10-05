@@ -1,0 +1,140 @@
+{
+  "description": "Every environment variable the backend reads, where it is read, and what breaks when it is missing. Verified by grepping os.getenv/os.environ across backend/app.py, backend/db.py, backend/routes/pdf.py, backend/migrate_to_postgres.py.",
+  "critical": [
+    {
+      "name": "DATABASE_URL",
+      "read_at": ["backend/db.py:9", "backend/migrate_to_postgres.py:27"],
+      "default": null,
+      "required": true,
+      "missing_behaviour": "get_db_connection() raises on an unusable URL; db.py:21-33 retries with sslmode=prefer then sslmode=disable before failing",
+      "notes": [
+        "Read ONCE at import time, so changing it requires a process restart.",
+        "db.py:7 calls load_dotenv(override=True), so a stale local .env OVERRIDES the platform-injected value on Render."
+      ]
+    },
+    {
+      "name": "SECRET_KEY",
+      "read_at": ["backend/app.py:18"],
+      "default": "\"your_secret_key\"",
+      "required": true,
+      "missing_behaviour": "Falls back to the literal string \"your_secret_key\". Every session cookie becomes forgeable by anyone who knows this default.",
+      "notes": ["Guards the session cookie signature, which carries username, active role, and must_change_password."]
+    },
+    {
+      "name": "CLOUDINARY_CLOUD_NAME",
+      "read_at": ["backend/app.py:43"],
+      "default": null,
+      "required": true,
+      "missing_behaviour": "cloudinary.config() raises AttributeError at import time (backend/app.py:41-47 is not guarded), which prevents the app from starting."
+    },
+    {
+      "name": "CLOUDINARY_API_KEY",
+      "read_at": ["backend/app.py:44"],
+      "default": null,
+      "required": true,
+      "missing_behaviour": "same as CLOUDINARY_CLOUD_NAME"
+    },
+    {
+      "name": "CLOUDINARY_API_SECRET",
+      "read_at": ["backend/app.py:45"],
+      "default": null,
+      "required": true,
+      "missing_behaviour": "same as CLOUDINARY_CLOUD_NAME"
+    }
+  ],
+  "ai_providers": [
+    {
+      "name": "GEMINI_API_KEY",
+      "read_at": ["backend/app.py:336"],
+      "used_by": "AI summary generation, backend/app.py:2225-2340",
+      "fallback": "Summaries are skipped and the worklog is returned unsummarised"
+    },
+    {
+      "name": "NVIDIA_API_KEY",
+      "read_at": ["backend/app.py:335"],
+      "used_by": "secondary AI provider, paired with NVIDIA_MODEL_NAME",
+      "fallback": "unused if Gemini is available"
+    },
+    {
+      "name": "NVIDIA_MODEL_NAME",
+      "read_at": ["backend/app.py:2275"],
+      "default": "\"meta/llama-3.1-8b-instruct\"",
+      "used_by": "NVIDIA provider only"
+    }
+  ],
+  "smtp": [
+    {
+      "name": "SMTP_SERVER",
+      "read_at": ["backend/app.py:93"],
+      "default": "\"smtp.gmail.com\"",
+      "used_by": "temporary-password emails and reminders"
+    },
+    {
+      "name": "SMTP_PORT",
+      "read_at": ["backend/app.py:94"],
+      "default": "587",
+      "type": "int() cast",
+      "note": "A non-numeric value raises ValueError at import time"
+    },
+    {
+      "name": "SMTP_EMAIL",
+      "read_at": ["backend/app.py:91", "backend/app.py:138"],
+      "used_by": "sender identity; falls back to SENDER_EMAIL at :138"
+    },
+    {
+      "name": "SENDER_EMAIL",
+      "read_at": ["backend/app.py:138"],
+      "used_by": "fallback sender identity"
+    },
+    {
+      "name": "SMTP_PASSWORD",
+      "read_at": ["backend/app.py:92"],
+      "note": "Gmail app password, not the account password"
+    },
+    {
+      "name": "AQAR_COORDINATOR_EMAILS",
+      "read_at": ["backend/routes/pdf.py:149", ":707", ":910", ":950", ":1103"],
+      "format": "comma-separated",
+      "used_by": "selects the AQAR coordinator variant of the AQAR PDF",
+      "note": "At backend/routes/pdf.py:1103 a single email also matches a single NAME entry"
+    },
+    {
+      "name": "AQAR_COORDINATOR_NAMES",
+      "read_at": ["backend/routes/pdf.py:707", ":910", ":950", ":1141"],
+      "format": "comma-separated",
+      "used_by": "signature block on the AQAR PDF"
+    }
+  ],
+  "hardcoded_secrets_and_pii": [
+    {
+      "what": "director.iqac@christuniversity.in",
+      "location": "backend/routes/pdf.py:1027",
+      "issue": "Hardcoded recipient in the AQAR sign-off recipient list, in addition to the env-configured list"
+    },
+    {
+      "what": "arnavnarula25@gmail.com",
+      "location": "backend/routes/pdf.py:1027",
+      "issue": "A PERSONAL gmail address hardcoded alongside the institutional one. Should be removed or moved to AQAR_COORDINATOR_EMAILS."
+    }
+  ],
+  "dev_only": [
+    {
+      "name": "LOCAL_SQLITE",
+      "location": "backend/migrate_to_postgres.py:28",
+      "value": "\"worklog.db\"",
+      "issue": "Not an env var in practice. A bare relative filename resolved against os.getcwd(). Running the script from the wrong directory silently migrates nothing yet still prints success."
+    }
+  ],
+  "not_used_but_assumed": [
+    {
+      "name": "FLASK_ENV / FLASK_DEBUG",
+      "status": "not read anywhere in the codebase",
+      "note": "Debug mode is never programmatically enabled; use flask run --debug locally"
+    },
+    {
+      "name": "SESSION_COOKIE_SECURE / SAMESITE",
+      "status": "never set; app.config is never assigned",
+      "note": "Flask 3.0 defaults apply: HTTPONLY=True, SECURE=False, no SameSite attribute. See session storage in backend/03-authentication.md."
+    }
+  ]
+}

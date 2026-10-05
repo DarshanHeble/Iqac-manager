@@ -1,0 +1,164 @@
+{
+  "description": "Complete PostgreSQL schema for backend/app.py. Source of truth is init_postgres() at backend/app.py:521-643, except sent_reminders_log which is created lazily inside the scheduler job at backend/app.py:2657-2661.",
+  "dialect": "PostgreSQL 13+",
+  "bootstrap": {
+    "file": "backend/app.py:521",
+    "function": "init_postgres",
+    "invoked_at": "backend/app.py:645-650",
+    "invoked_when": "import time, in every gunicorn worker",
+    "failure_mode": "wrapped in try/except that only prints a warning; app keeps serving with a partial schema",
+    "migration_framework": null,
+    "migration_note": "No Alembic or equivalent. Idempotency comes from CREATE TABLE IF NOT EXISTS plus ALTER TABLE ADD COLUMN IF NOT EXISTS."
+  },
+  "tables": [
+    {
+      "name": "users",
+      "defined_at": "backend/app.py:527-540",
+      "purpose": "Staff and IQAC coordinator identities, roles, forced-password-change flag",
+      "columns": [
+        {"name": "id", "type": "SERIAL", "nullable": false, "key": "PK"},
+        {"name": "username", "type": "VARCHAR(255)", "nullable": false, "key": "UNIQUE", "note": "Login identifier and join key for every other table"},
+        {"name": "password", "type": "VARCHAR(255)", "nullable": false, "note": "Werkzeug hash only"},
+        {"name": "emp_id", "type": "VARCHAR(255)", "nullable": true},
+        {"name": "email", "type": "VARCHAR(255)", "nullable": true, "note": "NOT unique; used as AQAR coordinator discriminator"},
+        {"name": "gender", "type": "VARCHAR(255)", "nullable": true},
+        {"name": "designation", "type": "VARCHAR(255)", "nullable": true, "note": "Matched with LIKE '%secretary%'"},
+        {"name": "department", "type": "VARCHAR(255)", "nullable": true},
+        {"name": "role", "type": "VARCHAR(255)", "nullable": true, "note": "COMMA-SEPARATED LIST, e.g. 'Secretary, Campus IQAC Coordinator'. Indexed. NULL raises AttributeError at login."},
+        {"name": "full_name", "type": "VARCHAR(255)", "nullable": true, "note": "Added by ALTER at backend/app.py:555 and also present in CREATE"},
+        {"name": "must_change_password", "type": "BOOLEAN", "nullable": true, "default": false, "note": "Added by ALTER at backend/app.py:556; NOT in the CREATE TABLE"}
+      ],
+      "foreign_keys": [],
+      "indexes": ["idx_users_role ON users(role)"],
+      "seed_data": "backend/app.py:629-641 inserts username='admin' password='admin123' must_change_password=TRUE when absent",
+      "boot_migration": "backend/app.py:624 UPDATE users SET role='School IQAC Coordinator' WHERE role='IQAC Coordinator'",
+      "defects": [
+        "No foreign keys from dependent tables",
+        "No CHECK constraint on role",
+        "email not unique though app.py:1741 rejects collisions in application code"
+      ]
+    },
+    {
+      "name": "worklog",
+      "defined_at": "backend/app.py:543-554",
+      "purpose": "Daily employee activity entries across six categories",
+      "columns": [
+        {"name": "id", "type": "SERIAL", "nullable": false, "key": "PK"},
+        {"name": "username", "type": "VARCHAR(255)", "nullable": false, "note": "No FK to users"},
+        {"name": "date", "type": "VARCHAR(20)", "nullable": true, "note": "TEXT NOT DATE. Holds zero-padded YYYY-MM-DD. All range filters are lexicographic string comparisons."},
+        {"name": "status", "type": "VARCHAR(50)", "nullable": true, "note": "Holiday / Leave / effectively unused otherwise"},
+        {"name": "category", "type": "TEXT", "nullable": true, "note": "Denormalised copy of the primary JSON key"},
+        {"name": "task", "type": "TEXT", "nullable": true, "note": "A JSON OBJECT, e.g. {\"Documentation and Audits\": \"...\"}. Legacy plaintext tolerated via try/except json.loads."},
+        {"name": "attachment", "type": "TEXT", "nullable": true, "note": "Relative path attachments/<name>; served unauthenticated via /static"}
+      ],
+      "foreign_keys": [],
+      "indexes": ["idx_worklog_username ON worklog(username)", "idx_worklog_date ON worklog(date)"],
+      "defects": [
+        "No UNIQUE(username, date); dedupe is a racy application check at backend/app.py:981-985",
+        "date is TEXT so range filtering depends entirely on ISO formatting",
+        "task is JSON in TEXT, so category filtering is a LIKE over serialised JSON"
+      ]
+    },
+    {
+      "name": "signed_reports",
+      "defined_at": "backend/app.py:559-571",
+      "purpose": "IQAC coordinator monthly submission state machine",
+      "columns": [
+        {"name": "id", "type": "SERIAL", "nullable": false, "key": "PK"},
+        {"name": "username", "type": "VARCHAR(255)", "nullable": false, "note": "No FK"},
+        {"name": "reporting_month", "type": "VARCHAR(20)", "nullable": true, "note": "YYYY-MM; never format-validated at the URL boundary"},
+        {"name": "uploaded_file_path", "type": "VARCHAR(500)", "nullable": true, "note": "Full https:// Cloudinary URL or legacy local path"},
+        {"name": "uploaded_at", "type": "TIMESTAMP", "nullable": true, "default": "CURRENT_TIMESTAMP"},
+        {"name": "status", "type": "VARCHAR(50)", "nullable": true, "default": "'pending'", "note": "DDL declares VARCHAR(20); widened by ALTER at backend/app.py:570. In-use values: pending_upload, uploaded, reviewed, corrections_requested"},
+        {"name": "remarks", "type": "TEXT", "nullable": true, "note": "Rejection remarks"},
+        {"name": "cloudinary_public_id", "type": "VARCHAR(500)", "nullable": true, "note": "NOT cleared on resubmit (backend/routes/pdf.py:255-262)"}
+      ],
+      "foreign_keys": [],
+      "indexes": [],
+      "defects": [
+        "CRITICAL: no UNIQUE(username, reporting_month) though the state machine assumes one row per user-month",
+        "No index on reporting_month despite being the hottest filter",
+        "DELETE-based unlock at backend/app.py:3293-3296 removes all matching duplicates"
+      ]
+    },
+    {
+      "name": "workshop_attachment_files",
+      "defined_at": "backend/app.py:574-586",
+      "purpose": "Cloudinary references for coordinator workshop uploads",
+      "columns": [
+        {"name": "id", "type": "SERIAL", "nullable": false, "key": "PK"},
+        {"name": "username", "type": "VARCHAR(255)", "nullable": false},
+        {"name": "reporting_month", "type": "VARCHAR(20)", "nullable": false},
+        {"name": "workshop_index", "type": "INTEGER", "nullable": false, "note": "1-based in templates (workshop_{i+1}), 0-based in Cloudinary public_id"},
+        {"name": "filename", "type": "VARCHAR(500)", "nullable": true},
+        {"name": "cloudinary_url", "type": "VARCHAR(1000)", "nullable": true},
+        {"name": "cloudinary_public_id", "type": "VARCHAR(500)", "nullable": true},
+        {"name": "uploaded_at", "type": "TIMESTAMP", "nullable": true, "default": "CURRENT_TIMESTAMP"}
+      ],
+      "foreign_keys": [],
+      "unique_constraints": [{"columns": ["username", "reporting_month", "workshop_index"], "at": "backend/app.py:584"}],
+      "indexes": [],
+      "note": "Reconciliation DELETEs then re-INSERTs all rows for the month (backend/app.py:3123-3132, backend/routes/pdf.py:219-231), so id churns on every run."
+    },
+    {
+      "name": "report_drafts",
+      "defined_at": "backend/app.py:600-610",
+      "purpose": "Autosaved coordinator report form state, serialised as JSON",
+      "columns": [
+        {"name": "id", "type": "SERIAL", "nullable": false, "key": "PK"},
+        {"name": "username", "type": "VARCHAR(255)", "nullable": false},
+        {"name": "report_type", "type": "VARCHAR(50)", "nullable": false, "note": "'standard' or 'aqar_coordinator'"},
+        {"name": "reporting_month", "type": "VARCHAR(20)", "nullable": false},
+        {"name": "form_data", "type": "TEXT", "nullable": false, "note": "Entire report form as JSON. Reads use json.loads with a silent except."},
+        {"name": "updated_at", "type": "TIMESTAMP", "nullable": true, "default": "CURRENT_TIMESTAMP"}
+      ],
+      "foreign_keys": [],
+      "unique_constraints": [{"columns": ["username", "report_type", "reporting_month"], "at": "backend/app.py:608"}],
+      "note": "The only proper ON CONFLICT upsert in the codebase (backend/app.py:3061-3067). Good model for the new API."
+    },
+    {
+      "name": "app_settings",
+      "defined_at": "backend/app.py:589-597",
+      "purpose": "Submission window configuration",
+      "columns": [
+        {"name": "key", "type": "VARCHAR(100)", "nullable": false, "key": "PK"},
+        {"name": "value", "type": "VARCHAR(255)", "nullable": true}
+      ],
+      "foreign_keys": [],
+      "seed_data": "submission_open_day='1', submission_close_day='5'",
+      "note": "Only these two keys are ever used; read by three divergent implementations."
+    },
+    {
+      "name": "sent_reminders_log",
+      "defined_at": "backend/app.py:2657-2661",
+      "purpose": "Reminder idempotency, one row per day",
+      "created_by": "the APScheduler job, NOT init_postgres()",
+      "columns": [
+        {"name": "sent_date", "type": "DATE", "nullable": false, "key": "PK"}
+      ],
+      "foreign_keys": [],
+      "note": "DDL executed inside a runtime job. Because APScheduler starts in every gunicorn worker, this table is the only thing preventing N duplicate emails."
+    }
+  ],
+  "enums": {
+    "worklog.status": ["Holiday", "Leave"],
+    "worklog.category": [
+      "Documentation and Audits",
+      "Rankings",
+      "Publications",
+      "Training and Development",
+      "Strategic Initiatives",
+      "Others (<specify>)"
+    ],
+    "signed_reports.status": ["pending_upload", "uploaded", "reviewed", "corrections_requested"],
+    "report_drafts.report_type": ["standard", "aqar_coordinator"],
+    "app_settings.key": ["submission_open_day", "submission_close_day"]
+  },
+  "recommended_indexes": [
+    {"table": "signed_reports", "columns": ["reporting_month"], "reason": "Hottest filter at backend/app.py:1540, 3664, 3864, 3872"},
+    {"table": "signed_reports", "columns": ["username", "reporting_month"], "reason": "Single-row reads at backend/app.py:3037, 3286, 3592; backend/routes/pdf.py:127, 1082"},
+    {"table": "report_drafts", "columns": ["username", "reporting_month"], "reason": "Reads at backend/app.py:2853, 3181, 3553"},
+    {"table": "workshop_attachment_files", "columns": ["username", "reporting_month"], "reason": "Reads at backend/app.py:2777, 2892, 3196, 3714"},
+    {"table": "worklog", "columns": ["username", "date"], "reason": "Per-user listing query at backend/app.py:852, 1104"}
+  ]
+}

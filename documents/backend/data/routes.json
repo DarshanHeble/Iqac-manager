@@ -1,0 +1,557 @@
+{
+  "description": "Complete machine-readable route table. Generated from backend Flask app.url_map (static endpoint excluded).",
+  "generated_from": "backend/app.py + backend/routes/pdf.py",
+  "total": 39,
+  "auth_gate_legend": {
+    "PUBLIC": "no session check in handler body",
+    "SESSION": "checks 'username' in session",
+    "ADMIN": "session check + role.lower() != 'admin'",
+    "ADMIN|SEC": "session check + role not in ('admin','secretary')",
+    "SECRETARY": "session check + role.lower() != 'secretary'",
+    "COORD": "session check + is_coordinator(role)",
+    "PWCHANGE": "also subject to global before_request forced-password-change redirect"
+  },
+  "known_anomalies": [
+    {
+      "url": "/_session_check",
+      "status": "REFERENCED_BUT_MISSING",
+      "evidence": "backend/templates/dashboard.html calls it; no matching route exists"
+    },
+    {
+      "url": "/switch_role",
+      "status": "STATE_CHANGING_GET",
+      "evidence": "backend/app.py:798 mutates session on GET"
+    },
+    {
+      "url": "/auto_iqac_reminders",
+      "status": "UNAUTHENTICATED_SIDE_EFFECT",
+      "evidence": "backend/app.py:2651 has no session check and sends email"
+    },
+    {
+      "url": "/static/<path:filename>",
+      "status": "UNAUTHENTICATED",
+      "evidence": "Flask default; serves worklog attachments without auth"
+    }
+  ],
+  "routes": [
+    {
+      "endpoint": "home",
+      "methods": [
+        "GET"
+      ],
+      "url": "/",
+      "defined_at": "backend/app.py:696",
+      "auth_gate": "PUBLIC",
+      "returns_json": false,
+      "renders_template": false,
+      "streams_file": false,
+      "redirects": true
+    },
+    {
+      "endpoint": "change_password",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "url": "/change_password",
+      "defined_at": "backend/app.py:711",
+      "auth_gate": "SESSION",
+      "returns_json": false,
+      "renders_template": true,
+      "streams_file": false,
+      "redirects": true
+    },
+    {
+      "endpoint": "login",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "url": "/login",
+      "defined_at": "backend/app.py:756",
+      "auth_gate": "PUBLIC+PWCHANGE",
+      "returns_json": false,
+      "renders_template": true,
+      "streams_file": false,
+      "redirects": true
+    },
+    {
+      "endpoint": "switch_role",
+      "methods": [
+        "GET"
+      ],
+      "url": "/switch_role/<role>",
+      "defined_at": "backend/app.py:797",
+      "auth_gate": "SESSION",
+      "returns_json": false,
+      "renders_template": false,
+      "streams_file": false,
+      "redirects": true
+    },
+    {
+      "endpoint": "logout",
+      "methods": [
+        "GET"
+      ],
+      "url": "/logout",
+      "defined_at": "backend/app.py:821",
+      "auth_gate": "PUBLIC",
+      "returns_json": false,
+      "renders_template": false,
+      "streams_file": false,
+      "redirects": true
+    },
+    {
+      "endpoint": "dashboard",
+      "methods": [
+        "GET"
+      ],
+      "url": "/dashboard",
+      "defined_at": "backend/app.py:829",
+      "auth_gate": "SESSION|COORD",
+      "returns_json": false,
+      "renders_template": true,
+      "streams_file": false,
+      "redirects": true
+    },
+    {
+      "endpoint": "user_add_entry",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "url": "/user_add_entry",
+      "defined_at": "backend/app.py:916",
+      "auth_gate": "SESSION|COORD",
+      "returns_json": true,
+      "renders_template": true,
+      "streams_file": false,
+      "redirects": true
+    },
+    {
+      "endpoint": "user_view_entries",
+      "methods": [
+        "GET"
+      ],
+      "url": "/user_view_entries",
+      "defined_at": "backend/app.py:1078",
+      "auth_gate": "SESSION|COORD",
+      "returns_json": false,
+      "renders_template": true,
+      "streams_file": false,
+      "redirects": true
+    },
+    {
+      "endpoint": "user_report",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "url": "/user_report",
+      "defined_at": "backend/app.py:1162",
+      "auth_gate": "SESSION|COORD",
+      "returns_json": false,
+      "renders_template": true,
+      "streams_file": false,
+      "redirects": true
+    },
+    {
+      "endpoint": "edit",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "url": "/edit/<int:id>",
+      "defined_at": "backend/app.py:1301",
+      "auth_gate": "SESSION",
+      "returns_json": true,
+      "renders_template": true,
+      "streams_file": false,
+      "redirects": true
+    },
+    {
+      "endpoint": "delete_entry",
+      "methods": [
+        "POST"
+      ],
+      "url": "/delete_entry/<int:id>",
+      "defined_at": "backend/app.py:1384",
+      "auth_gate": "SESSION",
+      "returns_json": false,
+      "renders_template": false,
+      "streams_file": false,
+      "redirects": true
+    },
+    {
+      "endpoint": "admin_panel",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "url": "/admin",
+      "defined_at": "backend/app.py:1415",
+      "auth_gate": "SESSION|ADMIN",
+      "returns_json": false,
+      "renders_template": true,
+      "streams_file": false,
+      "redirects": true
+    },
+    {
+      "endpoint": "admin_settings",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "url": "/admin_settings",
+      "defined_at": "backend/app.py:1674",
+      "auth_gate": "SESSION|ADMIN",
+      "returns_json": false,
+      "renders_template": true,
+      "streams_file": false,
+      "redirects": true
+    },
+    {
+      "endpoint": "admin_add_user",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "url": "/admin_add_user",
+      "defined_at": "backend/app.py:1709",
+      "auth_gate": "SESSION|ADMIN",
+      "returns_json": false,
+      "renders_template": true,
+      "streams_file": false,
+      "redirects": true
+    },
+    {
+      "endpoint": "forgot_password",
+      "methods": [
+        "POST"
+      ],
+      "url": "/forgot_password",
+      "defined_at": "backend/app.py:1785",
+      "auth_gate": "PUBLIC+PWCHANGE",
+      "returns_json": false,
+      "renders_template": false,
+      "streams_file": false,
+      "redirects": true
+    },
+    {
+      "endpoint": "admin_report",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "url": "/admin_report",
+      "defined_at": "backend/app.py:1838",
+      "auth_gate": "SESSION|ADMIN|SEC",
+      "returns_json": false,
+      "renders_template": true,
+      "streams_file": false,
+      "redirects": true
+    },
+    {
+      "endpoint": "admin_report_ai",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "url": "/admin_report_ai",
+      "defined_at": "backend/app.py:2106",
+      "auth_gate": "SESSION|ADMIN",
+      "returns_json": false,
+      "renders_template": true,
+      "streams_file": false,
+      "redirects": true
+    },
+    {
+      "endpoint": "admin_manage_users",
+      "methods": [
+        "GET"
+      ],
+      "url": "/admin_manage_users",
+      "defined_at": "backend/app.py:2364",
+      "auth_gate": "SESSION|ADMIN",
+      "returns_json": false,
+      "renders_template": true,
+      "streams_file": false,
+      "redirects": true
+    },
+    {
+      "endpoint": "admin_edit_user",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "url": "/admin_edit_user/<int:id>",
+      "defined_at": "backend/app.py:2390",
+      "auth_gate": "SESSION|ADMIN",
+      "returns_json": false,
+      "renders_template": true,
+      "streams_file": false,
+      "redirects": true
+    },
+    {
+      "endpoint": "admin_delete_user",
+      "methods": [
+        "POST"
+      ],
+      "url": "/admin_delete_user/<int:id>",
+      "defined_at": "backend/app.py:2456",
+      "auth_gate": "SESSION|ADMIN",
+      "returns_json": false,
+      "renders_template": false,
+      "streams_file": false,
+      "redirects": true
+    },
+    {
+      "endpoint": "admin_reset_password",
+      "methods": [
+        "POST"
+      ],
+      "url": "/admin_reset_password/<int:id>",
+      "defined_at": "backend/app.py:2501",
+      "auth_gate": "SESSION|ADMIN",
+      "returns_json": false,
+      "renders_template": false,
+      "streams_file": false,
+      "redirects": true
+    },
+    {
+      "endpoint": "trigger_auto_iqac_reminders",
+      "methods": [
+        "GET"
+      ],
+      "url": "/auto_iqac_reminders",
+      "defined_at": "backend/app.py:2743",
+      "auth_gate": "PUBLIC",
+      "returns_json": false,
+      "renders_template": false,
+      "streams_file": false,
+      "redirects": false
+    },
+    {
+      "endpoint": "iqac_dashboard",
+      "methods": [
+        "GET"
+      ],
+      "url": "/iqac_dashboard",
+      "defined_at": "backend/app.py:2752",
+      "auth_gate": "SESSION|COORD",
+      "returns_json": false,
+      "renders_template": true,
+      "streams_file": false,
+      "redirects": true
+    },
+    {
+      "endpoint": "iqac_monthly_report",
+      "methods": [
+        "GET"
+      ],
+      "url": "/iqac_monthly_report",
+      "defined_at": "backend/app.py:2830",
+      "auth_gate": "SESSION|COORD",
+      "returns_json": false,
+      "renders_template": true,
+      "streams_file": false,
+      "redirects": true
+    },
+    {
+      "endpoint": "iqac_report_save_draft",
+      "methods": [
+        "POST"
+      ],
+      "url": "/iqac_report/save_draft",
+      "defined_at": "backend/app.py:2995",
+      "auth_gate": "SESSION|COORD",
+      "returns_json": true,
+      "renders_template": false,
+      "streams_file": false,
+      "redirects": false
+    },
+    {
+      "endpoint": "iqac_report_view_raw",
+      "methods": [
+        "GET"
+      ],
+      "url": "/iqac_report/view_raw/<target_username>/<reporting_month>",
+      "defined_at": "backend/app.py:3145",
+      "auth_gate": "SESSION",
+      "returns_json": false,
+      "renders_template": true,
+      "streams_file": false,
+      "redirects": true
+    },
+    {
+      "endpoint": "iqac_report_unlock",
+      "methods": [
+        "POST"
+      ],
+      "url": "/iqac_report/unlock/<reporting_month>",
+      "defined_at": "backend/app.py:3264",
+      "auth_gate": "SESSION",
+      "returns_json": false,
+      "renders_template": false,
+      "streams_file": false,
+      "redirects": true
+    },
+    {
+      "endpoint": "admin_reject_report",
+      "methods": [
+        "POST"
+      ],
+      "url": "/admin_reject_report/<int:id>",
+      "defined_at": "backend/app.py:3309",
+      "auth_gate": "SESSION|ADMIN|SEC",
+      "returns_json": false,
+      "renders_template": false,
+      "streams_file": false,
+      "redirects": true
+    },
+    {
+      "endpoint": "view_report",
+      "methods": [
+        "GET"
+      ],
+      "url": "/view_report/<int:report_id>",
+      "defined_at": "backend/app.py:3366",
+      "auth_gate": "SESSION",
+      "returns_json": false,
+      "renders_template": false,
+      "streams_file": true,
+      "redirects": true
+    },
+    {
+      "endpoint": "view_attachment",
+      "methods": [
+        "GET"
+      ],
+      "url": "/view_attachment/<int:attachment_id>",
+      "defined_at": "backend/app.py:3432",
+      "auth_gate": "SESSION",
+      "returns_json": false,
+      "renders_template": false,
+      "streams_file": true,
+      "redirects": true
+    },
+    {
+      "endpoint": "iqac_upload_signed_report",
+      "methods": [
+        "POST"
+      ],
+      "url": "/iqac_upload_signed_report",
+      "defined_at": "backend/app.py:3507",
+      "auth_gate": "SESSION|COORD",
+      "returns_json": false,
+      "renders_template": false,
+      "streams_file": false,
+      "redirects": true
+    },
+    {
+      "endpoint": "admin_signed_reports",
+      "methods": [
+        "GET"
+      ],
+      "url": "/admin_signed_reports",
+      "defined_at": "backend/app.py:3639",
+      "auth_gate": "SESSION|ADMIN|SEC",
+      "returns_json": false,
+      "renders_template": true,
+      "streams_file": false,
+      "redirects": true
+    },
+    {
+      "endpoint": "public_workshop_attachments",
+      "methods": [
+        "GET"
+      ],
+      "url": "/workshop_attachments",
+      "defined_at": "backend/app.py:3696",
+      "auth_gate": "SESSION",
+      "returns_json": false,
+      "renders_template": true,
+      "streams_file": false,
+      "redirects": true
+    },
+    {
+      "endpoint": "admin_review_report",
+      "methods": [
+        "POST"
+      ],
+      "url": "/admin_review_report/<int:id>",
+      "defined_at": "backend/app.py:3735",
+      "auth_gate": "SESSION|ADMIN|SEC",
+      "returns_json": false,
+      "renders_template": false,
+      "streams_file": false,
+      "redirects": true
+    },
+    {
+      "endpoint": "secretary_dashboard",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "url": "/secretary_dashboard",
+      "defined_at": "backend/app.py:3760",
+      "auth_gate": "SESSION|SECRETARY",
+      "returns_json": false,
+      "renders_template": true,
+      "streams_file": false,
+      "redirects": true
+    },
+    {
+      "endpoint": "pdf.iqac_monthly_report_download",
+      "methods": [
+        "POST"
+      ],
+      "url": "/iqac_monthly_report/download",
+      "defined_at": "backend/routes/pdf.py:96",
+      "auth_gate": "SESSION|COORD",
+      "returns_json": true,
+      "renders_template": false,
+      "streams_file": true,
+      "redirects": true
+    },
+    {
+      "endpoint": "pdf.iqac_coordinator_report_preview",
+      "methods": [
+        "POST"
+      ],
+      "url": "/iqac_coordinator_report/preview",
+      "defined_at": "backend/routes/pdf.py:672",
+      "auth_gate": "SESSION|COORD",
+      "returns_json": false,
+      "renders_template": false,
+      "streams_file": true,
+      "redirects": true
+    },
+    {
+      "endpoint": "pdf.iqac_coordinator_report_submit",
+      "methods": [
+        "POST"
+      ],
+      "url": "/iqac_coordinator_report/submit",
+      "defined_at": "backend/routes/pdf.py:744",
+      "auth_gate": "SESSION|COORD",
+      "returns_json": true,
+      "renders_template": false,
+      "streams_file": false,
+      "redirects": false
+    },
+    {
+      "endpoint": "pdf.iqac_coordinator_report_download",
+      "methods": [
+        "POST"
+      ],
+      "url": "/iqac_coordinator_report/download",
+      "defined_at": "backend/routes/pdf.py:1051",
+      "auth_gate": "SESSION|COORD",
+      "returns_json": true,
+      "renders_template": false,
+      "streams_file": true,
+      "redirects": true
+    }
+  ]
+}

@@ -1,0 +1,375 @@
+{
+  "corpus": "IQAC Manager documentation",
+  "description": "Machine index. Query this first to decide which files to load; do not read the whole corpus.",
+  "project": {
+    "backend": "Flask 3.0.0 + PostgreSQL (psycopg 3.3.4) + ReportLab 4.2.5 + Cloudinary + APScheduler 3.10.4",
+    "frontend": "Angular 22.1.2 standalone + Bootstrap 5.3.8 + ng-bootstrap 21 + Chart.js 4.5.1",
+    "backend_lines": {
+      "backend/app.py": 3915,
+      "backend/routes/pdf.py": "~1200"
+    },
+    "counts": {
+      "routes": 39,
+      "tables": 7,
+      "templates": 22,
+      "template_lines": 12162,
+      "frontend_feature_screens": 0,
+      "env_vars": 15
+    },
+    "frontend_state": "scaffold only: app.config.ts, session interceptor, API base token, theme layer. app.routes.ts is an empty array.",
+    "deployment": "Render, gunicorn --chdir backend app:app"
+  },
+  "loading_strategy": {
+    "principle": "Load the minimum. No single task should need more than two or three files.",
+    "steps": [
+      "1. Read manifest.json and pick files by task.",
+      "2. Read the scope router (backend/README.md or frontend/README.md) if the task is open-ended.",
+      "3. Query data/*.json for facts. Do not parse prose tables.",
+      "4. Read backend/10-gotchas.md before changing anything.",
+      "5. Read glossary.md before business-logic work."
+    ],
+    "never_load_whole_corpus": true
+  },
+  "conventions": {
+    "file_refs": "file:line, relative to the repo root",
+    "VERIFIED": "author read the code; anything without it is a hypothesis",
+    "warning_marker": "U+26A0 marks a defect, not a style opinion",
+    "facts_vs_advice": "descriptions are current-state; recommendations are in explicit sections and never mixed into factual sections",
+    "regeneration": "backend/data/routes.json is generated from app.url_map; regenerate rather than hand-edit counts"
+  },
+  "critical_context": [
+    {
+      "id": "GC-01",
+      "summary": "Global psycopg.Cursor.fetchone monkeypatch rewrites the current user's role to the active role; fetchall is NOT patched, so list-shaped role checks disagree with single-row ones.",
+      "file": "backend/app.py:20-34",
+      "read": "documents/backend/03-authentication.md"
+    },
+    {
+      "id": "GC-02",
+      "summary": "users.role is a comma-separated VARCHAR; available_roles[0] becomes session['role'] and decides the landing page. CSV order is load-bearing.",
+      "file": "backend/app.py:775",
+      "read": "documents/backend/03-authentication.md"
+    },
+    {
+      "id": "GC-03",
+      "summary": "signed_reports lacks UNIQUE(username, reporting_month) though five code paths assume one row per coordinator-month.",
+      "file": "backend/app.py:559-568",
+      "read": "documents/backend/06-coordinator-reports.md"
+    },
+    {
+      "id": "GC-04",
+      "summary": "enforce_password_change is a before_request hook that only checks must_change_password; it is NOT an auth guard. All 41 login/role checks are hand-copied inline.",
+      "file": "backend/app.py:700-708",
+      "read": "documents/backend/03-authentication.md"
+    },
+    {
+      "id": "GC-05",
+      "summary": "Worklog attachments are served from /static/ with no session, ownership, or role check.",
+      "file": "backend/templates/user_report.html:569",
+      "read": "documents/backend/11-security.md"
+    },
+    {
+      "id": "GC-06",
+      "summary": "dashboard.html fetches /_session_check, which does not exist; the 404 is swallowed.",
+      "file": "backend/templates/dashboard.html",
+      "read": "documents/backend/09-legacy-templates.md"
+    },
+    {
+      "id": "GC-07",
+      "summary": "The Angular app keeps the Flask session cookie via a same-origin /api proxy. Do not migrate to JWT without reimplementing the monkeypatch semantics.",
+      "file": "frontend/src/app/core/api/api-base-url.ts",
+      "read": "documents/frontend/01-architecture.md"
+    },
+    {
+      "id": "GC-08",
+      "summary": "The submission window has three divergent server implementations that disagree; never recompute it client-side.",
+      "file": "backend/app.py:440-510",
+      "read": "documents/backend/06-coordinator-reports.md"
+    },
+    {
+      "id": "GC-09",
+      "summary": "The theme toggle must write BOTH data-theme and data-bs-theme to <html> and persist to localStorage.theme.",
+      "file": "frontend/src/styles/_theme.scss",
+      "read": "documents/frontend/03-design-system.md"
+    },
+    {
+      "id": "GC-10",
+      "summary": "chart.js is installed but ng2-charts is not; a decision is required before writing any chart code.",
+      "file": "frontend/package.json",
+      "read": "documents/frontend/02-toolchain.md"
+    }
+  ],
+  "file_count": 25,
+  "files": [
+    {
+      "path": "documents/README.md",
+      "kind": "router",
+      "scope": "top",
+      "purpose": "Entry point. Orient the repo, then jump to the backend or frontend router.",
+      "bytes": 6074,
+      "lines": 117,
+      "is_router": true
+    },
+    {
+      "path": "documents/backend/01-architecture.md",
+      "kind": "reference",
+      "scope": "backend",
+      "purpose": "Boot sequence, request lifecycle, submission window, report lifecycle, role routing. Orientation doc.",
+      "bytes": 10502,
+      "lines": 224
+    },
+    {
+      "path": "documents/backend/02-routing-contract.md",
+      "kind": "reference",
+      "scope": "backend",
+      "purpose": "Route groups by role, JSON response contract, template-referenced routes that do not exist, endpoint groups the Angular app needs.",
+      "bytes": 18954,
+      "lines": 181
+    },
+    {
+      "path": "documents/backend/03-authentication.md",
+      "kind": "reference",
+      "scope": "backend",
+      "purpose": "HIGHEST RISK. Sessions, the psycopg fetchone monkeypatch, 4 role-matching strategies, all 41 inline auth checks, password handling.",
+      "bytes": 16260,
+      "lines": 362
+    },
+    {
+      "path": "documents/backend/04-data-model.md",
+      "kind": "reference",
+      "scope": "backend",
+      "purpose": "Narrative schema, per-table read/write sites, index gaps, db.py connection behaviour, migrate_to_postgres.py analysis, recommendations.",
+      "bytes": 18878,
+      "lines": 481
+    },
+    {
+      "path": "documents/backend/05-worklog.md",
+      "kind": "domain",
+      "scope": "backend",
+      "purpose": "Employee daily entries, six categories, 7-day edit window, attachments, JSON-in-TEXT handling, reporting.",
+      "bytes": 8587,
+      "lines": 261
+    },
+    {
+      "path": "documents/backend/06-coordinator-reports.md",
+      "kind": "domain",
+      "scope": "backend",
+      "purpose": "Monthly submission state machine, 4 statuses, review workflow, drafts, workshop reconciliation, missing unique constraint.",
+      "bytes": 10488,
+      "lines": 297
+    },
+    {
+      "path": "documents/backend/07-pdf-rendering.md",
+      "kind": "domain",
+      "scope": "backend",
+      "purpose": "ReportLab generators, 4 PDF routes, 4 reporting variants, environment-driven school/campus selection, Cloudinary streaming.",
+      "bytes": 5827,
+      "lines": 155
+    },
+    {
+      "path": "documents/backend/08-integrations.md",
+      "kind": "domain",
+      "scope": "backend",
+      "purpose": "Cloudinary, SMTP, Gemini+NVIDIA AI, APScheduler multi-worker issue, Render deployment, startup ordering.",
+      "bytes": 9127,
+      "lines": 257
+    },
+    {
+      "path": "documents/backend/09-legacy-templates.md",
+      "kind": "domain",
+      "scope": "backend",
+      "purpose": "The 22 Jinja templates, layout duplication, what to extract vs discard, port order.",
+      "bytes": 6967,
+      "lines": 192
+    },
+    {
+      "path": "documents/backend/10-gotchas.md",
+      "kind": "reference",
+      "scope": "backend",
+      "purpose": "READ FIRST. 30 traps that produce wrong behaviour rather than errors.",
+      "bytes": 9945,
+      "lines": 335
+    },
+    {
+      "path": "documents/backend/11-security.md",
+      "kind": "reference",
+      "scope": "backend",
+      "purpose": "18 findings with severity, evidence, exploit, fix, and remediation order.",
+      "bytes": 15444,
+      "lines": 395
+    },
+    {
+      "path": "documents/backend/README.md",
+      "kind": "router",
+      "scope": "backend",
+      "purpose": "Backend router. Task-to-file table plus conventions.",
+      "bytes": 5384,
+      "lines": 77,
+      "is_router": true
+    },
+    {
+      "path": "documents/frontend/01-architecture.md",
+      "kind": "reference",
+      "scope": "frontend",
+      "purpose": "Standalone architecture, file tree, providers, session-cookie strategy, API access, routing, missing GET /api/me.",
+      "bytes": 7854,
+      "lines": 235
+    },
+    {
+      "path": "documents/frontend/02-toolchain.md",
+      "kind": "reference",
+      "scope": "frontend",
+      "purpose": "Exact dependency versions, Node/npm, scripts, strict TS flags, ESLint/Prettier, angular.json budgets.",
+      "bytes": 5598,
+      "lines": 182
+    },
+    {
+      "path": "documents/frontend/03-design-system.md",
+      "kind": "reference",
+      "scope": "frontend",
+      "purpose": "Bootstrap + ng-bootstrap setup, ported theme layer, the two-attribute data-theme/data-bs-theme contract, charts, shared UI to extract.",
+      "bytes": 6314,
+      "lines": 192
+    },
+    {
+      "path": "documents/frontend/04-conventions.md",
+      "kind": "reference",
+      "scope": "frontend",
+      "purpose": "Naming, folder layout, signals, routing, API calls, types, forms, lint rules that fail the build.",
+      "bytes": 7068,
+      "lines": 243
+    },
+    {
+      "path": "documents/frontend/05-migration-plan.md",
+      "kind": "plan",
+      "scope": "frontend",
+      "purpose": "Prerequisites, 5-step port order, API surface to build, risks, per-screen definition of done.",
+      "bytes": 8176,
+      "lines": 179
+    },
+    {
+      "path": "documents/frontend/README.md",
+      "kind": "router",
+      "scope": "frontend",
+      "purpose": "Frontend router. Commands, current state, task-to-file table.",
+      "bytes": 3684,
+      "lines": 83,
+      "is_router": true
+    },
+    {
+      "path": "documents/glossary.md",
+      "kind": "reference",
+      "scope": "top",
+      "purpose": "Domain vocabulary: IQAC, AQAR, coordinator, worklog, reporting month, active role. Read before any business-logic work.",
+      "bytes": 6832,
+      "lines": 208
+    },
+    {
+      "path": "documents/backend/data/env-vars.json",
+      "kind": "fact",
+      "scope": "backend",
+      "purpose": "Every env var with file:line, default, required flag, failure mode. Plus hardcoded secrets and dev-only vars.",
+      "bytes": 5334,
+      "records": 15,
+      "record_path": "critical+ai_providers+smtp",
+      "record_count_verified": true,
+      "top_level_keys": [
+        "description",
+        "critical",
+        "ai_providers",
+        "smtp",
+        "hardcoded_secrets_and_pii",
+        "dev_only",
+        "not_used_but_assumed"
+      ]
+    },
+    {
+      "path": "documents/backend/data/permissions.json",
+      "kind": "fact",
+      "scope": "backend",
+      "purpose": "Role model, monkeypatch semantics, 4 matching strategies, session keys, endpoint grants, escalation candidates, migration guidance.",
+      "bytes": 10341,
+      "records": 5,
+      "record_path": "roles.definitions",
+      "record_count_verified": true,
+      "top_level_keys": [
+        "description",
+        "read_also",
+        "roles",
+        "the_monkeypatch",
+        "matching_strategies",
+        "global_guard",
+        "session_keys",
+        "authentication",
+        "endpoint_grants",
+        "privilege_escalation_candidates",
+        "migration_guidance"
+      ]
+    },
+    {
+      "path": "documents/backend/data/routes.json",
+      "kind": "fact",
+      "scope": "backend",
+      "purpose": "All 39 routes with methods, file:line, auth gate, response kind. GENERATED from app.url_map. Plus 4 known anomalies.",
+      "bytes": 14238,
+      "records": 39,
+      "record_path": "routes",
+      "record_count_verified": true,
+      "top_level_keys": [
+        "description",
+        "generated_from",
+        "total",
+        "auth_gate_legend",
+        "known_anomalies",
+        "routes"
+      ]
+    },
+    {
+      "path": "documents/backend/data/schema.json",
+      "kind": "fact",
+      "scope": "backend",
+      "purpose": "All 7 tables: columns, types, nullability, keys, enums, indexes, defects, recommended indexes.",
+      "bytes": 10487,
+      "records": 7,
+      "record_path": "tables",
+      "record_count_verified": true,
+      "top_level_keys": [
+        "description",
+        "dialect",
+        "bootstrap",
+        "tables",
+        "enums",
+        "recommended_indexes"
+      ]
+    },
+    {
+      "path": "documents/frontend/data/screen-map.json",
+      "kind": "fact",
+      "scope": "frontend",
+      "purpose": "22 legacy templates to planned Angular components (21 screens + 1 layout). Line counts, script blocks, fetch targets, shared UI patterns.",
+      "bytes": 8160,
+      "records": 22,
+      "record_path": "screens+layouts",
+      "record_count_verified": true,
+      "top_level_keys": [
+        "description",
+        "verified_counts",
+        "layouts",
+        "layout_problem",
+        "screens",
+        "client_side_fetch_calls",
+        "server_rendered_form_actions",
+        "shared_ui_to_extract"
+      ]
+    }
+  ],
+  "verification": {
+    "note": "Every data/*.json record count was checked against the file's own contents at manifest-generation time.",
+    "data_files_verified": 5,
+    "all_match": true,
+    "corpus_stats": {
+      "documents_written": 20,
+      "data_files": 5
+    }
+  }
+}

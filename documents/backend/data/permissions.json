@@ -1,0 +1,175 @@
+{
+  "description": "Role model, authorization predicates, and the full permission matrix. READ THIS BEFORE ANY AUTH WORK. The role system is the most fragile subsystem in the codebase.",
+  "read_also": "backend/03-authentication.md",
+  "roles": {
+    "storage_format": {
+      "column": "users.role",
+      "type": "VARCHAR(255)",
+      "format": "comma-separated list",
+      "examples": [
+        "Admin",
+        "Secretary",
+        "School IQAC Coordinator",
+        "Campus IQAC Coordinator",
+        "Secretary, Campus IQAC Coordinator"
+      ],
+      "warning": "There is no normalisation, no CHECK constraint, and no roles table."
+    },
+    "active_role": {
+      "definition": "session['role'] = available_roles[0] at login, or the value chosen via /switch_role",
+      "significance": "CSV ORDER IS LOAD-BEARING. available_roles[0] decides the landing page and the monkeypatched value.",
+      "edge_cases": [
+        "role='' yields session['role']=='' and routes to /dashboard",
+        "role=NULL raises AttributeError at login (HTTP 500)"
+      ]
+    },
+    "definitions": [
+      {"name": "Admin", "token": "admin", "home": "/admin"},
+      {"name": "School IQAC Coordinator", "token": "school iqac coordinator", "home": "/iqac_dashboard"},
+      {"name": "Campus IQAC Coordinator", "token": "campus iqac coordinator", "home": "/iqac_dashboard"},
+      {"name": "Secretary", "token": "secretary", "home": "/secretary_dashboard"},
+      {"name": "(anything else)", "token": null, "home": "/dashboard"}
+    ]
+  },
+  "the_monkeypatch": {
+    "location": "backend/app.py:20-34",
+    "what": "Overrides psycopg.Cursor.fetchone globally so the CURRENT user's row has its role replaced by session['role'].",
+    "why": "Nearly every role check is exact string equality, which fails against CSV values. Rather than rewrite ~20 call sites, the app rewrites the row at read time.",
+    "semantics": {
+      "scope": "process-global; affects every psycopg.Cursor in the interpreter including secondary connections",
+      "trigger": "fetchone() returning a dict containing BOTH 'role' and 'username' keys",
+      "restriction": "only when row['username'] == session['username']; can never rewrite another user's row",
+      "requires": "psycopg rows must be dict_row, else the patch is a silent no-op"
+    },
+    "limitations": [
+      {"limitation": "fetchall() is NOT patched", "consequence": "Every list-shaped role decision is inconsistent with single-row ones. Concretely backend/app.py:2382 and the report dropdowns at backend/app.py:1856, 1860 show raw CSV while the gate used the patched role."},
+      {"limitation": "no re-entrancy guard", "consequence": "re-executing the module nests wrappers"},
+      {"limitation": "subclasses overriding fetchone bypass it", "consequence": null}
+    ],
+    "do_not": "Replacing this is a real refactor requiring a full audit of every role comparison plus a normalised role model. It is not a cleanup."
+  },
+  "matching_strategies": [
+    {
+      "id": "exact_equality_on_patched_value",
+      "code": "user['role'].lower() != 'admin'",
+      "sites": ["backend/app.py:842", "plus 7 more .lower() != 'admin' sites"],
+      "reliability": "only correct BECAUSE the monkeypatch replaced the CSV with one role"
+    },
+    {
+      "id": "is_coordinator_token_membership",
+      "code": "split on comma, strip, lowercase, then test exact token membership",
+      "definition_sites": ["backend/app.py:70-74", "backend/routes/pdf.py:16-20"],
+      "reliability": "handles CSV correctly and safely handles None/''",
+      "caveat": "'IQAC Coordinator' (no qualifier) returns False, which is why the boot migration at backend/app.py:624 exists"
+    },
+    {
+      "id": "strpos_substring",
+      "code": "WHERE strpos(role, 'School IQAC Coordinator') > 0",
+      "site_count": 18,
+      "sites": ["backend/app.py:1433, 1453, 1460, 1469, 1478, 1485, 1508, 1856, 1860, 2124, 2578, 2703, 3779, 3787, 3796, 3804, 3810, 3818"],
+      "reliability": "SUBSTRING MATCH on a CSV column. A role like 'Not A School IQAC Coordinator' would match. strpos(...)=0 is NOT the same as 'CSV does not contain this role'.",
+      "exclusion_form_sites": ["backend/app.py:1433", "backend/app.py:1856", "backend/app.py:2124"]
+    },
+    {
+      "id": "notification_audience_broad",
+      "code": "LOWER(role)='admin' OR LOWER(role) LIKE '%secretary%' OR LOWER(designation) LIKE '%secretary%' OR LOWER(username) LIKE '%secretary%'",
+      "site": "backend/app.py:156-162",
+      "reliability": "very loose; also matches admins whose designation contains 'secretary'"
+    },
+    {
+      "id": "notification_audience_narrow",
+      "code": "WHERE role IN ('Admin','Secretary')",
+      "sites": ["backend/app.py:3610", "backend/routes/pdf.py:1000"],
+      "reliability": "WILL MISS most rows, because IN requires whole-string equality and multi-role CSV values like 'Secretary, Campus IQAC Coordinator' do not match."
+    }
+  ],
+  "global_guard": {
+    "name": "enforce_password_change",
+    "location": "backend/app.py:700-708",
+    "registered": "@app.before_request",
+    "allowlist": ["login", "logout", "change_password", "static"],
+    "key_facts": [
+      "It NEVER checks whether anyone is logged in. It only enforces the password-change flag. Every route implements its own login check separately.",
+      "The allowlist is keyed on request.endpoint (the function name), not the URL.",
+      "not request.endpoint short-circuits unmatched URLs, avoiding a redirect loop.",
+      "Being app-level, it DOES cover pdf.* blueprint endpoints.",
+      "home is NOT exempt, so a flagged user is redirected before home's own /login redirect runs.",
+      "It flashes on every intercepted request, so duplicate warnings accumulate.",
+      "It trusts the session flag, not the database. An admin password reset does not affect an already-open session."
+    ]
+  },
+  "session_keys": {
+    "storage": "signed client-side cookie; app.config is never assigned so Flask 3.0 defaults apply (HTTPONLY=True, SECURE=False, no SameSite)",
+    "keys": [
+      {"key": "username", "set_at": "backend/app.py:771", "purpose": "Identity key. Its presence IS the login test in every handler."},
+      {"key": "full_name", "set_at": "backend/app.py:772", "purpose": "Display only; never re-validated against the DB"},
+      {"key": "available_roles", "set_at": "backend/app.py:774", "purpose": "CSV split + stripped. Whitelist gating /switch_role"},
+      {"key": "role", "set_at": "backend/app.py:775, 804", "purpose": "THE ACTIVE ROLE. Read by the monkeypatch."},
+      {"key": "must_change_password", "set_at": "backend/app.py:776, 736", "purpose": "Gates every endpoint except login/logout/change_password/static"}
+    ],
+    "logout_defect": {
+      "location": "backend/app.py:821-825",
+      "problem": "session.pop('username') only. role, full_name, available_roles, and must_change_password persist in the client cookie after logout.",
+      "fix": "Use session.clear()"
+    }
+  },
+  "authentication": {
+    "login_flow": "backend/app.py:760-790",
+    "password_hashing": "werkzeug generate_password_hash / check_password_hash (PBKDF2 by default)",
+    "temporary_password": "8 chars from ascii_letters + digits (backend/app.py:1737, 1801, 2528)",
+    "minimum_length_on_change": 6,
+    "csrf": "NONE. No CSRF library in requirements.txt, no token on any form including /change_password.",
+    "custom_decorators": "NONE. No @login_required or @admin_required anywhere. All 41 checks are hand-copied inline.",
+    "role_check_count": {"app_py": 37, "pdf_py": 4}
+  },
+  "endpoint_grants": [
+    {"route": "/admin", "auth": "SESSION + admin"},
+    {"route": "/admin/users", "auth": "SESSION + admin"},
+    {"route": "/admin/add_user", "auth": "SESSION + admin"},
+    {"route": "/admin/analytics_data", "auth": "SESSION + admin|secretary"},
+    {"route": "/admin/review", "auth": "SESSION + admin"},
+    {"route": "/admin/workshop_attachments", "auth": "SESSION only (NO ROLE CHECK)"},
+    {"route": "/admin/delete_attachment", "auth": "SESSION + elevated or owner"},
+    {"route": "/auto_iqac_reminders", "auth": "NONE"},
+    {"route": "/worklog_report", "auth": "SESSION + ownership + entry age <= 7 days"},
+    {"route": "/chairperson_report", "auth": "SESSION + admin"},
+    {"route": "/chairperson_approve", "auth": "SESSION + admin"},
+    {"route": "/view_worklog", "auth": "SESSION + ownership + age <= 7 days"},
+    {"route": "/view_report", "auth": "SESSION + admin"},
+    {"route": "/forgot_password", "auth": "PUBLIC"},
+    {"route": "/secretary_dashboard", "auth": "SESSION + secretary"},
+    {"route": "/secretary_review", "auth": "SESSION + admin|secretary"},
+    {"route": "/pdf/*", "auth": "COORD except pdf/report_standard_download which is SECRETARY-only"}
+  ],
+  "privilege_escalation_candidates": [
+    {
+      "id": "PE-01",
+      "location": "backend/app.py:3701-3702",
+      "issue": "Session-only check with no role check",
+      "impact": "Any authenticated user can reach the endpoint",
+      "confidence": "VERIFIED"
+    },
+    {
+      "id": "PE-02",
+      "location": "backend/app.py:3701 / backend/app.py:2108-2109",
+      "issue": "Session check present but role check missing or admin-only",
+      "impact": "Coordinator workflows reachable by employees",
+      "confidence": "VERIFIED"
+    },
+    {
+      "id": "PE-03",
+      "location": "backend/app.py:1785, 2743",
+      "issue": "Routes with no authentication check at all",
+      "impact": "Unauthenticated state access",
+      "confidence": "VERIFIED"
+    }
+  ],
+  "migration_guidance": [
+    "Keep the Flask session cookie; switching to JWT requires reimplementing the monkeypatch semantics, before_request, and every inline guard.",
+    "Add GET /api/me returning the session dict verbatim; it is the only thing the Angular shell needs.",
+    "Replace /switch_role GET with POST /api/active-role, and add CSRF protection at the same time.",
+    "Mirror enforce_password_change as an Angular route guard, but treat it as convenience only; server checks stay authoritative.",
+    "Return 401 JSON for XHR instead of a 302, branching on X-Requested-With which sessionInterceptor already sends.",
+    "Do NOT trust client-side role gating; given substring matching and unpatched fetchall, client assumptions will diverge from the server view."
+  ]
+}

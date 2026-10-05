@@ -1,0 +1,182 @@
+# Frontend — Toolchain
+
+Exact versions from `frontend/package.json`. All installed and verified working.
+
+---
+
+## 1. Runtime
+
+| Tool | Version |
+|---|---|
+| Node | `v26.2.0` |
+| npm | `11.13.0` |
+| Angular CLI | `22.1.2` |
+
+Requires Node 20.19+ or 22.12+ per Angular 22, so Node 26 is fine.
+
+---
+
+## 2. Dependencies
+
+```json
+"dependencies": {
+  "@angular/common":       "^22.1.0",
+  "@angular/compiler":     "^22.1.0",
+  "@angular/core":         "^22.1.0",
+  "@angular/forms":        "^22.1.0",
+  "@angular/localize":     "^22.2.1",
+  "@angular/platform-browser": "^22.1.0",
+  "@angular/router":       "^22.1.0",
+  "@ng-bootstrap/ng-bootstrap": "^21.0.0",
+  "@popperjs/core":        "^2.11.8",
+  "bootstrap":            "^5.3.8",
+  "bootstrap-icons":      "^1.13.1",
+  "chart.js":             "^4.5.1",
+  "rxjs":                  "~7.8.0",
+  "tslib":                 "^2.3.0",
+  "zone.js":               "~0.16.0"
+}
+```
+
+### ⚠ `chart.js` without `ng2-charts`
+
+`chart.js` is a dependency but **`ng2-charts` is not installed**. Chart.js has no
+Angular integration on its own — it needs manual lifecycle management or a
+wrapper. Decide before writing any chart code:
+
+- **Option A** — `npm i ng2-charts`, which wraps Chart.js with a directive and
+  registers the components. Least code.
+- **Option B** — a thin standalone component that instantiates `Chart` in
+  `afterNextRender` and destroys it in `ngOnDestroy`. No new dependency, but you
+  own the lifecycle.
+
+See [03-design-system.md](03-design-system.md) §6.
+
+### `@angular/localize`
+
+Present because ng-bootstrap pulls it in. Add `angular localize` to
+`angular.json` only if `$localize` is actually used in templates.
+
+---
+
+## 3. Dev dependencies
+
+```json
+"@angular/build":       "^22.1.2",
+"@angular/cli":         "^22.1.2",
+"@angular/compiler-cli": "^22.1.0",
+"@eslint/js":           "^10.0.1",
+"angular-eslint":       "22.5.0",
+"eslint":               "^10.9.1",
+"eslint-config-prettier":"^10.1.8",
+"jsdom":                "^28.0.0",
+"prettier":             "^3.8.1",
+"typescript":           "~6.0.2",
+"typescript-eslint":    "8.69.0",
+"vitest":               "^4.0.8"
+```
+
+Note **Vitest**, not Karma or Jest — Angular 22's default unit-test runner, using
+`jsdom` as the environment.
+
+### ⚠ TypeScript `~6.0.2`
+
+TypeScript 6 with `typescript-eslint` 8.69 and `angular-eslint` 22.5. If you hit
+an unexplained type error, suspect the compiler version before suspecting your
+code.
+
+---
+
+## 4. Scripts
+
+```bash
+npm start           # ng serve
+npm run build       # ng build
+npm run watch       # ng build --watch --configuration development
+npm test            # ng test
+npm run lint        # ng lint
+npm run format      # prettier --write "src/**/*.{ts,html,scss}"
+npm run format:check
+```
+
+The dev server proxies `/api` to Flask automatically — see `proxy.conf.json`,
+referenced from `angular.json`.
+
+---
+
+## 5. TypeScript configuration
+
+Strict mode is on. Relevant flags and their consequences:
+
+| Flag | Consequence |
+|---|---|
+| `strict` | No implicit `any`, strict null checks, no implicit `this` |
+| `strictTemplates` | Template type checking — **the most common source of build failures** |
+| `noImplicitOverride` | Must write `override` when overriding a base member |
+| `noPropertyAccessFromIndexSignature` | Must use `obj['key']` for index signatures |
+| `noImplicitReturns` | All code paths must return |
+| `noFallthroughCasesInSwitch` | No silent fallthrough |
+| `isolatedModules` | `export type` needed for type-only re-exports |
+| `verbatimModuleSyntax` | `import type` for type-only imports |
+
+**`noPropertyAccessFromIndexSignature`** is the one that surprises people:
+`response['user']` rather than `response.user` when the type has an index
+signature.
+
+---
+
+## 6. Lint and format
+
+- **ESLint 10 flat config** (`eslint.config.js`), no `.eslintrc`.
+- **angular-eslint 22.5** — includes the template rules. `inline-template` and
+  `no-any` are the ones that bite.
+- **eslint-config-prettier** is applied last, so formatting conflicts do not
+  double-report. Prettier and ESLint must never fight: let Prettier own
+  formatting, let ESLint own correctness.
+
+Run `npm run format` before `npm run lint` to separate real issues from style
+noise.
+
+---
+
+## 7. `angular.json` essentials
+
+| Setting | Value / note |
+|---|---|
+| Output path | `dist/frontend` |
+| Builder | `@angular/build:application` (esbuild-based) |
+| Styles | `src/styles.scss`, `src/styles/_theme.scss` |
+| Assets | `public/` copied verbatim; `src/favicon.ico`, `src/assets/` |
+| Polyfills | `zone.js` |
+| Dev proxy | `proxy.conf.json` |
+| Default project | `frontend` |
+
+### Bundle budgets
+
+| Budget | Limit | Type |
+|---|---|---|
+| `initial` | 500 kB warning / 1 MB error | bundle |
+| `anyComponentStyle` | 4 kB warning / 8 kB error | component stylesheet |
+
+The `anyComponentStyle` budget is the one to watch. The legacy inline `<style>`
+blocks run 100–200 lines per screen; porting them **verbatim into a component
+`styles` array** will breach the 4 kB warning. Move shared rules to
+`src/styles/` and let components stay small. This is a deliberate design
+pressure — do not raise the budget to make the error go away.
+
+Chart.js is heavy. A single chart page will likely exceed the 500 kB initial
+budget, so **lazy load** chart routes.
+
+---
+
+## 8. Verified working
+
+| Check | Result |
+|---|---|
+| `npm run build` | passes |
+| `npm run lint` | passes |
+| `ng serve` serves the app | passes |
+| `/api` proxy reaches Flask | passes |
+| No `NgModule` in the repo | confirmed |
+
+Re-run `npm run build && npm run lint` after any dependency change.

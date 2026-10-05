@@ -1,0 +1,70 @@
+{
+  "description": "Legacy Jinja screen inventory and the mapping to planned Angular standalone components. Use this to answer 'what does screen X do' and 'which component replaces template Y'.",
+  "verified_counts": {
+    "template_count": 22,
+    "total_lines": 12162,
+    "extends_base_html": 8,
+    "self_contained": 14,
+    "total_script_blocks": 106,
+    "note": "CORRECTION: an earlier revision of this corpus stated 23 templates. The verified count is 22."
+  },
+  "layouts": [
+    {
+      "template": "base.html",
+      "lines": 240,
+      "role": "The only layout template. Extended by 8 admin screens. Contains 5 inline script blocks. Its blocks (navbar, flash messages, theme toggle) are the reusable-shell blueprint for the Angular ShellComponent."
+    }
+  ],
+  "layout_problem": {
+    "fact": "Only 8 templates extend base.html: admin, admin_add_user, admin_manage_users, admin_edit_user, admin_report, admin_report_ai, admin_signed_reports, admin_settings",
+    "consequence": "The other 14 templates each inline their own full <head>, navbar, sidebar, and flash-message markup, so shell changes require 14 edits.",
+    "highest_script_density": [
+      {"file": "user_report.html", "script_blocks": 7, "lines": 717},
+      {"file": "secretary_dashboard.html", "script_blocks": 7, "lines": 803},
+      {"file": "user_add_entry.html", "script_blocks": 6, "lines": 774},
+      {"file": "workshop_attachments.html", "script_blocks": 6, "lines": 389}
+    ]
+  },
+  "screens": [
+    {"template": "login.html", "lines": 418, "renders_for": "PUBLIC", "served_by": "/login", "planned_component": "features/auth/LoginPage", "notes": "Inline CSS and 5 script blocks; no base.html"},
+    {"template": "forgot.html", "lines": 373, "renders_for": "PUBLIC", "served_by": "/forgot_password", "planned_component": "features/auth/ForgotPasswordPage", "notes": "Unauthenticated. No CSRF, no token, no rate limit"},
+    {"template": "change_password.html", "lines": 409, "renders_for": "SESSION + must_change_password", "served_by": "/change_password", "planned_component": "features/auth/ChangePasswordPage"},
+    {"template": "dashboard.html", "lines": 617, "renders_for": "SESSION fallback role", "served_by": "/dashboard", "planned_component": "features/employee/EmployeeDashboardPage", "notes": "CALLS /_session_check, WHICH DOES NOT EXIST. Handle 404 without crashing."},
+    {"template": "user_add_entry.html", "lines": 774, "renders_for": "SESSION", "served_by": "/add_entry", "planned_component": "features/employee/AddWorklogEntryPage", "notes": "Six-category form + attachment upload; 6 script blocks"},
+    {"template": "user_view_entries.html", "lines": 576, "renders_for": "SESSION + ownership", "served_by": "/view_worklog", "planned_component": "features/employee/ViewEntriesPage"},
+    {"template": "user_report.html", "lines": 717, "renders_for": "SESSION + ownership + 7-day age", "served_by": "/worklog_report", "planned_component": "features/employee/WorklogReportPage", "notes": "Links /static/<attachment> directly, bypassing auth"},
+    {"template": "edit.html", "lines": 559, "renders_for": "SESSION + ownership + 7-day age", "served_by": "/edit_entry", "planned_component": "features/employee/EditEntryPage"},
+    {"template": "admin.html", "lines": 603, "renders_for": "SESSION + admin", "served_by": "/admin", "planned_component": "features/admin/AdminDashboardPage", "notes": "Only file with chart references"},
+    {"template": "admin_manage_users.html", "lines": 223, "renders_for": "SESSION + admin", "served_by": "/admin/users", "planned_component": "features/admin/UserManagementPage", "notes": "Displays RAW CSV roles because fetchall is not monkeypatched"},
+    {"template": "admin_add_user.html", "lines": 110, "renders_for": "SESSION + admin", "served_by": "/admin/add_user", "planned_component": "features/admin/AddUserPage"},
+    {"template": "admin_edit_user.html", "lines": 128, "renders_for": "SESSION + admin", "served_by": "/admin/edit_user/<id>", "planned_component": "features/admin/EditUserPage"},
+    {"template": "admin_report.html", "lines": 896, "renders_for": "SESSION + admin", "served_by": "/chairperson_report", "planned_component": "features/admin/ChairpersonReportPage"},
+    {"template": "admin_report_ai.html", "lines": 364, "renders_for": "SESSION + admin", "served_by": "/chairperson_report?ai=1", "planned_component": "features/admin/AiSummaryPanelComponent", "notes": "AI variant of the chairperson report"},
+    {"template": "admin_signed_reports.html", "lines": 264, "renders_for": "SESSION + admin", "served_by": "/admin/signed_reports", "planned_component": "features/admin/SignedReportsReviewPage", "notes": "Review workflow: approve or request corrections"},
+    {"template": "admin_settings.html", "lines": 40, "renders_for": "SESSION + admin", "served_by": "/admin/settings", "planned_component": "features/admin/SettingsPage", "notes": "The ONLY template that genuinely uses base.html blocks; smallest file"},
+    {"template": "secretary_dashboard.html", "lines": 803, "renders_for": "SESSION + secretary", "served_by": "/secretary_dashboard", "planned_component": "features/secretary/SecretaryDashboardPage", "notes": "Most script blocks in the corpus (7)"},
+    {"template": "iqac_coordinator_dashboard.html", "lines": 793, "renders_for": "SESSION + coordinator", "served_by": "/iqac_dashboard", "planned_component": "features/coordinator/CoordinatorDashboardPage"},
+    {"template": "iqac_monthly_report.html", "lines": 1424, "renders_for": "SESSION + coordinator", "served_by": "/iqac_report", "planned_component": "features/coordinator/MonthlyReportPage", "notes": "LARGEST template. POSTs /iqac_report/save_draft via fetch."},
+    {"template": "iqac_coordinator_report.html", "lines": 1442, "renders_for": "SESSION + coordinator", "served_by": "/iqac_coordinator_report", "planned_component": "features/coordinator/AqarReportPage", "notes": "LARGEST template by 18 lines. POSTs /iqac_coordinator_report/submit and /iqac_report/save_draft via fetch."},
+    {"template": "workshop_attachments.html", "lines": 389, "renders_for": "SESSION ONLY (no role check)", "served_by": "/admin/workshop_attachments", "planned_component": "features/coordinator/WorkshopAttachmentsPage", "notes": "Route is under /admin/* but performs no role check"}
+  ],
+  "client_side_fetch_calls": [
+    {"file": "backend/templates/dashboard.html", "target": "/_session_check", "status": "BROKEN", "impact": "404; must not be replicated in Angular"},
+    {"file": "backend/templates/iqac_monthly_report.html", "target": "/iqac_report/save_draft", "method": "POST", "status": "OK"},
+    {"file": "backend/templates/iqac_coordinator_report.html", "target": "/iqac_report/save_draft", "method": "POST", "status": "OK"},
+    {"file": "backend/templates/iqac_coordinator_report.html", "target": "/iqac_coordinator_report/submit", "method": "POST", "status": "OK"}
+  ],
+  "server_rendered_form_actions": [
+    {"target": "edit", "from": ["backend/templates/edit.html", "backend/templates/user_view_entries.html"], "method": "POST"},
+    {"target": "static", "from": ["backend/templates/base.html"], "note": "the /static endpoint name appears in url_for calls; this is the Flask static route"}
+  ],
+  "shared_ui_to_extract": [
+    {"pattern": "Inline <head> with duplicate CSS links", "occurrences": 14, "target": "Angular index.html + global styles"},
+    {"pattern": "Navbar with role-dependent links", "occurrences": 14, "target": "shared ShellComponent with @if role blocks"},
+    {"pattern": "Flash message rendering", "occurrences": 22, "target": "ToastService component bound to the new API"},
+    {"pattern": "Theme toggle writing localStorage.theme", "occurrences": 14, "target": "ThemeService; contract must stay data-theme AND data-bs-theme"},
+    {"pattern": "Active-role switcher dropdown", "occurrences": 6, "target": "RoleSwitcherComponent calling POST /api/active-role"},
+    {"pattern": "Category select + task textarea pair", "occurrences": 3, "target": "shared CategoryTaskFieldComponent"},
+    {"pattern": "Month picker emitting YYYY-MM", "occurrences": 9, "target": "shared MonthPickerComponent"}
+  ]
+}
