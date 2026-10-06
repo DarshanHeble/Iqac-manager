@@ -42,3 +42,10 @@ __screenshots__/
 # System files
 .DS_Store
 Thumbs.db
+
+# Reference screenshots of the legacy Flask UI on main, captured during the
+# port and served from public/ so they open at /reference/<name>.png next to
+# the Angular build being compared against them. Local material only: 2.1 MB of
+# PNGs that are worthless once the Angular screens replace them, and permanent
+# in history if committed.
+/public/reference/

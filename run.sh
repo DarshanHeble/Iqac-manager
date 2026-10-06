@@ -4,6 +4,9 @@
 #
 #   ./run.sh [command]      up (default) · status · logs · db · sh · down · destroy · rebuild
 #
+#   ./run.sh                 start the stack and stream all logs, Ctrl-C to stop
+#   ./run.sh -d              same, but return to the shell once it is healthy
+#
 #   VERBOSE=1 ./run.sh      stream docker's raw output instead of summarising
 #
 # Requires ./setup.sh to have been run once.
@@ -79,8 +82,20 @@ wait_healthy() {
 
 # --- up ----------------------------------------------------------------------
 
+# Start the stack. Attaches to the logs and stops on Ctrl-C unless -d is passed.
 cmd_up() {
   need_env
+
+  DETACH=0
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      -d|--detach) DETACH=1; shift ;;
+      -h|--help)   dim "  ./run.sh [-d]"; return 0 ;;
+      *)           die "unknown up option: $1
+       try ./run.sh --help" ;;
+    esac
+  done
+
   dc_resolve
   dc_daemon
 
@@ -151,10 +166,84 @@ cmd_up() {
     warn "Cloudinary is unconfigured $G_DOT login and reports work, uploads will fail"
   fi
 
-  summary "Running ${G_DOT} http://localhost:$fe" ok
-  dim "  ./run.sh logs    follow logs"
-  dim "  ./run.sh down    stop, keep the database"
+  # -d, or no terminal to stream into. Both keep the old fire-and-forget shape:
+  # the script returns and the stack keeps running with `restart: unless-stopped`,
+  # so it survives the shell exiting.
+  if [ "$DETACH" = 1 ] || [ "$HAS_TTY" != 1 ]; then
+    [ "$HAS_TTY" != 1 ] && [ "$DETACH" != 1 ] \
+      && dim "not a terminal ${G_DOT} not following logs"
+    summary "Running ${G_DOT} http://localhost:$fe" ok
+    dim "  ./run.sh logs    follow logs"
+    dim "  ./run.sh down    stop, keep the database"
+    printf '\n' >&2
+    return 0
+  fi
+
+  follow_and_hold
+}
+
+# --- log streaming ------------------------------------------------------------
+
+# Stream every service's logs in the foreground, then stop the stack on Ctrl-C.
+#
+# This exists because the alternative — start detached, then type `./run.sh logs`
+# — loses the connection between "it is running" and "here is what it is doing".
+# Every request, traceback and scheduler tick lands in the same terminal that
+# started the stack, and one keystroke ends the session.
+#
+# The stream is `dc logs -f`, not `dc up`: `up` would own the container lifecycle
+# and re-run dependency resolution and the build, but the health gating above has
+# already proved the stack is good, and `up` would also make Ctrl-C tear down and
+# rebuild rather than just stop.
+follow_and_hold() {
+  trap 'stop_stack_on_interrupt' INT
   printf '\n' >&2
+  section "Logs"
+  dim "  streaming db, backend and frontend $G_DOT Ctrl-C to stop the stack"
+  printf '\n' >&2
+
+  # Container logs are data, so they go to stdout: `./run.sh > app.log` keeps the
+  # log stream and drops the chrome. No service name argument, so all three are
+  # included and Compose prefixes each line with its service.
+  #
+  # --tail rather than the default so a re-run on an already-running stack does
+  # not replay its entire history before going live.
+  dc logs -f --tail 50
+
+  # Only reached if the stream ends on its own, which means a container exited.
+  trap - INT
+  printf '\n' >&2
+  warn "the log stream ended, which means a container stopped"
+  explain_failure backend
+  exit 1
+}
+
+# Ctrl-C during the log stream.
+#
+# Stopping rather than detaching is the useful default: the user asked to quit,
+# and leaving three containers bound to ports 8080 and 5000 after they think they
+# quit is the surprising outcome. `dc down` keeps the PostgreSQL volume, so no
+# data is lost — that is the same guarantee `./run.sh down` has always given.
+#
+# The trap is cleared first so a second Ctrl-C during the teardown kills the
+# script outright instead of queueing another one behind this.
+stop_stack_on_interrupt() {
+  trap - INT
+  printf '\n' >&2
+  dim "stopping ${G_DOT} Ctrl-C again to kill immediately"
+  # Output discarded: Compose's own teardown output would land on top of the log
+  # lines the user was reading a moment ago.
+  if dc down --remove-orphans >/dev/null 2>&1; then
+    ok "stopped $G_DOT database volume kept"
+    dim "  ./run.sh          start it again"
+  else
+    warn "compose reported an error while stopping"
+  fi
+  dim "  ./run.sh destroy  remove the volume and all data too"
+  printf '\n' >&2
+  # 130 is the conventional exit status for SIGINT, and is what a shell reports
+  # for a command the user interrupted.
+  exit 130
 }
 
 # --- status ------------------------------------------------------------------
@@ -261,6 +350,24 @@ cmd_db() {
   # Extra arguments are forwarded, so `./run.sh db -c "SELECT 1"` works and does
   # not silently open an interactive shell that cannot read from a pipe.
   dc exec db psql -U "$(env_or POSTGRES_USER)" -d "$(env_or POSTGRES_DB)" "$@"
+}
+
+# --- seed-dev -----------------------------------------------------------------
+
+cmd_seed_dev() {
+  need_env
+  dc_resolve
+  dc_daemon
+  dc ps --services --status running 2>/dev/null | grep -qx backend \
+    || die "The backend is not running ${G_DOT} ./run.sh first."
+  # Runs inside the backend container so it uses the same interpreter and
+  # requirements.txt as app.py, and so DATABASE_URL arrives from the compose
+  # environment rather than being reconstructed here.
+  #
+  # The backend/ prefix matches the image layout, not the working directory:
+  # gunicorn runs with --chdir backend, but `docker exec` starts in the image's
+  # WORKDIR (/app), so the script is one level down from here.
+  dc exec backend python backend/seed_dev_users.py "$@"
 }
 
 # --- sh ----------------------------------------------------------------------
@@ -372,22 +479,28 @@ cmd_destroy() {
 # --- dispatch ----------------------------------------------------------------
 
 case "${1:-up}" in
-  up|"")      shift || true; cmd_up "$@" ;;
+  # Bare flags route to up, since that is the default command and `./run.sh -d`
+  # should not read as a typo for an unknown command.
+  -d|--detach|--no-follow) shift || true; cmd_up -d "$@" ;;
+  up|start|"") shift || true; cmd_up "$@" ;;
   status|ps)  shift || true; cmd_status "$@" ;;
   logs)       shift || true; cmd_logs "$@" ;;
   db|psql)    shift || true; cmd_db "$@" ;;
   sh|shell)   shift || true; cmd_sh "$@" ;;
+  seed-dev)   shift || true; cmd_seed_dev "$@" ;;
   rebuild)    shift || true; cmd_rebuild "$@" ;;
   down)       shift || true; cmd_down "$@" ;;
   destroy)    shift || true; cmd_destroy "$@" ;;
   -h|--help|help)
     printf '\n%s%sIQAC Manager%s  %s  %s\n\n' \
       "$INDENT" "$C_BOLD$C_CYAN" "$C_RESET" "$G_DOT" "container commands"
-    printf '  %s%-12s%s %s\n' "$C_BOLD" "run" "$C_RESET"          "build, start, wait for health, show endpoints"
+    printf '  %s%-12s%s %s\n' "$C_BOLD" "run" "$C_RESET"          "build, start, wait for health, stream logs  ${C_DIM}(Ctrl-C stops)${C_RESET}"
+    printf '  %s%-12s%s %s\n' "$C_BOLD" "run -d" "$C_RESET"       "the above, but return to the shell  ${C_DIM}(--detach)${C_RESET}"
     printf '  %s%-12s%s %s\n' "$C_BOLD" "status" "$C_RESET"      "service table, health, row counts"
     printf '  %s%-12s%s %s\n' "$C_BOLD" "logs" "$C_RESET"        "follow logs  ${C_DIM}(-f, -n LINES, [service])${C_RESET}"
     printf '  %s%-12s%s %s\n' "$C_BOLD" "db" "$C_RESET"          "psql shell  ${C_DIM}(extra args pass through, e.g. -c \"SELECT 1\")${C_RESET}"
     printf '  %s%-12s%s %s\n' "$C_BOLD" "sh [service]" "$C_RESET" "shell in backend (default), frontend or db"
+    printf '  %s%-12s%s %s\n' "$C_BOLD" "seed-dev" "$C_RESET"    "create one dev account per role ${C_DIM}(dev only)${C_RESET}"
     printf '  %s%-12s%s %s\n' "$C_BOLD" "rebuild" "$C_RESET"     "rebuild ${C_DIM}--no-cache${C_RESET}, restart if running"
     printf '  %s%-12s%s %s\n' "$C_BOLD" "down" "$C_RESET"       "stop, keep the database"
     printf '  %s%-12s%s %s\n' "$C_BOLD" "destroy" "$C_RESET"    "remove containers, network, volume, images"

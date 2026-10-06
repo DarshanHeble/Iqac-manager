@@ -129,8 +129,14 @@ Python, Node or PostgreSQL install needed.
 
 ```bash
 ./setup.sh    # creates .env with generated secrets, then builds both images
-./run.sh      # starts the stack, waits for health, prints the endpoints
+./run.sh      # starts the stack, waits for health, then streams all logs
 ```
+
+`./run.sh` stays in the foreground and follows the logs of all three services, so
+requests, tracebacks and scheduler ticks appear in the same terminal that started
+the stack. Press **Ctrl-C** to stop the stack and return to your shell — the
+database volume is kept, exactly like `./run.sh down`. To start it in the
+background instead, use `./run.sh -d`.
 
 Then open **http://localhost:8080** and sign in with `admin` / `admin123`
 (you are forced to change the password on first login).
@@ -140,18 +146,20 @@ The database schema and the admin user are created automatically on first boot.
 Both scripts summarise what Docker prints: build and startup output is captured
 rather than streamed, shown live only if a step fails, and each step reports how
 long it took. Set `VERBOSE=1` to stream Docker's raw output instead, and
-`NO_COLOR=1` to drop colour. Output goes to stderr, so `./run.sh logs backend >
-backend.log` captures container output only.
+`NO_COLOR=1` to drop colour. Status and progress go to stderr and container logs
+go to stdout, so `./run.sh > app.log` captures the log stream alone.
 
 `run.sh` subcommands:
 
 | Command | Effect |
 | --- | --- |
-| `./run.sh` | Start, wait for health, print endpoints |
+| `./run.sh` | Start, wait for health, then stream all logs until **Ctrl-C** |
+| `./run.sh -d` | Start, wait for health, then return to the shell |
 | `./run.sh status` | Service table, health, row counts |
 | `./run.sh logs [-n N] [-f] [service]` | Container logs (`-f` to follow) |
 | `./run.sh db` | `psql` shell |
 | `./run.sh sh backend` | Shell in `backend`, `frontend` or `db` |
+| `./run.sh seed-dev` | Create one dev account per role (dev only) |
 | `./run.sh rebuild` | Rebuild without cache, restart if running |
 | `./run.sh down` | Stop, **keep** the database |
 | `./run.sh destroy` | Remove containers, network, volume and images |
@@ -171,6 +179,27 @@ application and tells you to run `destroy` or restore the old password. Use
 
 Configure ports and API keys in `.env` (see `.env.example`). Re-running
 `setup.sh` never overwrites an existing `.env`.
+
+#### Development accounts
+
+`./run.sh seed-dev` creates one account per role so every screen can be opened
+without making accounts by hand:
+
+| Username | Role | Lands on |
+| --- | --- | --- |
+| `devadmin` | Admin | `/admin` |
+| `devcoordinator` | School IQAC Coordinator | `/iqac_dashboard` |
+| `devsecretary` | Secretary | `/secretary_dashboard` |
+| `devfaculty` | Faculty | `/dashboard` |
+
+All four use the password `DevPass123!` and none are flagged
+`must_change_password`, so login goes straight through to the role's home
+screen. Re-running the command leaves existing accounts alone rather than
+resetting their password.
+
+Development only. A seeded account with a known password and no forced reset is
+exactly what you must not have on a deployment, which is why this lives in a
+separate command instead of `app.py`'s startup path.
 
 How it fits together:
 

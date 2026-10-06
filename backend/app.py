@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, redirect, url_for, flash, session, send_file
+from flask import Flask, render_template, request, redirect, url_for, flash, session, send_file, jsonify
 import os, random, string, json, urllib.request, urllib.error
 # import smtplib  # SMTP fallback — kept for reference, replaced by Brevo
 from datetime import datetime, timedelta, timezone
@@ -569,6 +569,7 @@ def init_postgres():
     cursor.execute("ALTER TABLE signed_reports ADD COLUMN IF NOT EXISTS remarks TEXT")
     cursor.execute("ALTER TABLE signed_reports ALTER COLUMN status TYPE VARCHAR(50)")
     cursor.execute("ALTER TABLE signed_reports ADD COLUMN IF NOT EXISTS cloudinary_public_id VARCHAR(500)")
+    cursor.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_signed_reports_user_month ON signed_reports (username, reporting_month)")
 
     # Create workshop_attachment_files table for Cloudinary-stored workshop files
     cursor.execute("""
@@ -770,7 +771,10 @@ def login():
         if user and check_password_hash(user["password"], password):
             session["username"] = username
             session["full_name"] = user.get("full_name") or username
-            available_roles = [r.strip() for r in user["role"].split(",")]
+            role_val = user.get("role") or ""
+            available_roles = [r.strip() for r in role_val.split(",") if r.strip()]
+            if not available_roles:
+                available_roles = ["Faculty"]
             session["available_roles"] = available_roles
             session["role"] = available_roles[0]
             session["must_change_password"] = user.get("must_change_password", False)
@@ -820,9 +824,16 @@ def switch_role(role):
 
 @app.route("/logout")
 def logout():
-    session.pop("username", None)
+    session.clear()
     flash("Logged out successfully.", "success")
     return redirect("/login")
+
+
+@app.route("/_session_check")
+def session_check():
+    if "username" in session:
+        return jsonify({"status": "authenticated", "username": session["username"]}), 200
+    return jsonify({"status": "unauthenticated"}), 401
 
 
 # ------------------ DASHBOARD (LANDING PAGE) ------------------
