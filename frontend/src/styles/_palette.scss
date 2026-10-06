@@ -120,6 +120,57 @@ $status: (
 );
 
 // -----------------------------------------------------------------------------
+// SINGLES — values that are genuinely one-off and do not belong on a ramp.
+//
+// White and black, the teal tertiary family, the Material surface-container
+// tints, and the two alpha inks. They are here so that _semantic.scss can stay a
+// pure role-to-token mapping and name no colour of its own. That is what makes
+// the palette a genuine single source: a test asserts no other style layer
+// contains a hex value, and that assertion only holds because these live here.
+//
+// p.single('white')   p.single('surface-container-high-light')
+// -----------------------------------------------------------------------------
+$singles: (
+  // Quoted, and not by accident: a bare `white:` key is parsed by Sass as the
+  // colour #fff rather than the string 'white', so `p.single('white')` would
+  // fail. Verified on sass 1.104.1.
+  'white': #ffffff,
+  'black': #000000,
+
+  // Teal tertiary: bridges navy and sky, analogous rather than a loud complement.
+  tertiary: #0f5e7a,
+  tertiary-container: #d6edf5,
+  on-tertiary-container: #06323f,
+  tertiary-container-dark: #0a3f4f,
+
+  // Navy container behind primary-container in dark, where the sky ramp would
+  // put too much chroma behind white text.
+  navy-container-dark: #0b3a5d,
+
+  // Error needs to lift off the dark ground, so it gets its own pair.
+  error-dark: #f87171,
+  on-error-dark: #450a0a,
+
+  // Material's surface-container scale: six steps between the page and a sheet.
+  // Not a ramp in the tonal sense — each is tuned for elevation, not lightness.
+  surface-dim-light: #e8edf3,
+  surface-container-low-light: #f4f7fa,
+  surface-container-high-light: #e9eef4,
+  surface-container-highest-light: #e3e9f0,
+  surface-dim-dark: #0b1220,
+  surface-container-low-dark: #172236,
+  surface-container-high-dark: #232f45,
+  surface-container-highest-dark: #2c3850,
+
+  // Alpha inks for elevation and scrim, derived from the ground colour rather
+  // than invented per theme.
+  ink-light: rgb(15 23 42 / 0.16),
+  scrim-light: rgb(15 23 42 / 0.5),
+  ink-dark: rgb(0 0 0 / 0.5),
+  scrim-dark: rgb(0 0 0 / 0.6)
+);
+
+// -----------------------------------------------------------------------------
 // Typefaces. Names only, no sizes — the size scale lives in _typography.scss.
 //
 // display  Transitional serif. Institutional and academic, so headings read as
@@ -236,6 +287,25 @@ $layout: (
 );
 
 // -----------------------------------------------------------------------------
+// Breakpoints — the one place a responsive threshold is allowed to be written.
+// -----------------------------------------------------------------------------
+//
+// Three points, used as "this layout stops working below here":
+//
+//   sm  640px  one column; a row or header that cannot compress becomes stacked
+//   md  768px  a four-up stat grid drops to two
+//   lg  1024px the rail can no longer sit beside the content
+//
+// Media queries cannot read a custom property, so these are emitted by the
+// `breakpoints` partial rather than as --ui-* tokens. Components must use the
+// mixin, never the raw number, so retuning the scale is a one-line change here.
+$breakpoints: (
+  sm: 640px,
+  md: 768px,
+  lg: 1024px,
+);
+
+// -----------------------------------------------------------------------------
 // PALETTE ACCESS HELPERS
 //
 // Always use these instead of reaching into a map directly. The map keys
@@ -295,4 +365,22 @@ $scale: (
 /// Layout dimension: p.layout('rail-width')
 @function layout($key) {
   @return map.get($layout, $key);
+}
+
+/// One-off colour or alpha ink: p.single('white')
+@function single($key) {
+  @if not map.has-key($singles, $key) {
+    @error 'Unknown single `#{$key}`. Available: #{map.keys($singles)}.';
+  }
+
+  @return map.get($singles, $key);
+}
+
+/// Breakpoint: p.breakpoint(sm)
+@function breakpoint($key) {
+  @if not map.has-key($breakpoints, $key) {
+    @error 'Unknown breakpoint `#{$key}`. Available: #{map.keys($breakpoints)}.';
+  }
+
+  @return map.get($breakpoints, $key);
 }

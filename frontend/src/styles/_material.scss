@@ -23,6 +23,7 @@
 @use '@angular/material' as mat;
 @use 'palette' as p;
 @use 'semantic';
+@use 'typography' as type;
 
 $font-display: #{p.$display_stack};
 $font-ui: #{p.$ui_stack};
@@ -145,4 +146,85 @@ html {
 
   @include mat.theme-overrides(semantic.$dark);
   @include design-overrides;
+}
+
+// -----------------------------------------------------------------------------
+// UI FIELD
+//
+// A directive cannot carry its own styles in Angular 22, and reaching into
+// Material's internals from a component would need ::ng-deep and would leak into
+// every Material field in the app. Scoping to `mat-form-field[ui-field]` gives
+// the same guarantee as a component-scoped stylesheet: only fields that opted in
+// are affected, with no deep selector and nothing to unwind.
+//
+// The rules themselves read our type roles directly, so a field label is set in
+// the same sentence-case label role as every other label in the app.
+// -----------------------------------------------------------------------------
+mat-form-field[ui-field] {
+  display: inline-flex;
+
+  &.ui-field--full {
+    display: block;
+    inline-size: 100%;
+  }
+
+  // Material's default label is tracked-out uppercase. That is a reasonable
+  // default and wrong here: this app's labels are sentence case and sit at label
+  // scale, matching the .label role used elsewhere.
+  .mat-mdc-form-field-label {
+    @include type.text-role(label);
+    letter-spacing: var(--ui-text-label-tracking);
+    text-transform: none;
+    color: var(--ui-text-muted);
+  }
+
+  .mdc-floating-label--float-above {
+    color: var(--ui-text-muted);
+  }
+
+  // Focused field: the label takes the primary role so the active control is
+  // unambiguous when several fields sit in one row.
+  &.mat-focused .mat-mdc-floating-label {
+    color: var(--ui-primary);
+  }
+
+  .mdc-text-field__input {
+    @include type.text-role(body);
+    color: var(--ui-text);
+  }
+
+  .mat-mdc-form-field-hint {
+    @include type.text-role(caption);
+    color: var(--ui-text-muted);
+  }
+
+  .mat-mdc-form-field-error {
+    @include type.text-role(caption);
+    color: var(--ui-danger);
+  }
+
+  // A restrained outline, not Material's heavier double border. The field sits on
+  // a page of hairlines, so it should match them.
+  .mdc-text-field-wrapper {
+    border-radius: var(--ui-radius-sm);
+  }
+
+  .mdc-notched-outline__leading,
+  .mdc-notched-outline__notch,
+  .mdc-notched-outline__trailing {
+    border-color: var(--ui-border-strong);
+  }
+
+  &.mat-focused .mdc-notched-outline__leading,
+  &.mat-focused .mdc-notched-outline__notch,
+  &.mat-focused .mdc-notched-outline__trailing {
+    border-color: var(--ui-primary);
+    border-width: var(--ui-focus-width);
+  }
+
+  &.ui-field--invalid .mdc-notched-outline__leading,
+  &.ui-field--invalid .mdc-notched-outline__notch,
+  &.ui-field--invalid .mdc-notched-outline__trailing {
+    border-color: var(--ui-danger);
+  }
 }

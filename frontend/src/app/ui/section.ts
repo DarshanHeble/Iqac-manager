@@ -1,14 +1,6 @@
-import { ChangeDetectionStrategy, Component, contentChild, input } from '@angular/core';
+import { ChangeDetectionStrategy, Component, input } from '@angular/core';
 import { MatIconModule } from '@angular/material/icon';
 import { UiBadge } from './badge';
-
-/** Marker for the section's trailing action slot. */
-@Component({
-  selector: '[ui-section-actions]',
-  template: '',
-  changeDetection: ChangeDetectionStrategy.OnPush,
-})
-export class UiSectionActions {}
 
 /**
  * A titled block of content within a screen.
@@ -39,11 +31,9 @@ export class UiSectionActions {}
           <ui-badge [tone]="tone() ?? 'neutral'">{{ value }}</ui-badge>
         }
 
-        @if (actionSlot()) {
-          <div class="section__actions">
-            <ng-content select="[ui-section-actions]" />
-          </div>
-        }
+        <div class="section__actions">
+          <ng-content select="[ui-section-actions]" />
+        </div>
       </header>
 
       <div class="section__body">
@@ -93,6 +83,10 @@ export class UiSectionActions {}
       gap: var(--ui-space-2);
       flex-shrink: 0;
     }
+
+    .section__actions:empty {
+      display: none;
+    }
   `,
 })
 export class UiSection {
@@ -110,8 +104,6 @@ export class UiSection {
 
   /** Badge tone. Ignored when `badge` is unset. */
   readonly tone = input<'neutral' | 'primary' | 'success' | 'warning' | 'danger' | 'info'>();
-
-  protected readonly actionSlot = contentChild(UiSectionActions);
 
   /** Stable id so `aria-labelledby` points at the real heading. */
   protected readonly headingId = `ui-section-${crypto.randomUUID().slice(0, 8)}`;

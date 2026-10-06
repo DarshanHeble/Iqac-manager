@@ -1,0 +1,21 @@
+# node_modules is reinstalled by `npm ci` in the build stage; the local one is
+# wrong for the container and huge.
+node_modules/
+dist/
+.angular/
+coverage/
+
+# npm writes this at install time with an absolute host path.
+npm-debug.log*
+
+# Never let a host .env into the image. The backend's load_dotenv(override=True)
+# would let it win over what Compose injects; the frontend has no use for one.
+.env
+.env.*
+
+# Docker build context does not need these.
+Dockerfile
+.dockerignore
+.git
+.vscode/
+.idea/

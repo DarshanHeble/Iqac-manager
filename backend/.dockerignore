@@ -1,0 +1,14 @@
+# A .env inside this directory would be loaded by
+# `load_dotenv(override=True)` at import time and would OVERRIDE the variables
+# Compose injects — silently, and only for the one setting you were trying to
+# change. Compose reads the host .env and injects real environment variables, so
+# the file never needs to be in the image.
+.env
+.env.*
+*.pyc
+__pycache__/
+venv/
+.venv/
+
+Dockerfile
+.dockerignore

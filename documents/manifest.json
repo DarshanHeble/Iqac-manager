@@ -10,14 +10,17 @@
     },
     "counts": {
       "routes": 39,
+      "routes_in_app_py": 35,
+      "routes_in_pdf_blueprint": 4,
+      "api_prefixed_routes": 0,
       "tables": 7,
       "templates": 22,
       "template_lines": 12162,
       "frontend_feature_screens": 0,
       "env_vars": 15
     },
-    "frontend_state": "scaffold only: app.config.ts, session interceptor, API base token, theme layer. app.routes.ts is an empty array.",
-    "deployment": "Render, gunicorn --chdir backend app:app"
+    "frontend_state": "scaffold only: app.config.ts, session interceptor, API base token, theme layer, design system, and a /styleguide route. No feature screens, and the app makes zero HTTP calls.",
+    "deployment": "Render, gunicorn --chdir backend app:app. Locally: ./setup.sh then ./run.sh (Docker; db + backend + nginx-served SPA)."
   },
   "loading_strategy": {
     "principle": "Load the minimum. No single task should need more than two or three files.",
@@ -212,8 +215,8 @@
       "kind": "reference",
       "scope": "frontend",
       "purpose": "Standalone-only rationale, the current file tree, providers, routing, and the design-system/shared-UI boundary.",
-      "bytes": 9464,
-      "lines": 254
+      "bytes": 9565,
+      "lines": 255
     },
     {
       "path": "documents/frontend/02-toolchain.md",
@@ -227,25 +230,25 @@
       "path": "documents/frontend/03-design-system.md",
       "kind": "reference",
       "scope": "frontend",
-      "purpose": "The token pipeline, the corrected data-theme contract, typography roles, the ui-* component set, and the styleguide as a test.",
-      "bytes": 9489,
-      "lines": 240
+      "purpose": "The token pipeline, the corrected data-theme contract, typography roles, the ui-* component set and its slot API, and what the style-discipline tests enforce.",
+      "bytes": 12616,
+      "lines": 301
     },
     {
       "path": "documents/frontend/04-conventions.md",
       "kind": "reference",
       "scope": "frontend",
       "purpose": "Naming, component structure, and the token-only styling rule every screen must follow.",
-      "bytes": 9706,
-      "lines": 307
+      "bytes": 11192,
+      "lines": 336
     },
     {
       "path": "documents/frontend/05-migration-plan.md",
       "kind": "plan",
       "scope": "frontend",
       "purpose": "Screen-by-screen port order, backend prerequisites, and the definition of done per screen.",
-      "bytes": 9318,
-      "lines": 204
+      "bytes": 9377,
+      "lines": 205
     },
     {
       "path": "documents/frontend/README.md",

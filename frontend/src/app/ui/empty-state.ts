@@ -1,28 +1,5 @@
-import { ChangeDetectionStrategy, Component, contentChild, input } from '@angular/core';
+import { ChangeDetectionStrategy, Component, input } from '@angular/core';
 import { MatIconModule } from '@angular/material/icon';
-
-/**
- * Marker for the primary call to action in `<ui-empty-state>`.
- *
- * Angular has no built-in "was anything projected here" check, so the state
- * component queries for this marker instead of rendering its action slot
- * unconditionally. That keeps the spacing gap in the flex column from being
- * applied to an empty box when a screen provides no action.
- */
-@Component({
-  selector: '[ui-empty-action]',
-  template: '',
-  changeDetection: ChangeDetectionStrategy.OnPush,
-})
-export class UiEmptyStateAction {}
-
-/** Secondary/supporting slot, e.g. "Contact the academic office". */
-@Component({
-  selector: '[ui-empty-secondary]',
-  template: '',
-  changeDetection: ChangeDetectionStrategy.OnPush,
-})
-export class UiEmptyStateSecondary {}
 
 /**
  * The "nothing here yet" state.
@@ -34,6 +11,10 @@ export class UiEmptyStateSecondary {}
  *
  * Not boxed. An empty state is a message, and boxing it would put a panel inside
  * a panel.
+ *
+ * The `ui-empty-action` and `ui-empty-secondary` slots are plain projection
+ * hooks, not directives. An unpopulated slot collapses via `:empty`, which keeps
+ * the flex `gap` from spacing an empty box and needs no import from the consumer.
  */
 @Component({
   selector: 'ui-empty-state',
@@ -51,17 +32,13 @@ export class UiEmptyStateSecondary {}
         <p class="empty__description">{{ description() }}</p>
       }
 
-      @if (actionSlot()) {
-        <div class="empty__action">
-          <ng-content select="[ui-empty-action]" />
-        </div>
-      }
+      <div class="empty__action">
+        <ng-content select="[ui-empty-action]" />
+      </div>
 
-      @if (secondarySlot()) {
-        <p class="empty__secondary">
-          <ng-content select="[ui-empty-secondary]" />
-        </p>
-      }
+      <p class="empty__secondary">
+        <ng-content select="[ui-empty-secondary]" />
+      </p>
     </div>
   `,
   styles: `
@@ -106,6 +83,12 @@ export class UiEmptyStateSecondary {}
       color: var(--ui-text-muted);
       margin-block-start: var(--ui-space-2);
     }
+
+    /* Collapsed rather than guarded in the template: see the class docblock. */
+    .empty__action:empty,
+    .empty__secondary:empty {
+      display: none;
+    }
   `,
 })
 export class UiEmptyState {
@@ -117,7 +100,4 @@ export class UiEmptyState {
 
   /** Material Symbols name. Keep it neutral; tone is not the message. */
   readonly icon = input<string>('inbox');
-
-  protected readonly actionSlot = contentChild(UiEmptyStateAction);
-  protected readonly secondarySlot = contentChild(UiEmptyStateSecondary);
 }

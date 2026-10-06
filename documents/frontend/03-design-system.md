@@ -19,7 +19,8 @@ component.
 
 ```
 _palette.scss      raw ramps + scales        #003366 lives here, and nowhere else
-     ↓ p.scale('brand', 700), p.layout('rail-width')
+_breakpoints.scss  responsive thresholds    bp.below(sm), bp.atleast(lg)
+     ↓ p.scale('brand', 700), p.single('white'), p.layout('rail-width')
 _semantic.scss     role per theme            primary, surface-container-low, outline-variant…
      ↓
 _tokens.scss       → --ui-* custom properties
@@ -44,14 +45,32 @@ as subtraction). Use the accessors in `_palette.scss`:
 |---|---|
 | `p.scale('brand', 700)` | raw ramp value |
 | `p.status('success', 'base')` | status value |
+| `p.single('white')` | one-off colour not on a ramp |
 | `p.layout('rail-width')` | layout dimension |
+| `p.breakpoint(sm)` | responsive threshold |
 | `p.space(4)`, `p.radius('sm')`, `p.icon('sm')` | scale steps |
 | `p.shadow(3)`, `p.shape('lg')` | elevation, Material corners |
+
+Every accessor errors on an unknown key rather than returning `null`, so a typo
+fails the build instead of emitting `var(--ui-primary: )`.
+
+### `_semantic.scss` names no colour
+
+Each theme maps a role to a palette value and nothing else — not one hex, not one
+`rgb()`. Values that are genuinely one-off (white, the teal tertiary family, the
+six `surface-container` tints, the alpha inks) live in `$singles` in
+`_palette.scss` and are reached with `p.single()`.
+
+That is what lets a test assert *"no style layer except `_palette.scss` contains a
+hex"*. Without it, "single source of truth" is a claim rather than a fact.
 
 Two other constraints worth knowing before editing these files:
 
 - **No dotted map access.** `$t.family` is a parse error in the pinned Sass
   (1.104.1). Use `map.get($t, family)`.
+- **Quote CSS colour keywords as map keys.** `white: #fff` is parsed as the
+  *colour* `#fff`, not the string `'white'`, so `p.single('white')` then fails.
+  It must be `'white': #fff`. Verified on 1.104.1.
 - **No `if()`.** Deprecated in favour of `@if` / `@else`. Values are assigned to a
   variable first, then interpolated.
 
@@ -134,13 +153,28 @@ sets `stylePreprocessorOptions.includePaths` to `src/styles`.
 | `ui-badge` | status pill; the one fully-round element, because a pill reads as a marker not a container |
 | `ui-button` | wraps `matButton`; variants are intent (`primary`/`secondary`/`ghost`/`danger`), never colour |
 | `ui-card` | flat panel — hairline border, no shadow by default |
-| `ui-field` | wraps `mat-form-field`; label, hint, and error are separate inputs |
-| `ui-page-header` | overline + h1 + description + actions, the top of every screen |
+| `ui-field` | directive on `mat-form-field`; aligns type and outline to the app's tokens |
+| `ui-page-header` | overline + h1 + description + actions, the top of every screen; emits `actionSelected` |
 | `ui-section` | titled content grouping; not boxed |
 | `ui-stat` | one figure, tabular numerals, optional trend |
 | `ui-empty-state` | what is missing, why, and what to do |
 | `ui-record-row` | entity + status, with the signature 3px leading rule |
-| `ui-card-footer` etc. | projection-slot markers (see below) |
+
+### A component that renders a control must make it work
+
+`ui-page-header` renders its own buttons from structured input, because the header
+owns the arrangement and the emphasis. That makes it responsible for making them
+work: each `PageHeaderAction` carries an `id`, and pressing one emits
+`actionSelected`. A header action that does nothing is worse than no header
+actions at all — it looks like a working control and is not one.
+
+```html
+<ui-page-header
+  title="Submission register"
+  [actions]="[{ id: 'add', label: 'Add entry', variant: 'primary' }]"
+  (actionSelected)="onAction($event)"
+/>
+```
 
 ### Wrapping Material, not forking it
 
@@ -148,20 +182,55 @@ sets `stylePreprocessorOptions.includePaths` to `src/styles`.
 ripples, focus management, form participation, and disabled semantics. A
 hand-rolled `<button>` would have to re-add all of it.
 
+`ui-field` is a directive rather than a wrapper component, and that is forced
+rather than stylistic. Material resolves a field's control with a content query on
+`MatFormField`, which only sees directives declared in the same template as the
+field itself. Project `<input matInput>` through a wrapper's `<ng-content>` and
+the query returns nothing: the field renders blank and Material throws reading
+`controlType` off the missing control, at runtime, with no build-time error. So
+the consumer owns the element:
+
+```html
+<mat-form-field ui-field>
+  <mat-label>Academic year</mat-label>
+  <mat-hint>Format: 2025–26</mat-hint>
+  <input matInput />
+</mat-form-field>
+```
+
+Two consequences worth knowing. `appearance` is not an input on `ui-field` —
+`mat-form-field` already owns that name, and two directives on one element
+declaring the same input is a silent conflict; pass it to the field. And since
+Angular 22 directives cannot carry `styles`, the rules live in `_material.scss`
+under `mat-form-field[ui-field]`, scoped by the marker attribute so they reach
+Material's internals without `::ng-deep` and without leaking into unmarked fields.
+
 ### Projection slots
 
-Angular has no built-in "was anything projected here" check, so each optional slot
-is a zero-template attribute component queried with `contentChild()`:
+An optional slot is a plain attribute used as a projection hook — **not a
+directive**:
 
 ```html
 <ui-card heading="Summary">
   <button ui-card-actions>View report</button>
+  <span ui-card-footer>Updated 12 March</span>
 </ui-card>
 ```
 
-If nothing matches, the slot is not rendered at all. The `recordTitle`,
-`recordMeta`, and `recordDetail` slots are plain attributes — they are always
-present together, so they need no detection.
+Nothing is imported for these. An earlier revision defined them as zero-template
+marker components queried with `contentChild()`, which meant a consumer had to
+import a marker class per slot — and if they forgot one, the projected content
+was silently discarded with no error. A design system whose usage error is
+invisible content loss is a trap, so the markers are gone.
+
+The wrapper is always in the DOM and collapses when unpopulated, via `:empty` on
+the leaf slots and `:not(:has(…))` on `ui-card`'s header (its own `@if` blocks
+leave comment nodes, so `:empty` cannot match there).
+
+Slots: `ui-card` takes `ui-card-actions` and `ui-card-footer`; `ui-empty-state`
+takes `ui-empty-action` and `ui-empty-secondary`; `ui-section` takes
+`ui-section-actions`; `ui-record-row` takes `ui-record-title`, `ui-record-meta`,
+`ui-record-detail`, and `ui-record-trailing`.
 
 ---
 
@@ -175,8 +244,23 @@ or a contrast pair that fails in one theme.
 Switch the theme and everything must change together. **Anything that stays put is
 a bug in `_semantic.scss`.**
 
-`src/app/ui/ui.spec.ts` additionally asserts mechanically that no component style
-contains a raw hex or a literal `font-size`.
+### What the tests actually enforce
+
+`src/app/ui/ui.spec.ts` fails the run on:
+
+| Rule | Why it matters |
+|---|---|
+| no hex in any component style | a hardcoded colour stops responding to the theme |
+| no hex in any `src/styles/` layer **except** `_palette.scss` | makes the palette a real single source of truth rather than a claim |
+| no literal `font-size` | forces a role from `_typography.scss` |
+| no literal `padding`/`margin`/`gap`/`inset` | forces a `--ui-space-*` step |
+| no raw `@media (width …)` | a forked threshold nobody can find; use `bp.below()`/`bp.atleast()` |
+| slots collapse when unpopulated | guards the projection behaviour above |
+| every input does something | a dead input is worse than a missing one: the consumer sets it, sees no error, and it is ignored |
+
+Breakpoint values live in `_palette.scss` and are emitted by `_breakpoints.scss`;
+media queries cannot read a custom property, so they must be a build-time value.
+That is exactly why they are written once and mixed in.
 
 ---
 
@@ -229,7 +313,8 @@ Enforced in the components, not left to each screen:
 - One `h1` per screen (`ui-page-header`); the shell uses `h2` so routed screens own
   the `h1`.
 - `ui-section` sets `aria-labelledby` to its real heading.
-- `ui-field` renders a real `<label>` via Material. Never substitute a placeholder.
+- `ui-field` renders a real `<label>` via Material's `<mat-label>`, tied to the
+  control's generated id. Never substitute a placeholder.
 - A skip link as the first tab stop, targeting `#main-content`.
 - One `:focus-visible` treatment app-wide — a ring, never `outline: none` alone.
 - `prefers-reduced-motion` disables transitions, smooth scroll, and the button

@@ -18,6 +18,11 @@ import { UiBadge } from './ui';
  * place rather than being restated by whichever component renders them.
  */
 @Component({
+  // The `ui-` prefix belongs to the design system in ./ui, not to this shell, so
+  // the root keeps the `app-` prefix the lint rule expects. This selector and the
+  // tag in index.html have to agree: a mismatch fails silently at runtime with
+  // NG05104 ("root element not found") and the app renders as a blank page, so
+  // app.spec.ts asserts the two are wired together.
   selector: 'app-root',
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [MatButtonModule, MatIconModule, RouterLink, RouterLinkActive, RouterOutlet, UiBadge],

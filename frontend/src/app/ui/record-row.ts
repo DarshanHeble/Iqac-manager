@@ -1,16 +1,8 @@
-import { ChangeDetectionStrategy, Component, contentChild, input } from '@angular/core';
+import { ChangeDetectionStrategy, Component, input } from '@angular/core';
 import { MatIconModule } from '@angular/material/icon';
 import { UiBadge } from './badge';
 
 export type RecordTone = 'neutral' | 'success' | 'warning' | 'danger' | 'info';
-
-/** Trailing slot: actions, counts, or a link out of the row. */
-@Component({
-  selector: '[ui-record-trailing]',
-  template: '',
-  changeDetection: ChangeDetectionStrategy.OnPush,
-})
-export class UiRecordRowTrailing {}
 
 /**
  * One row in a register: an entity plus the state it is in.
@@ -23,6 +15,9 @@ export class UiRecordRowTrailing {}
  * `tone` is deliberately narrow. If a screen needs a colour that is not one of
  * the four status values, that is a signal the status model itself should grow,
  * not that a hex should be passed in.
+ *
+ * Title, meta, detail and trailing are plain projection hooks (`ui-record-title`
+ * and friends), not directives. An unpopulated slot collapses via `:empty`.
  */
 @Component({
   selector: 'ui-record-row',
@@ -33,7 +28,7 @@ export class UiRecordRowTrailing {}
       <div class="record__main">
         <div class="record__heading">
           <h3 class="record__title">
-            <ng-content select="[recordTitle]" />
+            <ng-content select="[ui-record-title]" />
           </h3>
 
           @if (status(); as value) {
@@ -42,22 +37,21 @@ export class UiRecordRowTrailing {}
         </div>
 
         <p class="record__meta">
-          <ng-content select="[recordMeta]" />
+          <ng-content select="[ui-record-meta]" />
         </p>
 
         <div class="record__detail">
-          <ng-content select="[recordDetail]" />
+          <ng-content select="[ui-record-detail]" />
         </div>
       </div>
 
-      @if (trailingSlot()) {
-        <div class="record__trailing">
-          <ng-content select="[ui-record-trailing]" />
-        </div>
-      }
+      <div class="record__trailing">
+        <ng-content select="[ui-record-trailing]" />
+      </div>
     </article>
   `,
   styles: `
+    @use 'breakpoints' as bp;
     @use 'typography' as type;
 
     .record {
@@ -126,7 +120,8 @@ export class UiRecordRowTrailing {}
       max-inline-size: var(--ui-measure);
     }
 
-    .record__detail:empty {
+    .record__detail:empty,
+    .record__trailing:empty {
       display: none;
     }
 
@@ -137,11 +132,7 @@ export class UiRecordRowTrailing {}
       flex-shrink: 0;
     }
 
-    @media (width <= 640px) {
-      .record {
-        flex-direction: column;
-      }
-    }
+    @include bp.below(sm);
   `,
 })
 export class UiRecordRow {
@@ -153,6 +144,4 @@ export class UiRecordRow {
 
   /** Show a dot in the badge. Use when the rule alone is too subtle to read. */
   readonly showDot = input(false);
-
-  protected readonly trailingSlot = contentChild(UiRecordRowTrailing);
 }

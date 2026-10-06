@@ -32,6 +32,7 @@ order: this is the part that is expensive to change once 22 screens depend on it
 | Delivered | Where |
 |---|---|
 | Token pipeline, one hex source | `src/styles/_palette.scss` → `_semantic.scss` → `_tokens.scss` |
+| Responsive thresholds | `src/styles/_breakpoints.scss` |
 | Material M3 theme from the same maps | `src/styles/_material.scss` |
 | Global CSS system | `src/styles/_reset.scss`, `_elements.scss`, `_layout.scss`, `_utilities.scss` |
 | Theme service + pre-paint script | `core/theme/theme.service.ts`, `index.html` |
@@ -167,6 +168,33 @@ endpoints you add.
 
 Naming: `/api/…` plural nouns, `PATCH` for updates. The legacy app mixes verbs
 (`/add_entry`, `/delete_attachment`, `/save_draft`) — do not copy that.
+
+### 5.1 Verified state of the gap (checked 2026-10-05)
+
+Probed all 39 routes against the running Docker stack
+(`nginx:8080 → gunicorn:5000 → PostgreSQL`). Three facts, all confirmed by
+observation rather than inference:
+
+| Check | Result |
+|---|---|
+| Routes under `/api` in `app.py` | **0** |
+| `jsonify()` calls in `app.py` | **0** — every route renders HTML or redirects |
+| `X-Requested-With` read anywhere in `backend/` | **0 matches** |
+| HTTP calls made by the Angular app | **0** — no service calls `apiUrl()` yet |
+| `/login` on `:5000` | 200, then 302 → `/change_password` (DB-backed, works) |
+| Any route on `:8080/api/…` | 404, and it is **Flask's** 404, not nginx's |
+
+That last row is the one that matters for confidence in the plumbing: nginx is
+forwarding correctly and Flask is answering. The 404 is the missing route, not a
+broken proxy. Bare paths (`/login`, `/styleguide`) are served by nginx from the
+Angular bundle; `/api/*` is proxied to Flask.
+
+So the interceptor's documented contract — 401 JSON instead of a 302 to
+`/login`, and `X-Requested-With` as the signal — describes a backend that does
+not exist yet. The interceptor's `content-type` sniffing is currently the only
+thing that would work, and it has never been exercised against a real 401 because
+no such response can occur. Both halves of this table are prerequisites for Step
+1; do not read the interceptor as evidence that the backend half is done.
 
 ---
 

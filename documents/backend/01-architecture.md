@@ -68,6 +68,32 @@ thin entry point, it is the application.
 - **The dev server hard-codes `debug=True`.** Never reachable in production
   because the Procfile uses gunicorn.
 
+### Running it under Docker
+
+`./setup.sh` then `./run.sh` at the repo root brings up PostgreSQL, gunicorn
+and nginx. Three things about that setup are worth recording here because they
+are consequences of the startup sequence above:
+
+- **`--workers 1` is a requirement, not a default.** `backend/Dockerfile` pins
+  it for the APScheduler reason above, and `--preload` is deliberately *not*
+  used. Scale with `--threads` instead. Verified: one worker process, and
+  `scheduler.get_jobs()` returns exactly one `iqac_report_reminder`.
+- **The healthcheck opens a real DB connection.** An earlier version only
+  requested `GET /login`, which renders a template and never queries the
+  database — so a backend with a broken `DATABASE_URL` still reported healthy
+  while `POST /login` returned 500. It now calls `db.get_db_connection()`
+  directly, which is the same path every route uses.
+- **`load_dotenv(override=True)` decides who wins.** `db.py:7` and `app.py:11`
+  both override already-set environment variables, so a `.env` file *inside*
+  the container silently beats whatever Compose injects. Both Dockerfiles
+  exclude `.env` via `.dockerignore` so the injected values are the only source.
+  `DATABASE_URL` is read once at import, so changing it needs a restart.
+
+One deployment trap: `POSTGRES_PASSWORD` in `.env` is only used the first time
+the volume is created. Postgres stores the password it was initialised with, so
+editing it afterwards breaks authentication without changing anything on the
+database side — the backend then 500s on every database-backed request.
+
 ---
 
 ## 3. Request lifecycle

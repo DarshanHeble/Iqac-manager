@@ -155,6 +155,12 @@ that table's behaviour and it becomes an unauthenticated mail relay.
 directly. If an HTTP trigger is genuinely needed, require a secret header
 compared with `hmac.compare_digest` and restrict to internal traffic.
 
+**Docker note.** `docker-compose.yml` binds the backend port to `127.0.0.1`
+rather than `0.0.0.0` for exactly this reason — publishing on all interfaces
+would put this route on the LAN. Do not "fix" a connection problem by widening
+that bind. nginx (`:8080`) only proxies `/api`, and since no `/api` routes exist
+this route is not reachable through the front door at all.
+
 ---
 
 ## MEDIUM

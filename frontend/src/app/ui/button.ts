@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, input } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, input } from '@angular/core';
 import { MatIconModule } from '@angular/material/icon';
 
 /**
@@ -31,15 +31,13 @@ import { MatIconModule } from '@angular/material/icon';
       [attr.aria-busy]="loading() || null"
       [type]="type()"
     >
-      @if (loading()) {
-        <mat-icon class="btn__spinner" aria-hidden="true">progress_activity</mat-icon>
-      } @else if (icon(); as name) {
-        <mat-icon aria-hidden="true">{{ name }}</mat-icon>
+      @if (leadingIcon(); as name) {
+        <mat-icon [class.btn__spinner]="loading()" aria-hidden="true">{{ name }}</mat-icon>
       }
 
       <span class="btn__label"><ng-content /></span>
 
-      @if (!loading() && trailingIcon(); as name) {
+      @if (trailingGlyph(); as name) {
         <mat-icon aria-hidden="true">{{ name }}</mat-icon>
       }
     </button>
@@ -92,7 +90,7 @@ import { MatIconModule } from '@angular/material/icon';
       color: var(--_fg);
       /* A hairline rather than Material's stock outlined treatment, and no
          elevation — a button sits on the page, it does not float above it. */
-      box-shadow: inset 0 0 0 1px var(--_border);
+      box-shadow: inset 0 0 0 var(--ui-rule-width) var(--_border);
       border: none;
       transition:
         background-color var(--ui-duration-fast) var(--ui-ease-standard),
@@ -106,7 +104,7 @@ import { MatIconModule } from '@angular/material/icon';
 
       &:active:not(:disabled) {
         /* Pressing reads as the surface being pushed in, not a colour swap. */
-        box-shadow: inset 0 0 0 1px var(--_border);
+        box-shadow: inset 0 0 0 var(--ui-rule-width) var(--_border);
         transform: translateY(1px);
       }
 
@@ -131,7 +129,7 @@ import { MatIconModule } from '@angular/material/icon';
     }
 
     .btn__spinner {
-      animation: ui-button-spin 900ms linear infinite;
+      animation: ui-button-spin var(--ui-duration-slow) linear infinite;
     }
 
     @keyframes ui-button-spin {
@@ -152,7 +150,7 @@ export class UiButton {
   /** Visual intent. Never pass a colour. */
   readonly variant = input<'primary' | 'secondary' | 'ghost' | 'danger'>('secondary');
 
-  /** Leading icon. Hidden from assistive tech; the label carries the meaning. */
+  /** Icon. Hidden from assistive tech; the label carries the meaning. */
   readonly icon = input<string>();
 
   /** Where `icon` sits relative to the label. */
@@ -171,4 +169,24 @@ export class UiButton {
 
   /** Native button type. Defaults to "button" so it never submits by accident. */
   readonly type = input<'button' | 'submit' | 'reset'>('button');
+
+  /**
+   * The glyph rendered before the label.
+   *
+   * Loading replaces any icon rather than sitting beside it: a button whose
+   * contents change when it is pressed keeps its width and does not reflow the
+   * row it sits in.
+   */
+  protected readonly leadingIcon = computed(() => {
+    if (this.loading()) return 'progress_activity';
+    return this.iconPosition() === 'leading' ? this.icon() : undefined;
+  });
+
+  /** The glyph rendered after the label: `trailingIcon`, or `icon` when asked. */
+  protected readonly trailingGlyph = computed(() => {
+    if (this.loading()) return undefined;
+    return this.iconPosition() === 'trailing'
+      ? (this.icon() ?? this.trailingIcon())
+      : this.trailingIcon();
+  });
 }

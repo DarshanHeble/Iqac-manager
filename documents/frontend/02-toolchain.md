@@ -185,8 +185,30 @@ budget, so **lazy load** chart routes.
 |---|---|
 | `npm run build` | passes |
 | `npm run lint` | passes |
+| `npm run format` | passes, no changes needed |
+| `ng test` | 32 passed / 32, 3 files |
 | `ng serve` serves the app | passes |
-| `/api` proxy reaches Flask | passes |
+| Docker build of the same app | passes — `frontend/Dockerfile`, node 24 → nginx |
 | No `NgModule` in the repo | confirmed |
 
 Re-run `npm run build && npm run lint` after any dependency change.
+
+The image build uses `node:24-alpine` (Angular 22 accepts `^20.19 || ^22.12 ||
+>=24`), which is not the Node 26 on this machine. That is deliberate — 24 is an
+LTS line, so the container does not track whatever the host happens to have.
+If a future dependency needs a newer Node, the image is the only place to change.
+
+### ⚠ `/api` reaches Flask, but nothing answers there
+
+Verified 2026-10-05 against the running stack: nginx proxies `/api` correctly
+(Flask's own 404 comes back, not nginx's), but `app.py` defines **no** routes
+under `/api` and contains **no** `jsonify` calls. Every legacy route is HTML or
+a redirect.
+
+So "the proxy reaches Flask" is true and also nearly meaningless on its own: it
+proves the plumbing, not that an endpoint exists. Do not read a passing
+`/api/healthcheck` curl as backend readiness. The full probe is in
+[05-migration-plan.md](05-migration-plan.md) §5.1.
+
+Also note `proxy.conf.json` is for `ng serve` only. Under Docker there is no dev
+server; `frontend/nginx.conf` does the proxying instead.

@@ -27,7 +27,9 @@ frontend/
 ├── angular.json                 build, test, lint targets, budgets, proxy
 ├── eslint.config.js             flat config, angular-eslint
 ├── package.json
-├── proxy.conf.json              /api -> http://localhost:5000
+├── proxy.conf.json              /api -> http://localhost:5000 (dev server only)
+├── Dockerfile                   node build -> nginx runtime
+├── nginx.conf                   SPA fallback + /api proxy
 ├── tsconfig.json / .app / .spec
 ├── public/                      static assets copied verbatim
 └── src/
@@ -35,7 +37,8 @@ frontend/
     ├── main.ts                  bootstrapApplication
     ├── styles.scss              global entry — @use's the partials below
     ├── styles/                  design-system layers, in load order
-    │   ├── _palette.scss        raw ramps + scales; the only hex values in the app
+    │   ├── _palette.scss        raw ramps, scales, breakpoints, $singles; the only hex values
+    │   ├── _breakpoints.scss    bp.below()/atleast() — emits the media queries
     │   ├── _semantic.scss       role per theme, keyed by Material's token names
     │   ├── _tokens.scss         emits --ui-* custom properties
     │   ├── _material.scss       emits --mat-sys-* from the same maps
@@ -111,7 +114,11 @@ Angular app deliberately keeps that rather than migrating to JWT.
 | Environment | Who serves the app | Where `/api` goes |
 |---|---|---|
 | Development | Angular dev server on `:4200` | `proxy.conf.json` forwards `/api` → `http://localhost:5000` |
-| Production | Flask serves the compiled bundle | same process |
+| Docker | nginx on `:8080` (`frontend/nginx.conf`) | proxies `/api` → `backend:5000` |
+
+Do **not** assume Flask serves the Angular bundle. It does not — confirmed by
+inspecting every route in `backend/app.py`. nginx owns serving the SPA in the
+Docker setup, and the legacy Jinja UI is still served from Flask on `:5000`.
 
 Because requests are same-origin, the session cookie is sent normally and no
 `SameSite=None` / CORS preflight is needed.

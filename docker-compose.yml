@@ -1,0 +1,131 @@
+# =============================================================================
+# IQAC Manager — local stack
+#
+#   ./setup.sh   create .env, then build the images
+#   ./run.sh     bring the stack up
+#
+# Three services:
+#   db        PostgreSQL 16, the only stateful one (named volume)
+#   backend   Flask + gunicorn on :5000
+#   frontend  nginx serving the compiled Angular app on :8080
+#
+# Why nginx is in front at all: the Angular app calls `/api` relative to its own
+# origin (see src/app/core/api/api-base-url.ts) so the Flask session cookie works
+# with no CORS setup and no JWT migration. nginx serves the SPA and proxies /api to
+# Flask, which keeps that same-origin promise. Flask does NOT serve the Angular
+# bundle — nothing in the Flask app does.
+# =============================================================================
+
+name: iqac-manager
+
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-iqac}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set — run ./setup.sh}
+      POSTGRES_DB: ${POSTGRES_DB:-iqac}
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    # Not published on the host: use `./run.sh db` for a psql shell. Publishing
+    # 5432 would collide with a PostgreSQL you may already run locally.
+    healthcheck:
+      # Wait for real connections, not just "the process is up" — init_postgres()
+      # runs at import time in the backend and swallows its failure with a
+      # warning, so a half-ready database would leave us with no tables and no
+      # error anywhere useful.
+      #
+      # The password comes from the container's own environment (which Compose
+      # populates from .env) rather than being interpolated here: once the volume
+      # is initialised, Postgres stores the password it was created with, and a
+      # later change to POSTGRES_PASSWORD in .env would make pg_isready fail even
+      # though the database is perfectly healthy. See the note in .env.example.
+      test: ["CMD-SHELL", "pg_isready -U \"$$POSTGRES_USER\" -d \"$$POSTGRES_DB\""]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    env_file:
+      # Compose reads the host .env and injects real container environment
+      # variables. This is deliberate: db.py and app.py call
+      # load_dotenv(override=True), which means a .env *file inside the
+      # container* would silently win over what Compose injects. By never
+      # copying a .env into the image (see backend/.dockerignore), the injected
+      # values are the only source.
+      - .env
+    environment:
+      # Assembled from the POSTGRES_* values so the password lives in exactly
+      # one place.
+      DATABASE_URL: postgresql://${POSTGRES_USER:-iqac}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-iqac}
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      # Uploads are written to these two directories by the Flask app
+      # (app.py:1056 for workshop attachments) and referenced by rows in the
+      # database. Without a mount they live on the container's writable layer, so
+      # `docker compose up --build` would recreate the container and leave the
+      # database pointing at files that no longer exist. Bind-mounted rather
+      # than a named volume so uploaded files stay visible on the host.
+      - ./backend/static/attachments:/app/backend/static/attachments
+      - ./backend/static/signed_reports:/app/backend/static/signed_reports
+    expose:
+      - "5000"
+    ports:
+      # Bound to 127.0.0.1 deliberately, NOT 0.0.0.0.
+      #
+      # Flask has no auth on every route — /auto_iqac_reminders will email every
+      # coordinator on a GET with no session (app.py:2743). Publishing this on
+      # all interfaces would put that on your LAN. Reachable from this machine,
+      # invisible to the network.
+      #
+      # The app's real front door is nginx on 8080; this port is for debugging.
+      - "127.0.0.1:${BACKEND_PORT:-5000}:5000"
+    healthcheck:
+      # Must prove the DATABASE is reachable, not just that the process answers.
+      # `/login` GET only renders a template, so a backend that booted with a
+      # broken DATABASE_URL still looks healthy here while POST /login 500s.
+      # /dashboard is authenticated, so a session-less GET redirects before any
+      # query — useless for this. Instead go through the app's own connection
+      # helper, which is what every route uses.
+      test:
+        - CMD
+        - python
+        - -c
+        - "import sys; sys.path.insert(0, 'backend'); from db import get_db_connection; c = get_db_connection(); c.close()"
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    depends_on:
+      backend:
+        condition: service_healthy
+    expose:
+      - "8080"
+    ports:
+      - "${FRONTEND_PORT:-8080}:8080"
+    healthcheck:
+      # busybox wget ships in the nginx alpine image. 127.0.0.1 rather than
+      # "localhost": /etc/hosts there maps localhost to ::1 only, so a name-based
+      # healthcheck fails against an IPv4 listener even though the app is fine.
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1:8080/ || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
+
+volumes:
+  db-data:

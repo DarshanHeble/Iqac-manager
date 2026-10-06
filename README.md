@@ -120,18 +120,81 @@ A comprehensive Flask-based worklog management system for CHRIST (Deemed to be U
 
 ## Installation
 
-### Prerequisites
-- Python 3.14+
-- PostgreSQL 12+
-- Gmail account with App-Specific Password (for email reminders)
-- Google Gemini API Key (for AI summaries)
+### Docker (recommended)
 
-### Setup Steps
+Runs the Angular frontend, the Flask backend and PostgreSQL together. No local
+Python, Node or PostgreSQL install needed.
+
+**Prerequisites:** Docker with the Compose v2 plugin — [install Docker](https://docs.docker.com/get-docker/)
+
+```bash
+./setup.sh    # creates .env with generated secrets, then builds both images
+./run.sh      # starts the stack, waits for health, prints the endpoints
+```
+
+Then open **http://localhost:8080** and sign in with `admin` / `admin123`
+(you are forced to change the password on first login).
+
+The database schema and the admin user are created automatically on first boot.
+
+Both scripts summarise what Docker prints: build and startup output is captured
+rather than streamed, shown live only if a step fails, and each step reports how
+long it took. Set `VERBOSE=1` to stream Docker's raw output instead, and
+`NO_COLOR=1` to drop colour. Output goes to stderr, so `./run.sh logs backend >
+backend.log` captures container output only.
+
+`run.sh` subcommands:
+
+| Command | Effect |
+| --- | --- |
+| `./run.sh` | Start, wait for health, print endpoints |
+| `./run.sh status` | Service table, health, row counts |
+| `./run.sh logs [-n N] [-f] [service]` | Container logs (`-f` to follow) |
+| `./run.sh db` | `psql` shell |
+| `./run.sh sh backend` | Shell in `backend`, `frontend` or `db` |
+| `./run.sh rebuild` | Rebuild without cache, restart if running |
+| `./run.sh down` | Stop, **keep** the database |
+| `./run.sh destroy` | Remove containers, network, volume and images |
+| `./run.sh destroy --all` | The above, plus Docker's shared build cache |
+| `./setup.sh --reset` | New secrets, and drop the database volume |
+
+`destroy` keeps your `.env`, your source files and anything under
+`backend/static/{attachments,signed_reports}` — uploaded files outlive the
+database on purpose, so that deleting the volume does not orphan them. It asks
+you to type `destroy` in full rather than accept a `y`.
+
+Postgres keeps the password its volume was created with, so editing
+`POSTGRES_PASSWORD` in `.env` afterwards does nothing to the database and the
+backend then fails to authenticate. `./run.sh` checks this before starting the
+application and tells you to run `destroy` or restore the old password. Use
+`./setup.sh --reset` to rotate secrets *and* drop the volume together.
+
+Configure ports and API keys in `.env` (see `.env.example`). Re-running
+`setup.sh` never overwrites an existing `.env`.
+
+How it fits together:
+
+```
+browser ──> frontend (nginx :8080) ──/api──> backend (Flask/gunicorn :5000) ──> db (PostgreSQL)
+                │                              │
+                └─ serves the compiled           └─ reads DATABASE_URL from the
+                   Angular SPA                     injected environment
+```
+
+nginx is in front because the Angular app calls `/api` on its own origin, which
+keeps the existing Flask session cookie working with no CORS setup. nginx serves
+the SPA and proxies `/api` to Flask. Port 8080 for the app; port 5000 exposes
+Flask directly for debugging.
+
+### Manual setup (no Docker)
+
+**Prerequisites:** Python 3.14+, PostgreSQL 12+, a Gmail App-Specific Password
+(for email reminders), a Google Gemini API key (for AI summaries)
 
 1. **Clone the repository**:
 ```bash
-git clone https://github.com/vvaish/iqac-worklog.git
-cd iqac-worklog
+git clone https://github.com/DarshanHeble/Iqac-manager.git
+cd Iqac-manager
 ```
 
 2. **Create virtual environment**:
@@ -170,7 +233,8 @@ python app.py
 > The backend must be run with `backend/` as the working directory, since the
 > application uses flat imports (`from db import ...`, `from routes.pdf import ...`,
 > and `from app import send_email` inside `routes/pdf.py`). For production, the
-> bundled `Procfile` handles this with `gunicorn --chdir backend app:app`.
+> bundled `Procfile` handles this with `gunicorn --chdir backend app:app`. The
+> `backend/Dockerfile` does the same thing.
 
 Access the application at: `https://iqacworklog.christuniversity.in`
 
@@ -189,7 +253,9 @@ Access the application at: `https://iqacworklog.christuniversity.in`
 ### Email Reminder Scheduler
 
 #### Option 1: Windows Task Scheduler
-See [SCHEDULER_SETUP.md](./SCHEDULER_SETUP.md) for detailed instructions on scheduling automated emails.
+See [Backend — External Integrations](./documents/backend/08-integrations.md#3-reminder-email-and-the-scheduler)
+for how the reminder job is wired up, including the APScheduler-in-every-worker
+caveat you need to avoid when driving it from cron or Task Scheduler.
 
 #### Option 2: APScheduler (Built-in)
 Add to `app.py` (optional):
@@ -324,7 +390,30 @@ The AI-powered summary feature:
 - Verify PostgreSQL is running
 - Check DATABASE_URL format
 - Verify database exists and user has permissions
-- Test connection: `psql -U username -d iqac_worklog`
+- Test connection: `psql -U username -d iqac_worklog`, or `./run.sh db` with Docker
+
+### Docker Issues
+
+**Container exits immediately.** Run `./run.sh logs`. The usual cause is missing
+Cloudinary values — `app.py` calls `cloudinary.config()` unguarded at import, so
+an unset `CLOUDINARY_API_SECRET` raises at startup. `setup.sh` warns about this.
+
+**Frontend never becomes healthy.** Usually the port in `.env` is taken. Change
+`FRONTEND_PORT` / `BACKEND_PORT`, then `./run.sh`.
+
+**A `.env` edit appears to do nothing.** `app.py` and `db.py` call
+`load_dotenv(override=True)`, so a `.env` sitting *inside* the container
+overrides whatever Compose injects. The Dockerfiles exclude `.env` via
+`.dockerignore` for exactly this reason — if you add one to an image, Compose
+settings stop applying. `DATABASE_URL` is also read once at import, so restart
+the container after changing it.
+
+**Stale session / cannot log in.** `SECRET_KEY` must stay stable across restarts
+or every session cookie is invalidated. Re-running `setup.sh` keeps your `.env`,
+so it will not rotate this on you.
+
+**Need a clean slate.** `./run.sh destroy` deletes the database volume and all
+data. There is no undo.
 
 ### Date Restrictions Blocking Entry
 - Remember: No entries on Sundays or 3rd Saturday
@@ -367,14 +456,24 @@ Iqac-manager/
 │   │   ├── christ_logo.png
 │   │   └── select2.js
 │   └── logo/               # Source logo files
+├── frontend/               # Angular workspace (built by Docker, served by nginx)
+│   ├── Dockerfile          # node build -> nginx runtime
+│   └── nginx.conf          # SPA fallback + /api proxy to backend
+├── docker-compose.yml      # db + backend + frontend
+├── setup.sh                # generate .env, build images
+├── run.sh                  # start/stop/status/logs/psql/shell/destroy
+├── docker/lib/shell.sh     # shared output, timing and log-capture helpers
+├── .env.example            # environment template
 ├── README.md               # This file
 ├── AI_CONTEXT.md           # Architecture map for AI assistants
 └── TABLE_DESIGN_GUIDELINES.md
 ```
 
-Frontend migration note: an Angular workspace is intended to live at the repo
-root, with the Flask app under `backend/` acting as a JSON API. Run the backend
-from within `backend/` during development.
+Frontend migration note: the Angular app calls the backend on the `/api` prefix,
+but the Flask routes are not yet migrated to it — the backend still serves
+server-rendered HTML at flat paths (`/dashboard`, `/user_add_entry`, …) and has
+no JSON API. Until that migration lands, the legacy UI is available on port 5000
+and the Angular app runs against it as a shell.
 
 ### Code Style
 - PEP 8 compliant Python

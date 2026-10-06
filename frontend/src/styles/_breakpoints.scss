@@ -1,0 +1,29 @@
+// -----------------------------------------------------------------------------
+// Responsive thresholds.
+//
+// The values live in _palette.scss; this partial only turns them into media
+// queries. A media query cannot read a custom property, so it has to be a
+// build-time value — which is exactly why it should be written once and mixed
+// in, rather than typed into five components.
+//
+//   @use 'breakpoints' as bp;
+//
+//   @include bp.below(md) { ... }   // narrower than 768px
+//   @include bp.atleast(lg) { ... } // 1024px and wider
+// -----------------------------------------------------------------------------
+
+@use 'palette' as p;
+
+/// Narrower than the named breakpoint: @include bp.below(sm)
+@mixin below($name) {
+  @media (width <= p.breakpoint($name) - 0.02px) {
+    @content;
+  }
+}
+
+/// The named breakpoint and wider: @include bp.atleast(lg)
+@mixin atleast($name) {
+  @media (width >= p.breakpoint($name)) {
+    @content;
+  }
+}

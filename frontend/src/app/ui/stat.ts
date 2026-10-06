@@ -42,6 +42,7 @@ import { MatIconModule } from '@angular/material/icon';
     </div>
   `,
   styles: `
+    @use 'breakpoints' as bp;
     @use 'typography' as type;
 
     .stat {
@@ -127,7 +128,7 @@ import { MatIconModule } from '@angular/material/icon';
       color: var(--ui-text-muted);
     }
 
-    @media (width <= 720px) {
+    @include bp.below(md) {
       .stat {
         padding-inline-end: 0;
         border-inline-end: none;

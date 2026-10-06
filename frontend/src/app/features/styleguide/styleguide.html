@@ -6,22 +6,14 @@
   tone="primary"
   [actions]="[
     {
-      label: 'Toggle theme',
+      id: 'toggle-theme',
+      label: theme.isDark() ? 'Light theme' : 'Dark theme',
       icon: theme.isDark() ? 'light_mode' : 'dark_mode',
       variant: 'primary',
     },
   ]"
->
-  <button
-    matButton
-    class="theme-toggle"
-    [attr.data-variant]="theme.isDark() ? 'primary' : 'secondary'"
-    (click)="theme.toggle()"
-  >
-    <mat-icon aria-hidden="true">{{ theme.isDark() ? 'light_mode' : 'dark_mode' }}</mat-icon>
-    {{ theme.isDark() ? 'Light theme' : 'Dark theme' }}
-  </button>
-</ui-page-header>
+  (actionSelected)="onHeaderAction($event)"
+/>
 
 <!-- ============================================================================
      COLOUR ROLES
@@ -84,7 +76,7 @@
   <ui-card heading="Utility classes" class="mt-4">
     <div class="type-utilities">
       @for (cls of typeClasses; track cls) {
-        <span class="type-utilities__sample" [class]="'text-' + cls">{{ cls }}</span>
+        <span class="type-utilities__sample" [class]="cls">{{ cls }}</span>
       }
     </div>
   </ui-card>
@@ -135,29 +127,39 @@
 >
   <ui-card heading="Fields">
     <div class="form-grid">
-      <ui-field label="Name of the faculty member">
+      <mat-form-field ui-field>
+        <mat-label>Name of the faculty member</mat-label>
         <input matInput [(ngModel)]="sampleName" />
-      </ui-field>
+      </mat-form-field>
 
-      <ui-field label="Academic year" hint="Format: 2025–26">
+      <mat-form-field ui-field>
+        <mat-label>Academic year</mat-label>
+        <mat-hint>Format: 2025–26</mat-hint>
         <input matInput value="2025–26" />
-      </ui-field>
+      </mat-form-field>
 
-      <ui-field label="Department">
+      <mat-form-field ui-field>
+        <mat-label>Department</mat-label>
         <mat-select [(ngModel)]="selectedDept">
           @for (dept of departments; track dept) {
             <mat-option [value]="dept">{{ dept }}</mat-option>
           }
         </mat-select>
-      </ui-field>
+      </mat-form-field>
 
-      <ui-field label="Institute reference number" error="Reference number is required.">
+      <!-- A real form lets the control drive this from its validators. This
+           example is static, so the error state is forced with `error` and the
+           matching <mat-error> is written out by hand. -->
+      <mat-form-field ui-field error="Reference number is required.">
+        <mat-label>Institute reference number</mat-label>
         <input matInput value="" />
-      </ui-field>
+        <mat-error>Reference number is required.</mat-error>
+      </mat-form-field>
 
-      <ui-field label="Remarks" appearance="fill">
+      <mat-form-field ui-field appearance="fill">
+        <mat-label>Remarks</mat-label>
         <textarea matInput rows="3"></textarea>
-      </ui-field>
+      </mat-form-field>
 
       <div class="form-grid__toggles">
         <mat-slide-toggle>Include archived entries</mat-slide-toggle>
@@ -189,9 +191,9 @@
 
   <div class="records mt-4">
     <ui-record-row status="Approved" tone="success">
-      <span recordTitle>Curriculum Development Workshop</span>
-      <span recordMeta>12 March 2026 · Computer Applications</span>
-      <p recordDetail>
+      <span ui-record-title>Curriculum Development Workshop</span>
+      <span ui-record-meta>12 March 2026 · Computer Applications</span>
+      <p ui-record-detail>
         Two-day workshop on outcome-based education for the 2025–26 cycle, conducted with external
         resource persons.
       </p>
@@ -201,28 +203,28 @@
     </ui-record-row>
 
     <ui-record-row status="Pending review" tone="warning">
-      <span recordTitle>Student Mentoring Activity</span>
-      <span recordMeta>08 March 2026 · Mathematics</span>
-      <p recordDetail>Mentored 24 first-year students on remedial mathematics.</p>
+      <span ui-record-title>Student Mentoring Activity</span>
+      <span ui-record-meta>08 March 2026 · Mathematics</span>
+      <p ui-record-detail>Mentored 24 first-year students on remedial mathematics.</p>
       <div ui-record-trailing>
         <ui-button variant="secondary" icon="rate_review">Review</ui-button>
       </div>
     </ui-record-row>
 
     <ui-record-row status="Rejected" tone="danger">
-      <span recordTitle>Laboratory Equipment Purchase</span>
-      <span recordMeta>02 March 2026 · Physics</span>
-      <p recordDetail>Rejected: the supporting quotation is missing.</p>
+      <span ui-record-title>Laboratory Equipment Purchase</span>
+      <span ui-record-meta>02 March 2026 · Physics</span>
+      <p ui-record-detail>Rejected: the supporting quotation is missing.</p>
     </ui-record-row>
 
     <ui-record-row status="Not submitted" tone="info">
-      <span recordTitle>Library Committee Report</span>
-      <span recordMeta>— · Library Science</span>
+      <span ui-record-title>Library Committee Report</span>
+      <span ui-record-meta>— · Library Science</span>
     </ui-record-row>
 
     <ui-record-row tone="neutral">
-      <span recordTitle>Annual Examination Schedule</span>
-      <span recordMeta>28 February 2026 · Computer Applications</span>
+      <span ui-record-title>Annual Examination Schedule</span>
+      <span ui-record-meta>28 February 2026 · Computer Applications</span>
     </ui-record-row>
   </div>
 </ui-section>

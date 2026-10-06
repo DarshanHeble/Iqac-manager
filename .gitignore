@@ -1,5 +1,9 @@
 # Environment variables
 .env
+# Rotate-on-reset backups made by setup.sh. These are full copies of .env and
+# hold live database and session secrets, so they must never be committed.
+.env.bak.*
+!.env.example
 
 # Python
 __pycache__/
@@ -29,3 +33,10 @@ dist/
 *.local
 
 AI_CONTEXT.md
+# Uploaded files written by the Flask app at runtime (backend/app.py:1056).
+# These are per-installation data, bind-mounted into the container by
+# docker-compose.yml, so they must never be committed.
+backend/static/attachments/*
+!backend/static/attachments/.gitkeep
+backend/static/signed_reports/*
+!backend/static/signed_reports/.gitkeep

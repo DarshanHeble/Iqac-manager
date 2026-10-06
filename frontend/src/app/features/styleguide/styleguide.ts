@@ -19,6 +19,7 @@ import {
   UiRecordRow,
   UiSection,
   UiStat,
+  type PageHeaderAction,
 } from '../../ui';
 
 /**
@@ -62,6 +63,17 @@ import {
 })
 export class Styleguide {
   protected readonly theme = inject(ThemeService);
+
+  /**
+   * The header owns its buttons, so the page owns what they do. Having a live
+   * handler here is also the point: a header action that does nothing is a
+   * broken control, not a placeholder.
+   */
+  protected onHeaderAction(action: PageHeaderAction): void {
+    if (action.id === 'toggle-theme') {
+      this.theme.toggle();
+    }
+  }
 
   protected sampleName = 'Dr. A. Ramachandran';
   protected sampleDept = 'Department of Computer Applications';

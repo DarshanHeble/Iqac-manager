@@ -230,31 +230,42 @@ Otherwise the new client shows nothing where the legacy UI showed a flash. See
 
 ## 11. Styling: tokens only
 
-**No component may contain a raw hex, a literal `font-size`, or a magic spacing
-value.** This is the rule the whole design system rests on, and it is enforced
-mechanically by `ui/ui.spec.ts`, which fails the test run if any component style
-violates it.
+**No component may contain a raw hex, a literal `font-size`, a magic spacing
+value, or its own media query.** This is the rule the whole design system rests
+on, and it is enforced mechanically by `ui/ui.spec.ts`, which fails the test run
+if any component style violates it.
 
 ```scss
 // ✗ hardcoded — stops responding to the theme
 color: #003366;
 font-size: 14px;
 padding: 12px;
+@media (width <= 640px) { … }
 
 // ✓ token-driven — follows both themes automatically
 color: var(--ui-primary);
 @include type.text-role(caption);
 padding: var(--ui-space-3);
+@include bp.below(sm) { … }
 ```
 
 In component stylesheets, `@use 'typography' as type;` gives you the type
-mixins. Prefer them over hand-writing the font shorthand.
+mixins, and `@use 'breakpoints' as bp;` the responsive ones. Prefer them over
+hand-writing the property.
+
+A raw `@media` is banned for the same reason a raw hex is: a threshold written in
+one component cannot be found, retuned, or reasoned about from any other. The
+values live in `_palette.scss` (`sm` 640, `md` 768, `lg` 1024) and are emitted by
+`_breakpoints.scss`.
 
 ### Which layer does this belong in?
 
 | Change | Put it in |
 |---|---|
-| A new colour, size, or spacing value | `src/styles/_tokens.scss` (and the scale in `_palette.scss`) |
+| A new colour | `$singles` or a ramp in `src/styles/_palette.scss` |
+| A new spacing, size, radius, or duration step | the scale in `src/styles/_palette.scss` |
+| A new responsive threshold | `$breakpoints` in `src/styles/_palette.scss` |
+| What a token means, or its value per theme | `src/styles/_semantic.scss` |
 | What an element like `<p>` or `<figcaption>` means | `src/styles/_elements.scss` |
 | App shell or page flow | `src/styles/_layout.scss` |
 | One screen's arrangement | that feature's component styles |
@@ -269,6 +280,24 @@ never a colour. Tones resolve to a different foreground, background, and rule pe
 theme automatically; a colour would not. If a screen needs a status the four tones
 do not cover, that means the status model should grow — not that a hex should be
 passed in.
+
+### Slots are attributes, not directives
+
+Projected content is tagged with a plain attribute — `<div ui-card-actions>`,
+`<span ui-record-title>`. **Do not import a marker class for these.** The wrapper
+is always rendered and collapses via CSS when unpopulated. An earlier revision
+used marker directives, and a consumer who forgot the import lost their content
+with no error; that trade is not worth making.
+
+### An input that does nothing is a bug
+
+Every `input()` must be read by the template or a computed. A dead input is worse
+than a missing one: the consumer sets it, sees no error and no effect, and files
+it as a component bug. `ui.spec.ts` asserts the ones that are easy to regress.
+
+The same applies in reverse — if a component renders a `<button>`, the screen must
+be able to do something with it. `ui-page-header` emits `actionSelected` for
+exactly this reason.
 
 ### Check both themes
 

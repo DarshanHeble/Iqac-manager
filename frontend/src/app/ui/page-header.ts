@@ -1,8 +1,13 @@
-import { ChangeDetectionStrategy, Component, input } from '@angular/core';
+import { ChangeDetectionStrategy, Component, input, output } from '@angular/core';
 import { MatIconModule } from '@angular/material/icon';
 import { UiBadge } from './badge';
 
 export interface PageHeaderAction {
+  /**
+   * Stable identifier handed back in `actionSelected`, so the screen can tell
+   * the actions apart without matching on the label.
+   */
+  readonly id: string;
   readonly label: string;
   readonly icon?: string;
   readonly variant?: 'primary' | 'secondary' | 'ghost';
@@ -45,11 +50,13 @@ export interface PageHeaderAction {
 
       @if (actions().length) {
         <div class="page-header__actions">
-          @for (action of actions(); track action.label) {
+          @for (action of actions(); track action.id) {
             <button
               matButton
               class="page-header__action"
+              type="button"
               [attr.data-variant]="action.variant ?? 'secondary'"
+              (click)="actionSelected.emit(action)"
             >
               @if (action.icon) {
                 <mat-icon aria-hidden="true">{{ action.icon }}</mat-icon>
@@ -62,6 +69,7 @@ export interface PageHeaderAction {
     </header>
   `,
   styles: `
+    @use 'breakpoints' as bp;
     @use 'typography' as type;
 
     .page-header {
@@ -122,13 +130,13 @@ export interface PageHeaderAction {
       font: var(--ui-text-label-weight) var(--ui-text-label-size) / var(--ui-text-label-line)
         var(--ui-text-label-family);
       color: var(--ui-text);
-      box-shadow: inset 0 0 0 1px var(--ui-border-strong);
+      box-shadow: inset 0 0 0 var(--ui-rule-width) var(--ui-border-strong);
     }
 
     .page-header__action[data-variant='primary'] {
       background: var(--ui-primary);
       color: var(--ui-on-primary);
-      box-shadow: inset 0 0 0 1px var(--ui-primary);
+      box-shadow: inset 0 0 0 var(--ui-rule-width) var(--ui-primary);
     }
 
     .page-header__action[data-variant='ghost'] {
@@ -145,7 +153,7 @@ export interface PageHeaderAction {
       color: var(--ui-on-primary);
     }
 
-    @media (width <= 640px) {
+    @include bp.below(sm) {
       .page-header {
         align-items: stretch;
         flex-direction: column;
@@ -175,4 +183,14 @@ export class UiPageHeader {
 
   /** Header actions. Rendered right, wrapping on narrow screens. */
   readonly actions = input<readonly PageHeaderAction[]>([]);
+
+  /**
+   * The action that was pressed.
+   *
+   * The header owns the arrangement and the emphasis, so it renders the buttons
+   * itself rather than accepting projected content; that makes it responsible
+   * for making them work. A header that renders a dead button is worse than no
+   * header actions at all.
+   */
+  readonly actionSelected = output<PageHeaderAction>();
 }

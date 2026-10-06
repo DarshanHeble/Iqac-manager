@@ -8,6 +8,11 @@
 // components can never drift apart.
 //
 // Change a role here -> our components and every Material component update.
+//
+// No colour is named in this file. Every value resolves through _palette.scss,
+// which is what lets a test assert that the palette is the only place a hex can
+// appear. That assertion is the point: without it "single source of truth" is a
+// claim rather than a fact.
 // =============================================================================
 
 @use 'sass:map';
@@ -20,25 +25,22 @@
 // -----------------------------------------------------------------------------
 $light: (
   primary: p.scale('brand', 700),
-  on-primary: #ffffff,
+  on-primary: p.single('white'),
   primary-container: p.scale('brand', 100),
   on-primary-container: p.scale('brand', 900),
   inverse-primary: p.scale('accent', 200),
   // secondary: the same navy, desaturated. Reads as "supporting" not "brand".
   secondary: p.scale('brand', 500),
-  on-secondary: #ffffff,
+  on-secondary: p.single('white'),
   secondary-container: p.scale('brand', 100),
   on-secondary-container: p.scale('brand', 800),
-  // tertiary: deep cyan-teal, bridging navy and sky. Analogous, so it stays
-  // institutional rather than becoming a loud complement.
-  tertiary: #0f5e7a,
-  on-tertiary: #ffffff,
-  tertiary-container: #d6edf5,
-  on-tertiary-container: #06323f,
-
+  tertiary: p.single('tertiary'),
+  on-tertiary: p.single('white'),
+  tertiary-container: p.single('tertiary-container'),
+  on-tertiary-container: p.single('on-tertiary-container'),
   // error
   error: p.status('danger', 'base'),
-  on-error: #ffffff,
+  on-error: p.single('white'),
   error-container: p.status('danger', 'soft'),
   on-error-container: p.status('danger', 'on-soft'),
   // surfaces
@@ -48,19 +50,18 @@ $light: (
   on-surface: p.scale('neutral', 800),
   surface-variant: p.scale('neutral', 100),
   on-surface-variant: p.scale('neutral', 600),
-  surface-dim: #e8edf3,
-  surface-bright: #ffffff,
-  surface-container-lowest: #ffffff,
-  surface-container-low: #f4f7fa,
+  surface-dim: p.single('surface-dim-light'),
+  surface-bright: p.single('white'),
+  surface-container-lowest: p.single('white'),
+  surface-container-low: p.single('surface-container-low-light'),
   surface-container: p.scale('neutral', 100),
-  surface-container-high: #e9eef4,
-  surface-container-highest: #e3e9f0,
-
+  surface-container-high: p.single('surface-container-high-light'),
+  surface-container-highest: p.single('surface-container-highest-light'),
   // ink
   outline: p.scale('neutral', 500),
   outline-variant: p.scale('neutral', 200),
-  shadow: rgb(15 23 42 / 0.16),
-  scrim: rgb(15 23 42 / 0.5),
+  shadow: p.single('ink-light'),
+  scrim: p.single('scrim-light'),
   // inverse
   inverse-surface: p.scale('neutral', 900),
   inverse-on-surface: p.scale('neutral', 100),
@@ -74,7 +75,7 @@ $light: (
 $dark: (
   primary: p.scale('accent', 400),
   on-primary: p.scale('brand', 900),
-  primary-container: #0b3a5d,
+  primary-container: p.single('navy-container-dark'),
   on-primary-container: p.scale('accent', 100),
   secondary: p.scale('brand', 300),
   on-secondary: p.scale('brand', 900),
@@ -82,10 +83,10 @@ $dark: (
   on-secondary-container: p.scale('brand', 100),
   tertiary: p.scale('accent', 300),
   on-tertiary: p.scale('brand', 900),
-  tertiary-container: #0a3f4f,
+  tertiary-container: p.single('tertiary-container-dark'),
   on-tertiary-container: p.scale('accent', 100),
-  error: #f87171,
-  on-error: #450a0a,
+  error: p.single('error-dark'),
+  on-error: p.single('on-error-dark'),
   error-container: p.status('danger', 'soft-dark'),
   on-error-container: p.status('danger', 'on-soft-dark'),
   background: p.scale('neutral', 900),
@@ -94,18 +95,17 @@ $dark: (
   on-surface: p.scale('neutral', 100),
   surface-variant: p.scale('neutral', 800),
   on-surface-variant: p.scale('neutral', 400),
-  surface-dim: #0b1220,
-  surface-bright: #2c3850,
-  surface-container-lowest: #0b1220,
-  surface-container-low: #172236,
+  surface-dim: p.single('surface-dim-dark'),
+  surface-bright: p.single('surface-container-highest-dark'),
+  surface-container-lowest: p.single('surface-dim-dark'),
+  surface-container-low: p.single('surface-container-low-dark'),
   surface-container: p.scale('neutral', 800),
-  surface-container-high: #232f45,
-  surface-container-highest: #2c3850,
-
+  surface-container-high: p.single('surface-container-high-dark'),
+  surface-container-highest: p.single('surface-container-highest-dark'),
   outline: p.scale('neutral', 600),
   outline-variant: p.scale('neutral', 700),
-  shadow: rgb(0 0 0 / 0.5),
-  scrim: rgb(0 0 0 / 0.6),
+  shadow: p.single('ink-dark'),
+  scrim: p.single('scrim-dark'),
   inverse-surface: p.scale('neutral', 100),
   inverse-on-surface: p.scale('neutral', 900),
 );

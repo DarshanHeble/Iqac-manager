@@ -1,20 +1,4 @@
-import { ChangeDetectionStrategy, Component, contentChild, input } from '@angular/core';
-
-/** Marker for the card's action slot, e.g. an "Export" button. */
-@Component({
-  selector: '[ui-card-actions]',
-  template: '',
-  changeDetection: ChangeDetectionStrategy.OnPush,
-})
-export class UiCardActions {}
-
-/** Marker for the card's footer slot. */
-@Component({
-  selector: '[ui-card-footer]',
-  template: '',
-  changeDetection: ChangeDetectionStrategy.OnPush,
-})
-export class UiCardFooter {}
+import { ChangeDetectionStrategy, Component, input } from '@angular/core';
 
 /**
  * A flat content panel.
@@ -26,37 +10,42 @@ export class UiCardFooter {}
  *
  * The optional `spine` puts the signature 3px navy rule on the leading edge,
  * which is how a records system marks the start of an entry.
+ *
+ * Slots (`ui-card-actions`, `ui-card-footer`) are plain attributes used as
+ * projection hooks. They are not directives, so a consumer needs no extra
+ * import and cannot silently lose content by forgetting one: the wrapper is
+ * always rendered and collapsed by `:empty` when nothing is projected.
  */
 @Component({
   selector: 'ui-card',
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    <section class="card" [class.card--flush]="flush()" [class.card--raised]="raised()">
-      @if (heading() || headingTight() || actionSlot()) {
-        <header class="card__header">
-          @if (heading()) {
-            <h3 class="card__title">{{ heading() }}</h3>
-          }
-          @if (headingTight()) {
-            <h4 class="card__title card__title--tight">{{ headingTight() }}</h4>
-          }
-          @if (actionSlot()) {
-            <div class="card__actions">
-              <ng-content select="[ui-card-actions]" />
-            </div>
-          }
-        </header>
-      }
+    <section
+      class="card"
+      [class.card--flush]="flush()"
+      [class.card--spine]="spine()"
+      [class.card--raised]="raised()"
+    >
+      <header class="card__header">
+        @if (heading()) {
+          <h3 class="card__title">{{ heading() }}</h3>
+        }
+        @if (headingTight()) {
+          <h4 class="card__title card__title--tight">{{ headingTight() }}</h4>
+        }
+
+        <div class="card__actions">
+          <ng-content select="[ui-card-actions]" />
+        </div>
+      </header>
 
       <div class="card__body" [class.card__body--flush]="flush()">
         <ng-content />
       </div>
 
-      @if (footerSlot()) {
-        <footer class="card__footer">
-          <ng-content select="[ui-card-footer]" />
-        </footer>
-      }
+      <footer class="card__footer">
+        <ng-content select="[ui-card-footer]" />
+      </footer>
     </section>
   `,
   styles: `
@@ -97,6 +86,24 @@ export class UiCardFooter {}
       padding: var(--ui-space-4) var(--ui-space-5);
       border-block-end: var(--ui-rule-width) solid var(--ui-border);
       background: var(--ui-surface-raised);
+    }
+
+    /* An unpopulated header or slot collapses entirely, so a card with neither
+       a heading nor a footer has no stray border and no stray padding. This is
+       what replaces a "was anything projected?" guard in the template: the
+       wrappers always exist and CSS decides.
+
+       The leaf slots use :empty. The header cannot: its own @if blocks leave
+       comment placeholders as child nodes, so :empty would never match. It asks
+       the inverse instead -- hide me unless a heading or a populated action slot
+       is inside me. */
+    .card__actions:empty,
+    .card__footer:empty {
+      display: none;
+    }
+
+    .card__header:not(:has(> h3, > h4, > .card__actions:not(:empty))) {
+      display: none;
     }
 
     .card__title {
@@ -153,7 +160,4 @@ export class UiCard {
 
   /** Opt in to elevation. Off by default. */
   readonly raised = input(false);
-
-  protected readonly actionSlot = contentChild(UiCardActions);
-  protected readonly footerSlot = contentChild(UiCardFooter);
 }
